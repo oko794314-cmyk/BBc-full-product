@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>STICK FARM PRO ULTRA v3.1 - Firebase Edition</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&display=swap" rel="stylesheet">
+    
+    <!-- Firebase SDK -->
+    <script defer src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js"></script>
+    
+    <style>
+        :root {
+            --p: #07FFFF;
+            --bg: #030303;
+            --card: #0d0d0d;
+            --g: #00ff88;
+            --r: #ff3366;
+            --gold: #ffcc00;
+            --black: #1a1a1a;
+            --purple: #9d4edd;
+            --blue: #3a86ff;
+        }
+        
+        * {
+            box-sizing: border-box;
+            font-family: 'Orbitron', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #030303 0%, #0a0a15 100%);
+            color: #fff;
+            margin: 0;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .glass {
+            background: rgba(13, 13, 13, 0.7);
+            backdrop-filter: blur(10px);
+            padding: 15px;
+            border-radius: 15px;
+            border: 1px solid rgba(7, 255, 255, 0.2);
+            margin-bottom: 15px;
+            box-shadow: 0 0 30px rgba(7, 255, 255, 0.1);
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid rgba(7, 255, 255, 0.3);
+            color: #fff;
+            border-radius: 10px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: var(--p);
+            box-shadow: 0 0 15px rgba(7, 255, 255, 0.5);
+            background: rgba(0, 0, 0, 0.9);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            font-weight: 900;
+            background: linear-gradient(135deg, var(--p) 0%, var(--blue) 100%);
+            color: #000;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 20px rgba(7, 255, 255, 0.3);
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(7, 255, 255, 0.6);
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .header {
+            padding: 20px 20px;
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 2px solid rgba(7, 255, 255, 0.2);
+            align-items: center;
+            background: linear-gradient(135deg, rgba(0,0,0,0.8) 0%, rgba(13,13,13,0.6) 100%);
+            backdrop-filter: blur(10px);
+            z-index: 40;
+        }
+
+        .header-item {
+            text-align: left;
+        }
+
+        .header-item small {
+            color: rgba(7, 255, 255, 0.6);
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .header-item b {
+            color: var(--p);
+            font-size: 18px;
+            display: block;
+            margin-top: 5px;
+        }
+
+        .av {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 3px solid var(--p);
+            object-fit: cover;
+            box-shadow: 0 0 20px rgba(7, 255, 255, 0.4);
+            cursor: pointer;
+        }
+
+        .view {
+            flex: 1;
+            padding: 20px;
+            display: none;
+            overflow-y: auto;
+            padding-bottom: 90px;
+        }
+
+        .view.active {
+            display: block;
+            animation: slideIn 0.4s ease;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        nav {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            background: linear-gradient(to top, rgba(0,0,0,0.95), transparent);
+            border-top: 2px solid rgba(7, 255, 255, 0.2);
+            padding: 12px 0 25px;
+            z-index: 50;
+        }
+
+        .tab {
+            text-align: center;
+            color: rgba(100, 100, 100, 0.8);
+            font-size: 24px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            padding: 10px 5px;
+        }
+
+        .tab:hover {
+            color: var(--p);
+            transform: scale(1.1);
+        }
+
+        .tab.active {
+            color: var(--p);
+            text-shadow: 0 0 10px var(--p);
+        }
+
+        .tab span {
+            display: block;
+            font-size: 8px;
+            text-transform: uppercase;
+            margin-top: 4px;
+            letter-spacing: 1px;
+        }
+
+        .notification {
+            position: fixed;
+            top: 50px;
+            right: 20px;
+            background: rgba(0, 255, 136, 0.1);
+            border: 2px solid var(--g);
+            color: var(--g);
+            padding: 15px 20px;
+            border-radius: 12px;
+            z-index: 1000;
+            animation: slideInRight 0.4s ease;
+            box-shadow: 0 0 30px rgba(0, 255, 136, 0.3);
+            max-width: 300px;
+        }
+
+        @keyframes slideInRight {
+            from { transform: translateX(400px); }
+            to { transform: translateX(0); }
+        }
+
+        .notification.error {
+            border-color: var(--r);
+            color: var(--r);
+            background: rgba(255, 51, 102, 0.1);
+        }
+
+        .notification.firebase {
+            border-color: var(--gold);
+            color: var(--gold);
+            background: rgba(255, 204, 0, 0.1);
+        }
+
+        h3 {
+            color: var(--p);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--card);
+            padding: 30px;
+            border-radius: 15px;
+            border: 2px solid rgba(7, 255, 255, 0.3);
+            max-width: 350px;
+            width: 90%;
+        }
+
+        .modal-content h2 {
+            margin-top: 0;
+            color: var(--p);
+            text-align: center;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn-group button {
+            flex: 1;
+        }
+
+        .firebase-status {
+            position: fixed;
+            bottom: 90px;
+            right: 20px;
+            background: rgba(13, 13, 13, 0.8);
+            border: 1px solid var(--gold);
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 10px;
+            color: var(--gold);
+            z-index: 30;
+        }
+
+        .firebase-status.connected::before {
+            content: "🔥";
+            margin-right: 5px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        @media (max-width: 480px) {
+            .view {
+                padding: 15px;
+                padding-bottom: 100px;
+            }
+
+            .firebase-status {
+                bottom: 100px;
+                font-size: 9px;
+                padding: 6px 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<!-- AUTH SCREEN -->
+<div id="auth-scr" style="height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;">
+    <div class="glass" style="width:100%; max-width:380px; text-align:center;">
+        <h2 style="letter-spacing:5px; margin-bottom:30px; font-size:2.2rem; background: linear-gradient(135deg, var(--p), var(--blue)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">STICK FARM 🔥</h2>
+        <p style="font-size:11px; color:rgba(200,200,200,0.6); margin-bottom:20px;">Firebase Edition - bb-coin-aae0a</p>
+        
+        <div style="display:flex; gap:10px; margin-bottom:20px;">
+            <button class="btn" id="tab-login" onclick="switchAuth('login')" style="background: linear-gradient(135deg, var(--p), var(--blue)); color:#000;">ВХІД</button>
+            <button class="btn" id="tab-register" onclick="switchAuth('register')" style="background: rgba(7, 255, 255, 0.1); color:var(--p); border: 2px solid rgba(7, 255, 255, 0.3);">РЕЄСТР</button>
+        </div>
+
+        <div id="login-form">
+            <input type="text" id="login-u" placeholder="ЛОГІН">
+            <input type="password" id="login-p" placeholder="ПАРОЛЬ">
+            <button class="btn" onclick="auth('login')" style="margin-top: 15px;">УВІЙТИ</button>
+        </div>
+
+        <div id="register-form" style="display:none;">
+            <input type="text" id="reg-u" placeholder="ЛОГІН">
+            <input type="password" id="reg-p" placeholder="ПАРОЛЬ">
+            <input type="password" id="reg-p2" placeholder="ПОВТОРИТИ">
+            <button class="btn" onclick="auth('register')" style="margin-top: 15px;">РЕЄСТРАЦІЯ</button>
+        </div>
+    </div>
+</div>
+
+<!-- MAIN SCREEN -->
+<div id="main-scr" style="display:none; flex-direction:column; height:100vh;">
+    <!-- Firebase Status -->
+    <div id="firebase-status" class="firebase-status">Firebase Initializing...</div>
+
+    <div class="header">
+        <div class="header-item">
+            <small>ОПЕРАТОР</small>
+            <b id="h-u">---</b>
+        </div>
+        <div style="flex:1; text-align: center;">
+            <h1 id="v-bal" style="font-size:2.5rem; margin: 0; background: linear-gradient(135deg, var(--p), var(--blue)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">0.0000</h1>
+        </div>
+        <div class="header-item" style="text-align: right;">
+            <small>БАЛАНС</small>
+            <b id="h-b" style="color:var(--g);">0.0000</b>
+        </div>
+        <img id="h-a" class="av" src="" alt="avatar">
+    </div>
+
+    <!-- MINING TAB -->
+    <div id="tab1" class="view active">
+        <h3 style="text-align:center;">⛏️ РЕЖИМ МАЙНІНГУ</h3>
+        <div id="mbtn" style="width: 200px; height: 200px; border-radius: 50%; border: 5px solid var(--g); margin: 40px auto; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 18px; cursor: pointer; transition: all 0.3s ease; user-select: none; background: rgba(0, 255, 136, 0.05);" onclick="toggleMine()">
+            START<br>MINING
+        </div>
+        <div style="text-align:center; font-size:12px; color:rgba(7, 255, 255, 0.6);">+0.0001 STICK/сек</div>
+    </div>
+
+    <!-- TRANSFER TAB -->
+    <div id="tab2" class="view">
+        <h3 style="margin-top:0;">💳 TRANSFER</h3>
+        <div class="glass">
+            <input type="text" id="transfer-user" placeholder="Логін отримувача">
+            <input type="number" id="transfer-amount" placeholder="0.0000" min="0.0001" step="0.0001">
+            <button class="btn" onclick="transferCoins()" style="margin-top: 15px;">ВІДПРАВИТИ</button>
+        </div>
+    </div>
+
+    <!-- FRIENDS TAB -->
+    <div id="tab4" class="view">
+        <h3 style="margin-top:0;">👥 ДРУЗІ</h3>
+        <div style="display:flex; gap:8px; margin-bottom: 15px;">
+            <input type="text" id="f-u" placeholder="Логін..." style="margin: 0;">
+            <button class="btn" style="width:100px;" onclick="sendFriendRequest()">+ ДОДАТИ</button>
+        </div>
+        
+        <h3 style="color:var(--g); font-size: 12px;">📨 ЗАПИТИ</h3>
+        <div id="f-requests"></div>
+        
+        <h3 style="color:var(--g); font-size: 12px;">👥 ДРУЗІ</h3>
+        <div id="f-list"></div>
+    </div>
+
+    <!-- CONFIG TAB -->
+    <div id="tab5" class="view">
+        <h3 style="margin-top:0;">⚙️ НАЛАШТУВАННЯ</h3>
+        <div class="glass">
+            <div style="background: rgba(255, 204, 0, 0.1); border: 1px solid rgba(255, 204, 0, 0.3); padding: 12px; border-radius: 8px; margin-bottom: 15px; font-size: 11px; color: var(--gold);">
+                🔥 <strong>Firebase Edition</strong><br>
+                Проект: bb-coin-aae0a<br>
+                Real-time синхронізація активна
+            </div>
+            <input type="text" id="avatar-url" placeholder="URL АВАТАРА">
+            <button class="btn" onclick="saveConfig()" style="margin-top:12px;">ЗБЕРЕГТИ</button>
+            <button class="btn" onclick="logout()" style="background: linear-gradient(135deg, var(--r), #ff6b9d); color:#fff; margin-top:10px;">ВИХІД</button>
+        </div>
+    </div>
+
+    <!-- NAVIGATION -->
+    <nav>
+        <div class="tab active" onclick="switchTab(1)">⛏️<span>Mining</span></div>
+        <div class="tab" onclick="switchTab(2)">💳<span>Transfer</span></div>
+        <div class="tab" onclick="switchTab(4)">👥<span>Friends</span></div>
+        <div class="tab" onclick="switchTab(5)">⚙️<span>Config</span></div>
+    </nav>
+</div>
+
+<!-- Firebase Config -->
+<script src="firebase-config.js"></script>
+<script src="firebase-sync-v2.js"></script>
+
+<script>
+    let allUsers = {};
+    let autoSaveInterval = null;
+    let firebaseInitialized = false;
+
+    let gameState = {
+        user: null,
+        password: null,
+        balance: 0,
+        mining: false,
+        friends: [],
+        friendRequests: [],
+        privateChatMessages: {},
+        currentChatFriend: null,
+        miningStartTime: 0
+    };
+
+    let mineInterval = null;
+
+    window.addEventListener('load', async () => {
+        // Ініціалізувати Firebase
+        const db = initFirebaseSyncV2();
+        if (db) {
+            firebaseInitialized = true;
+            updateFirebaseStatus(true);
+            console.log('✅ Firebase успішно ініціалізовано');
+            
+            // Завантажити дані
+            await loadAllUsersFromFirebaseV2();
+        } else {
+            updateFirebaseStatus(false);
+            console.warn('⚠️ Firebase не ініціалізований');
+        }
+    });
+
+    function updateFirebaseStatus(connected) {
+        const status = document.getElementById('firebase-status');
+        if (connected) {
+            status.className = 'firebase-status connected';
+            status.textContent = '🔥 Firebase Connected';
+        } else {
+            status.className = 'firebase-status';
+            status.textContent = '⚠️ Offline Mode';
+        }
+    }
+
+    function showNotification(message, type = 'success') {
+        const notif = document.createElement('div');
+        notif.className = `notification ${type}`;
+        notif.textContent = message;
+        document.body.appendChild(notif);
+        setTimeout(() => notif.remove(), 4000);
+    }
+
+    function switchAuth(type) {
+        if (type === 'login') {
+            document.getElementById('login-form').style.display = 'block';
+            document.getElementById('register-form').style.display = 'none';
+            document.getElementById('tab-login').style.background = 'linear-gradient(135deg, var(--p), var(--blue))';
+            document.getElementById('tab-login').style.color = '#000';
+            document.getElementById('tab-register').style.background = 'rgba(7, 255, 255, 0.1)';
+            document.getElementById('tab-register').style.color = 'var(--p)';
+        } else {
+            document.getElementById('login-form').style.display = 'none';
+            document.getElementById('register-form').style.display = 'block';
+            document.getElementById('tab-login').style.background = 'rgba(7, 255, 255, 0.1)';
+            document.getElementById('tab-login').style.color = 'var(--p)';
+            document.getElementById('tab-register').style.background = 'linear-gradient(135deg, var(--p), var(--blue))';
+            document.getElementById('tab-register').style.color = '#000';
+        }
+    }
+
+    async function auth(type) {
+        const username = document.getElementById(type === 'login' ? 'login-u' : 'reg-u').value.trim();
+        const password = document.getElementById(type === 'login' ? 'login-p' : 'reg-p').value;
+
+        if (!username || !password) {
+            showNotification('❌ Заповніть усі поля!', 'error');
+            return;
+        }
+
+        if (type === 'register') {
+            const passwordConfirm = document.getElementById('reg-p2').value;
+            if (password !== passwordConfirm) {
+                showNotification('❌ Паролі не співпадають!', 'error');
+                return;
+            }
+
+            const existingUser = await loadUserFromFirebaseV2(username);
+            if (existingUser) {
+                showNotification('❌ Користувач вже існує!', 'error');
+                return;
+            }
+
+            // Зберегти в Firebase
+            const userData = {
+                password: password,
+                balance: 0,
+                avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + username,
+                friends: [],
+                friendRequests: [],
+                mining: false,
+                miningStartTime: 0
+            };
+
+            const success = await saveUserToFirebaseV2(username, userData);
+            if (success) {
+                allUsers[username] = userData;
+                showNotification('✓ Акаунт створено!', 'success');
+                switchAuth('login');
+            }
+        } else {
+            const userData = await loadUserFromFirebaseV2(username);
+            
+            if (!userData || userData.password !== password) {
+                showNotification('❌ Неправильні дані!', 'error');
+                return;
+            }
+
+            gameState.user = username;
+            gameState.password = password;
+            gameState.balance = userData.balance || 0;
+            gameState.friends = userData.friends || [];
+            gameState.friendRequests = userData.friendRequests || [];
+
+            allUsers[username] = userData;
+
+            document.getElementById('auth-scr').style.display = 'none';
+            document.getElementById('main-scr').style.display = 'flex';
+
+            updateHeader();
+            document.getElementById('h-a').src = userData.avatar;
+            updateFriendsList();
+            updateFriendRequestsList();
+            
+            // Налаштувати слухачі Firebase
+            if (firebaseInitialized) {
+                setupAllListenersOnLoginV2(username);
+            }
+            
+            startAutoSave();
+            startMining();
+
+            showNotification(`✓ Вітаємо, ${username}!`, 'success');
+        }
+    }
+
+    function updateHeader() {
+        document.getElementById('h-u').textContent = gameState.user || '---';
+        document.getElementById('h-b').textContent = gameState.balance.toFixed(4);
+        document.getElementById('v-bal').textContent = gameState.balance.toFixed(4);
+    }
+
+    function switchTab(num) {
+        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.getElementById('tab' + num).classList.add('active');
+        document.querySelectorAll('.tab')[num === 4 ? 2 : num === 5 ? 3 : num - 1].classList.add('active');
+    }
+
+    function startAutoSave() {
+        autoSaveInterval = setInterval(saveUserData, 5000);
+    }
+
+    async function saveUserData() {
+        if (!gameState.user || !firebaseInitialized) return;
+        
+        const userData = {
+            password: gameState.password,
+            balance: gameState.balance,
+            avatar: document.getElementById('h-a').src,
+            friends: gameState.friends,
+            friendRequests: gameState.friendRequests,
+            mining: gameState.mining,
+            miningStartTime: gameState.miningStartTime
+        };
+        
+        await saveUserToFirebaseV2(gameState.user, userData);
+    }
+
+    function toggleMine() {
+        const btn = document.getElementById('mbtn');
+        gameState.mining = !gameState.mining;
+
+        if (gameState.mining) {
+            btn.style.borderColor = 'var(--r)';
+            btn.textContent = 'MINING...';
+            gameState.miningStartTime = Date.now();
+            if (mineInterval) clearInterval(mineInterval);
+            mineInterval = setInterval(() => {
+                gameState.balance += 0.0001;
+                updateHeader();
+            }, 1000);
+        } else {
+            btn.style.borderColor = 'var(--g)';
+            btn.textContent = 'START\nMINING';
+            clearInterval(mineInterval);
+        }
+        saveUserData();
+    }
+
+    function startMining() {
+        if (gameState.mining) toggleMine();
+    }
+
+    async function sendFriendRequest() {
+        const friendName = document.getElementById('f-u').value.trim();
+        if (!friendName) {
+            showNotification('❌ Введіть логін!', 'error');
+            return;
+        }
+
+        const friendData = await loadUserFromFirebaseV2(friendName);
+        if (!friendData) {
+            showNotification('❌ Користувача не існує!', 'error');
+            return;
+        }
+
+        const success = await sendFriendRequestFirebaseV2(gameState.user, friendName);
+        if (success) {
+            showNotification(`✓ Запит надіслано!`, 'success');
+            document.getElementById('f-u').value = '';
+        }
+    }
+
+    function updateFriendRequestsList() {
+        const div = document.getElementById('f-requests');
+        if (gameState.friendRequests.length === 0) {
+            div.innerHTML = '<p style="font-size:11px; color: rgba(200, 200, 200, 0.5);">немає запитів</p>';
+            return;
+        }
+
+        div.innerHTML = gameState.friendRequests.map((friend, idx) => `
+            <div style="background: rgba(0, 0, 0, 0.6); padding: 12px; border-radius: 10px; margin: 8px 0; display: flex; justify-content: space-between; border: 1px solid rgba(7, 255, 255, 0.2);">
+                <span style="flex: 1;">${friend}</span>
+                <button class="btn" onclick="acceptFriendRequest(${idx})" style="width: 50px; padding: 8px; background: var(--g); color: #000; font-size: 10px;">✓</button>
+                <button class="btn" onclick="rejectFriendRequest(${idx})" style="width: 50px; padding: 8px; background: var(--r); margin-left: 5px; font-size: 10px;">✕</button>
+            </div>
+        `).join('');
+    }
+
+    async function acceptFriendRequest(idx) {
+        const friend = gameState.friendRequests[idx];
+        gameState.friends.push(friend);
+        gameState.friendRequests.splice(idx, 1);
+        
+        // Оновити в Firebase
+        const userData = await loadUserFromFirebaseV2(friend);
+        if (userData) {
+            userData.friends = userData.friends || [];
+            userData.friends.push(gameState.user);
+            await saveUserToFirebaseV2(friend, userData);
+        }
+        
+        await saveUserData();
+        updateFriendsList();
+        updateFriendRequestsList();
+    }
+
+    function rejectFriendRequest(idx) {
+        gameState.friendRequests.splice(idx, 1);
+        saveUserData();
+        updateFriendRequestsList();
+    }
+
+    function updateFriendsList() {
+        const listDiv = document.getElementById('f-list');
+        listDiv.innerHTML = '';
+
+        if (gameState.friends.length === 0) {
+            listDiv.innerHTML = '<p style="font-size:11px; color: rgba(200, 200, 200, 0.5); text-align:center;">немає друзів</p>';
+            return;
+        }
+
+        gameState.friends.forEach(friend => {
+            const div = document.createElement('div');
+            div.style.cssText = 'background: rgba(0, 0, 0, 0.6); padding: 12px; border-radius: 10px; margin: 8px 0; display: flex; justify-content: space-between; border: 1px solid rgba(7, 255, 255, 0.2);';
+            div.innerHTML = `<span style="flex: 1;">${friend}</span>`;
+            listDiv.appendChild(div);
+        });
+    }
+
+    async function transferCoins() {
+        const toUser = document.getElementById('transfer-user').value.trim();
+        const amount = parseFloat(document.getElementById('transfer-amount').value);
+
+        if (!toUser || !amount || amount <= 0) {
+            showNotification('❌ Помилка вводу!', 'error');
+            return;
+        }
+
+        const success = await transferCoinsFirebaseV2(gameState.user, toUser, amount);
+        if (success) {
+            gameState.balance -= amount;
+            updateHeader();
+            showNotification(`✅ Передано ${amount.toFixed(4)} ${toUser}!`, 'success');
+            document.getElementById('transfer-amount').value = '';
+            document.getElementById('transfer-user').value = '';
+        } else {
+            showNotification('❌ Помилка передачі!', 'error');
+        }
+    }
+
+    async function saveConfig() {
+        const avatar = document.getElementById('avatar-url').value;
+        if (avatar) {
+            document.getElementById('h-a').src = avatar;
+            await saveUserData();
+            showNotification('✅ Налаштування збережено!', 'success');
+        }
+    }
+
+    function logout() {
+        if (mineInterval) clearInterval(mineInterval);
+        if (autoSaveInterval) clearInterval(autoSaveInterval);
+        
+        removeAllListenersV2();
+        
+        gameState = {
+            user: null,
+            password: null,
+            balance: 0,
+            mining: false,
+            friends: [],
+            friendRequests: [],
+            privateChatMessages: {},
+            currentChatFriend: null,
+            miningStartTime: 0
+        };
+        
+        document.getElementById('main-scr').style.display = 'none';
+        document.getElementById('auth-scr').style.display = 'flex';
+        
+        showNotification('✓ Ви вийшли з аккаунту', 'success');
+    }
+</script>
+
+</body>
+</html>
