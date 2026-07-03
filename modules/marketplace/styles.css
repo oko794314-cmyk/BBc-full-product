@@ -1,4 +1,58 @@
 /* modules/marketplace/styles.css */
 .marketplace-module { }
-.marketplace-module__root { padding: 12px; }
-.marketplace-module__content { color: #333; }
+.marketplace-module__root { padding: 12px; display: flex; gap: 16px; }
+.marketplace-module__sidebar {
+  width: 250px;
+  border-right: 1px solid #ddd;
+  padding-right: 16px;
+}
+.marketplace-search {
+  margin-bottom: 16px;
+}
+.marketplace-search-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+.marketplace-filters h3 {
+  font-size: 14px;
+  margin-top: 16px;
+  margin-bottom: 8px;
+}
+.marketplace-categories,
+.marketplace-rarity {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.marketplace-sort {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+.rarity-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.marketplace-module__content {
+  flex: 1;
+  color: #333;
+}
+.marketplace-items {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+/* Rarity colors */
+.rarity-common { border: 1px solid #999; }
+.rarity-rare { border: 1px solid #0070dd; }
+.rarity-epic { border: 1px solid #a335ee; }
+.rarity-legendary { border: 1px solid #ff8000; }
+.rarity-mythic { border: 1px solid #e6cc80; }

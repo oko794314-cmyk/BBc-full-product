@@ -1,5 +1,5 @@
-// modules/marketplace/index.js
-// Entry point for the marketplace module
+// modules/shop/index.js
+// Entry point for the shop module
 import { initUI } from './ui.js';
 import { initLogic } from './logic.js';
 import { initFirebase } from './firebase.js';
