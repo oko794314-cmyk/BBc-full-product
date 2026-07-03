@@ -1,7 +1,11 @@
 // modules/news/firebase.js
-// Placeholder for Firebase setup for the news module
+// News-specific firebase helper. Prefer using a single centralized firebase config in the app
+// This file intentionally keeps initialization minimal so you can wire it to your central setup.
 export function initFirebase() {
-  // Implement firebase init if this module needs it.
+  // Example placeholder:
+  // if (window.APP_FIREBASE && !window.APP_FIREBASE.initialized) {
+  //   window.APP_FIREBASE.init();
+  // }
 }
 
 export default initFirebase;
