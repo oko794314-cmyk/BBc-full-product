@@ -16,17 +16,15 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     <!-- 🔥 FIREBASE CONFIG -->
     <script src="firebase-config.js"></script>
-    <!-- 🔒 SECURITY MODULE (Password hashing, validation, safe transfers) -->
-    <script src="firebase-security.js"></script>
     
     <style>
-        :root { --p: #07FFFF; --bg: #030303; --card: #0d0d0d; --g: #00ff88; --r: #ff3366; --gold: #ffcc00; --black: #1a1a1a; --app-nav-safe-bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
+        :root { --p: #07FFFF; --bg: #030303; --card: #0d0d0d; --g: #00ff88; --r: #ff3366; --gold: #ffcc00; --black: #1a1a1a; --app-nav-safe-bottom: calc(20px + env(safe-area-inset-bottom, 0px)); --view-bottom-padding: 124px; --view-bottom-padding-mobile: 130px; --chat-open-padding-bottom: 26px; }
         * { box-sizing: border-box; font-family: 'Orbitron', sans-serif; -webkit-tap-highlight-color: transparent; }
         body { background: var(--bg); color: #fff; margin: 0; overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
         
         .glass { background: var(--card); padding: 15px; border-radius: 12px; border: 1px solid #222; margin-bottom: 15px; }
         input, select { width: 100%; padding: 12px; margin: 8px 0; background: #000; border: 1px solid #333; color: #fff; border-radius: 8px; font-family: 'Orbitron', sans-serif; font-size: 14px; }
-        .btn { width: 100%; padding: 14px; border: none; border-radius: 8px; font-weight: 900; background: var(--p); color: #000; cursor: pointer; text-transform: uppercase; font-family: 'Orbitron', sans-serif; }
+        .btn { width: 100%; padding: 14px; border: none; border-radius: 8px; font-weight: 900; background: var(--p); color: #000; cursor: pointer; text-transform: uppercase; font-family: 'Orbitron', sans-serif; transition: all 0.2s; }
         .btn:hover { transform: scale(1.05); box-shadow: 0 0 15px rgba(7, 255, 255, 0.5); }
         .btn:active { transform: scale(0.95); }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -41,25 +39,25 @@
 
         .r-wrap { position: relative; width: 250px; height: 250px; margin: 20px auto; display:flex; align-items:center; justify-content:center; }
         .r-box { width: 100%; height: 100%; border-radius: 50%; border: 6px solid var(--gold); box-shadow: 0 0 30px rgba(255, 204, 0, 0.3); will-change: transform; transform: rotate(0deg); }
-        .roulette-pointer { position:absolute; top:-10px; left:50%; transform:translateX(-50%); width:0; height:0; border-left:14px solid transparent; border-right:14px solid transparent; border-top:15px solid var(--gold); }
-        .roulette-pointer::after { content:''; position:absolute; left:-5px; top:-31px; width:10px; height:10px; border-radius:50%; background:var(--gold); box-shadow:0 0 12px rgba(255, 204, 0, 0.6); }
-        .roulette-center { position:absolute; width:26px; height:26px; border-radius:50%; background:radial-gradient(circle, #fff 0%, var(--gold) 45%, #6d5200 100%); border:2px solid rgba(0,0,0,0.5); }
+        .roulette-pointer { position:absolute; top:-10px; left:50%; transform:translateX(-50%); width:0; height:0; border-left:14px solid transparent; border-right:14px solid transparent; border-top:28px solid var(--gold); filter: drop-shadow(0 0 10px rgba(255, 204, 0, 0.7)); z-index:3; }
+        .roulette-pointer::after { content:''; position:absolute; left:-5px; top:-31px; width:10px; height:10px; border-radius:50%; background:var(--gold); box-shadow:0 0 12px rgba(255, 204, 0, 0.7); }
+        .roulette-center { position:absolute; width:26px; height:26px; border-radius:50%; background:radial-gradient(circle, #fff 0%, var(--gold) 45%, #6d5200 100%); border:2px solid rgba(0,0,0,0.35); z-index:2; pointer-events:none; }
 
         .ttt { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; max-width: 210px; margin: 15px auto; }
-        .c { aspect-ratio: 1; background: #000; border: 2px solid #333; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 900; border-radius: 8px; cursor: pointer; transition: 0.2s; }
+        .c { aspect-ratio: 1; background: #000; border: 2px solid #333; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 900; border-radius: 8px; cursor: pointer; }
         .c:hover { border-color: var(--p); transform: scale(1.05); box-shadow: 0 0 10px rgba(7, 255, 255, 0.3); }
 
-        nav { position: fixed; bottom: 0; width: 100%; display: grid; grid-template-columns: repeat(6, 1fr); background: #000; border-top: 1px solid #111; padding: 10px 0 var(--app-nav-safe-bottom); z-index: 50; }
+        nav { position: fixed; bottom: 0; width: 100%; display: grid; grid-template-columns: repeat(6, 1fr); background: #000; border-top: 1px solid #111; padding: 10px 0 var(--app-nav-safe-bottom); z-index: 50; box-shadow: 0 -8px 20px rgba(0, 0, 0, 0.6); }
         .tab { text-align: center; color: #444; font-size: 18px; cursor: pointer; transition: all 0.3s; }
         .tab.active { color: var(--p); animation: tabPulse 0.5s ease; }
         @keyframes tabPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.2); } }
         .tab span { display: block; font-size: 8px; text-transform: uppercase; margin-top: 4px; }
 
-        .orb { width: 160px; height: 160px; border-radius: 50%; border: 4px solid var(--g); margin: 30px auto; display: flex; align-items: center; justify-content: center; font-weight: 900; cursor: pointer; transition: 0.3s; }
+        .orb { width: 160px; height: 160px; border-radius: 50%; border: 4px solid var(--g); margin: 30px auto; display: flex; align-items: center; justify-content: center; font-weight: 900; cursor: pointer; }
         .orb:hover { transform: scale(1.08); box-shadow: 0 0 20px rgba(0, 255, 136, 0.5); }
         .orb.on { border-color: var(--r); animation: miningPulse 1.5s infinite; background: rgba(255, 51, 102, 0.15); }
 
-        .friend-item { background: #000; padding: 10px 12px; border-radius: 12px; margin: 8px 0; display: flex; justify-content: space-between; align-items: center; border: 1px solid #222; cursor: pointer; }
+        .friend-item { background: #000; padding: 10px 12px; border-radius: 12px; margin: 8px 0; display: flex; justify-content: space-between; align-items: center; border: 1px solid #222; cursor:pointer; transition: all 0.2s; gap: 10px; }
         .friend-item:hover { border-color: var(--p); background: rgba(7, 255, 255, 0.05); }
         .friend-item button { width: 60px; padding: 8px; font-size: 11px; }
         .friend-item-main { display:flex; flex-direction:column; gap:2px; flex: 1; min-width: 0; }
@@ -67,9 +65,9 @@
         .request-actions { display:flex; gap:8px; margin-top:10px; }
         .request-actions .btn { margin:0; }
         .friend-item-identity { display:flex; align-items:center; gap:10px; min-width:0; }
-        .list-avatar-wrap { width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(7, 255, 255, 0.45); overflow: hidden; flex-shrink: 0; background: #050505; display: flex; align-items:center; justify-content:center; }
+        .list-avatar-wrap { width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(7, 255, 255, 0.45); overflow: hidden; flex-shrink: 0; background: #050505; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 8px rgba(7, 255, 255, 0.15); }
         .list-avatar-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
-        .list-avatar-fallback { width: 100%; height: 100%; display:flex; align-items:center; justify-content:center; font-size: 11px; font-weight: 900; color: var(--p); background: linear-gradient(135deg, #07ffff, #00ff88); }
+        .list-avatar-fallback { width: 100%; height: 100%; display:flex; align-items:center; justify-content:center; font-size: 11px; font-weight: 900; color: var(--p); background: linear-gradient(145deg, rgba(7, 255, 255, 0.14), rgba(0, 255, 136, 0.1)); }
         .chat-text { white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; line-height: 1.45; font-size: 13px; }
         .chat-empty { color:#666; text-align:center; padding:20px 0; font-size:12px; }
         .settings-section { margin-bottom:15px; }
@@ -90,17 +88,17 @@
 
         .chat-container { display: flex; flex-direction: column; height: 100%; min-height: 0; }
         #tab4-chat.chat-view-active { padding-bottom: var(--chat-open-padding-bottom); }
-        .chat-messages { flex: 1; overflow-y: auto; margin-bottom: 14px; background: rgba(0, 0, 0, 0.85); border-radius: 14px; border: 1px solid #1a1a1a; padding: 12px; min-height: 150px; }
+        .chat-messages { flex: 1; overflow-y: auto; margin-bottom: 14px; background: rgba(0, 0, 0, 0.85); border-radius: 14px; border: 1px solid #1a1a1a; padding: 12px; min-height: 150px; box-shadow: inset 0 0 18px rgba(7, 255, 255, 0.06); }
         .chat-row { display: flex; align-items: flex-end; gap: 8px; margin-bottom: 10px; animation: slideIn 0.22s ease; }
         .chat-row.own { flex-direction: row-reverse; }
-        .chat-avatar-wrap { width: 32px; height: 32px; border-radius: 50%; border: 1px solid rgba(7, 255, 255, 0.5); overflow: hidden; flex-shrink: 0; background: #050505; display: flex; align-items:center; justify-content:center; }
+        .chat-avatar-wrap { width: 32px; height: 32px; border-radius: 50%; border: 1px solid rgba(7, 255, 255, 0.5); overflow: hidden; flex-shrink: 0; background: #050505; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 8px rgba(7, 255, 255, 0.12); }
         .chat-avatar-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
-        .chat-avatar-fallback { width: 100%; height: 100%; display:flex; align-items:center; justify-content:center; font-size: 10px; font-weight: 900; color: var(--p); background: linear-gradient(135deg, #07ffff, #00ff88); }
+        .chat-avatar-fallback { width: 100%; height: 100%; display:flex; align-items:center; justify-content:center; font-size: 10px; font-weight: 900; color: var(--p); background: linear-gradient(145deg, rgba(7, 255, 255, 0.16), rgba(0, 255, 136, 0.1)); }
         .chat-msg { max-width: min(82%, 430px); border-radius: 14px; padding: 9px 11px; border: 1px solid transparent; }
         .chat-row.own .chat-msg { background: rgba(7, 255, 255, 0.15); border-color: rgba(7, 255, 255, 0.25); border-bottom-right-radius: 5px; }
         .chat-row.other .chat-msg { background: rgba(0, 255, 136, 0.1); border-color: rgba(0, 255, 136, 0.2); border-bottom-left-radius: 5px; }
         .chat-meta { display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:9px; color:#90a4ae; margin-bottom:4px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .chat-input-wrap { display:flex; gap:8px; position: sticky; bottom: 20px; padding: 8px; border-radius: 12px; background: linear-gradient(180deg, rgba(3, 3, 3, 0), rgba(3, 3, 3, 0.92) 42%); }
+        .chat-input-wrap { display:flex; gap:8px; position: sticky; bottom: 20px; padding: 8px; border-radius: 12px; background: linear-gradient(180deg, rgba(3, 3, 3, 0), rgba(3, 3, 3, 0.92) 42%); backdrop-filter: blur(2px); z-index: 2; }
         .chat-input-wrap .btn { margin: 0; width: 78px; }
 
         .internet-check { position: fixed; top: 10px; right: 10px; z-index: 999; padding: 10px 15px; border-radius: 20px; font-size: 11px; display: none; }
@@ -111,7 +109,7 @@
         .sync-indicator.active { background: var(--g); animation: pulse 0.5s; }
         @keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
 
-        .game-notification { position: fixed; top: 80px; left: 50%; transform: translateX(-50%); background: var(--gold); color: #000; padding: 15px 25px; border-radius: 12px; font-weight: 900; z-index: 999; max-width: 90%; }
+        .game-notification { position: fixed; top: 80px; left: 50%; transform: translateX(-50%); background: var(--gold); color: #000; padding: 15px 25px; border-radius: 12px; font-weight: 900; z-index: 90; display: none; animation: slideIn 0.3s ease; }
 
         .firebase-status { position: fixed; bottom: 90px; right: 80px; background: rgba(0,255,136,0.2); padding: 5px 10px; border-radius: 8px; font-size: 10px; color: var(--g); z-index: 45; border: 1px solid var(--g); }
 
@@ -124,28 +122,37 @@
             .chat-input-wrap { bottom: 24px; }
         }
 
-        .online-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--g); border: 2px solid var(--card); display: inline-block; flex-shrink: 0; box-shadow: 0 0 6px rgba(0, 255, 136, 0.6); }
-        .unread-badge { background: var(--r); color: #fff; border-radius: 50%; min-width: 20px; height: 20px; font-size: 10px; display: flex; align-items: center; justify-content: center; font-weight: 900; }
-        .tab-nav-badge { position: absolute; top: 3px; right: 8px; background: var(--r); color: #fff; border-radius: 50%; width: 14px; height: 14px; font-size: 8px; display: flex; align-items: center; justify-content: center; font-weight: 900; }
+        /* 🟢 Онлайн-статус */
+        .online-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--g); border: 2px solid var(--card); display: inline-block; flex-shrink: 0; box-shadow: 0 0 6px rgba(0, 255, 136, 0.7); }
 
+        /* 🔴 Лічильник непрочитаних */
+        .unread-badge { background: var(--r); color: #fff; border-radius: 50%; min-width: 20px; height: 20px; font-size: 10px; display: flex; align-items: center; justify-content: center; font-weight: 900; padding: 0 3px; flex-shrink: 0; }
+
+        /* 🔔 Бейдж на таб навігації */
+        .tab-nav-badge { position: absolute; top: 3px; right: 8px; background: var(--r); color: #fff; border-radius: 50%; width: 14px; height: 14px; font-size: 8px; display: flex; align-items: center; justify-content: center; font-weight: 900; pointer-events: none; }
+
+        /* ✏️ Анімація набору тексту */
         .typing-row { display: flex; align-items: flex-end; gap: 8px; margin-bottom: 6px; }
-        .typing-bubble { background: rgba(0, 255, 136, 0.1); border: 1px solid rgba(0, 255, 136, 0.2); border-radius: 14px; border-bottom-left-radius: 5px; padding: 10px 14px; display: flex; align-items: center; gap: 4px; }
+        .typing-bubble { background: rgba(0, 255, 136, 0.1); border: 1px solid rgba(0, 255, 136, 0.2); border-radius: 14px; border-bottom-left-radius: 5px; padding: 10px 14px; display: flex; align-items: center; gap: 5px; }
         .typing-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--g); opacity: 0.7; animation: typingBounce 1.2s infinite ease-in-out; }
         .typing-dot:nth-child(2) { animation-delay: 0.2s; }
         .typing-dot:nth-child(3) { animation-delay: 0.4s; }
         @keyframes typingBounce { 0%, 60%, 100% { transform: translateY(0); opacity: 0.7; } 30% { transform: translateY(-7px); opacity: 1; } }
 
+        /* ✊ Казино: підвкладки */
         .casino-subtabs { display:flex; border-bottom:1px solid #222; margin-bottom:15px; }
         .casino-subtab { padding:8px 14px; font-size:10px; color:#555; cursor:pointer; border-bottom:2px solid transparent; transition:0.2s; text-transform:uppercase; letter-spacing:1px; }
         .casino-subtab.active { color:var(--p); border-bottom-color:var(--p); }
 
+        /* ✊ RPS гра */
         .rps-balance-row { display:flex; justify-content:space-between; font-size:11px; padding:3px 0; }
-        .rps-choice-btn { background:#111; border:2px solid #333; color:#fff; padding:12px 8px; border-radius:12px; cursor:pointer; font-size:1.6rem; min-width:72px; transition:all 0.2s; font-family: 'Orbitron', sans-serif; }
+        .rps-choice-btn { background:#111; border:2px solid #333; color:#fff; padding:12px 8px; border-radius:12px; cursor:pointer; font-size:1.6rem; min-width:72px; transition:all 0.2s; font-family:'Orbitron',sans-serif; flex:1; }
         .rps-choice-btn:hover { border-color:var(--p); transform:scale(1.05); }
         .rps-choice-btn:disabled { opacity:0.35; cursor:not-allowed; transform:none; }
         .rps-choice-row { display:flex; gap:8px; justify-content:center; margin-top:15px; }
 
-        .rps-online-choice-btn { background:#111; border:2px solid #333; color:#fff; padding:14px 10px; border-radius:14px; cursor:pointer; font-size:2rem; flex:1; transition:all 0.2s; font-family: 'Orbitron', sans-serif; }
+        /* 🌐 RPS Online */
+        .rps-online-choice-btn { background:#111; border:2px solid #333; color:#fff; padding:14px 10px; border-radius:14px; cursor:pointer; font-size:2rem; flex:1; transition:all 0.2s; font-family:'Orbitron',sans-serif; }
         .rps-online-choice-btn:hover { border-color:var(--p); transform:scale(1.05); }
         .rps-online-choice-btn.selected { border-color:var(--g); background:rgba(0,255,136,0.12); }
         .rps-online-choice-btn:disabled { opacity:0.35; cursor:not-allowed; transform:none; }
@@ -154,8 +161,9 @@
         .rps-online-result.lose { background:rgba(255,51,102,0.1); color:var(--r); border:1px solid var(--r); }
         .rps-online-result.draw { background:rgba(255,204,0,0.1); color:var(--gold); border:1px solid var(--gold); }
 
+        /* 🛍️ Магазин */
         .shop-cat-bar { display:flex; gap:8px; margin-bottom:15px; overflow-x:auto; padding-bottom:4px; }
-        .shop-cat-btn { padding:7px 14px; border-radius:20px; font-size:10px; cursor:pointer; border:1px solid #333; background:#000; color:#555; white-space:nowrap; font-family:'Orbitron',sans-serif; }
+        .shop-cat-btn { padding:7px 14px; border-radius:20px; font-size:10px; cursor:pointer; border:1px solid #333; background:#000; color:#555; white-space:nowrap; font-family:'Orbitron',sans-serif; transition:0.2s; }
         .shop-cat-btn.active { background:var(--p); color:#000; border-color:var(--p); }
         .shop-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
         .shop-item { background:var(--card); border:1px solid #222; border-radius:12px; padding:14px; text-align:center; transition:0.2s; }
@@ -164,7 +172,7 @@
         .shop-item-preview { font-size:2.4rem; margin-bottom:8px; }
         .shop-item-name { font-size:10px; font-weight:900; margin-bottom:3px; line-height:1.3; }
         .shop-item-price { font-size:10px; color:var(--gold); margin-bottom:8px; }
-        .shop-item-btn { width:100%; padding:7px; border:none; border-radius:7px; font-size:9px; font-weight:900; cursor:pointer; background:var(--p); color:#000; font-family:'Orbitron',sans-serif; }
+        .shop-item-btn { width:100%; padding:7px; border:none; border-radius:7px; font-size:9px; font-weight:900; cursor:pointer; background:var(--p); color:#000; font-family:'Orbitron',sans-serif; transition:0.2s; }
         .shop-item-btn.equip-btn { background:#1a1a1a; color:var(--gold); border:1px solid var(--gold); }
         .shop-item-btn.equipped-btn { background:rgba(255,204,0,0.12); color:var(--gold); border:1px solid var(--gold); }
         .shop-item-btn.owned-misc-btn { background:#1a1a1a; color:var(--g); border:1px solid var(--g); cursor:default; }
@@ -184,6 +192,16 @@
 
 <!-- СПОВІЩЕННЯ -->
 <div id="game-notification" class="game-notification"></div>
+
+<!-- МОДАЛЬ ЗАПИТУ НА ГРУ (КНП Online) -->
+<div id="ttt-request-modal" style="display:none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--card); border: 2px solid var(--g); border-radius: 12px; padding: 20px; z-index: 100; width: 90%; max-width: 320px;">
+    <h3 style="color:var(--g); margin-top:0;">✊ ВИКЛИК КНП ONLINE</h3>
+    <div id="ttt-request-text" style="color:#fff; margin:10px 0; font-size:14px;"></div>
+    <div style="display:flex; gap:10px; margin-top:15px;">
+        <button class="btn" onclick="acceptGameRequest()" style="background:var(--g); color:#000;">ПРИЙНЯТИ</button>
+        <button class="btn" onclick="rejectGameRequest()" style="background:var(--r); color:#fff;">ВІДХИЛИТИ</button>
+    </div>
+</div>
 
 <!-- ЕКРАН ВХОДУ -->
 <div id="auth-scr" style="height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;">
@@ -268,11 +286,157 @@
             </div>
         </div>
 
-        <!-- Казино - КНП та Online -->
-        <div id="casino-rps" style="display:none;"></div>
-        <div id="casino-rps-online" style="display:none;"></div>
+        <!-- Камінь Ножиці Папір -->
+        <div id="casino-rps" style="display:none;">
 
-    </div>
+            <!-- Фаза 1: Ставки -->
+            <div id="rps-phase-betting">
+                <div class="glass">
+                    <p style="text-align:center; font-size:10px; color:var(--p); letter-spacing:2px; margin:0 0 8px;">ГРАВЕЦЬ 1</p>
+                    <div class="rps-balance-row">
+                        <span style="color:#888;" id="rps-p1-name-lbl">Гравець 1</span>
+                        <span>Баланс: <b id="rps-p1-bal" style="color:var(--g);">100.00</b></span>
+                    </div>
+                    <input type="number" id="rps-bet1" placeholder="СТАВКА ГРАВЦЯ 1" min="0.01" step="0.01">
+                    <button id="rps-confirm1-btn" class="btn" onclick="rpsConfirmBet(1)" style="margin-top:8px; padding:10px;">✓ ПІДТВЕРДИТИ</button>
+                </div>
+                <div class="glass">
+                    <p style="text-align:center; font-size:10px; color:var(--r); letter-spacing:2px; margin:0 0 8px;">ГРАВЕЦЬ 2</p>
+                    <div class="rps-balance-row">
+                        <span style="color:#888;" id="rps-p2-name-lbl">Гравець 2</span>
+                        <span>Баланс: <b id="rps-p2-bal" style="color:var(--g);">100.00</b></span>
+                    </div>
+                    <input type="number" id="rps-bet2" placeholder="СТАВКА ГРАВЦЯ 2" min="0.01" step="0.01">
+                    <button id="rps-confirm2-btn" class="btn" onclick="rpsConfirmBet(2)" style="margin-top:8px; padding:10px; background:#1a1a1a; border:2px solid var(--r); color:var(--r);">✓ ПІДТВЕРДИТИ</button>
+                </div>
+                <div style="text-align:center; font-size:10px; color:#555; margin-bottom:8px;" id="rps-pot-display"></div>
+                <button id="rps-start-btn" class="btn" onclick="rpsStartRound()" disabled style="background:#222; color:#555; cursor:not-allowed;">▶ ПОЧАТИ МАТЧ</button>
+            </div>
+
+            <!-- Фаза 2: Вибір (Гравець 1 або Гравець 2) -->
+            <div id="rps-phase-choose" style="display:none;">
+                <div class="glass" style="text-align:center;">
+                    <div id="rps-round-label" style="color:var(--gold); font-size:11px; letter-spacing:2px; margin-bottom:5px;">РАУНД 1</div>
+                    <div id="rps-turn-label" style="color:var(--p); font-size:14px; font-weight:900; margin-bottom:6px;">ХІД: ГРАВЕЦЬ 1</div>
+                    <div style="font-size:10px; color:#555; margin-bottom:14px;">Інший гравець — відвернись!</div>
+                    <div id="rps-countdown" style="font-size:5rem; font-weight:900; color:var(--r); line-height:1; margin:8px 0;">3</div>
+                    <div class="rps-choice-row">
+                        <button class="rps-choice-btn" onclick="rpsChoose('rock')">✊<br><small style="font-size:8px;">КАМІНЬ</small></button>
+                        <button class="rps-choice-btn" onclick="rpsChoose('scissors')">✌️<br><small style="font-size:8px;">НОЖИЦІ</small></button>
+                        <button class="rps-choice-btn" onclick="rpsChoose('paper')">🖐️<br><small style="font-size:8px;">ПАПІР</small></button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Фаза 2.5: Передача пристрою -->
+            <div id="rps-phase-handoff" style="display:none;">
+                <div class="glass" style="text-align:center; padding:30px 15px;">
+                    <div style="font-size:3rem; margin-bottom:12px;">📱</div>
+                    <div style="font-size:13px; font-weight:900; color:var(--gold); margin-bottom:8px;">Вибір зроблено!</div>
+                    <div id="rps-handoff-msg" style="font-size:11px; color:#aaa; margin-bottom:20px;">Передайте пристрій Гравцю 2!</div>
+                    <button class="btn" onclick="rpsHandoffReady()">ГОТОВО →</button>
+                </div>
+            </div>
+
+            <!-- Фаза 3: Розкриття результату -->
+            <div id="rps-phase-reveal" style="display:none;">
+                <div class="glass" style="text-align:center;">
+                    <div id="rps-reveal-round" style="font-size:10px; color:#555; letter-spacing:2px; margin-bottom:14px;">РАУНД 1 — РЕЗУЛЬТАТ</div>
+                    <div style="display:flex; justify-content:space-around; align-items:center; margin:10px 0;">
+                        <div>
+                            <div id="rps-p1-reveal-icon" style="font-size:3.5rem;">✊</div>
+                            <div id="rps-p1-reveal-name" style="font-size:10px; color:#888; margin-top:5px;">Гравець 1</div>
+                            <div id="rps-p1-reveal-choice" style="font-size:9px; color:#555;"></div>
+                        </div>
+                        <div style="font-size:1.4rem; color:#333; font-weight:900;">VS</div>
+                        <div>
+                            <div id="rps-p2-reveal-icon" style="font-size:3.5rem;">✌️</div>
+                            <div id="rps-p2-reveal-name" style="font-size:10px; color:#888; margin-top:5px;">Гравець 2</div>
+                            <div id="rps-p2-reveal-choice" style="font-size:9px; color:#555;"></div>
+                        </div>
+                    </div>
+                    <div id="rps-round-result" style="font-size:13px; font-weight:900; padding:12px; border-radius:8px; margin:10px 0;"></div>
+                    <div style="display:flex; flex-direction:column; gap:8px; margin-top:10px;">
+                        <button id="rps-next-btn" class="btn" onclick="rpsNextRound()" style="display:none; background:var(--gold); color:#000;">▶ НАСТУПНИЙ РАУНД</button>
+                        <button id="rps-finish-btn" class="btn" onclick="rpsFinish()" style="display:none; background:var(--g); color:#000;">🏆 ЗАВЕРШИТИ ТА ОНОВИТИ БАЛАНС</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Кнопка скидання -->
+            <button class="btn" onclick="rpsReset(true)" style="background:#0d0d0d; color:#555; border:1px solid #222; margin-top:8px; font-size:11px;">↺ СКИНУТИ / НОВИЙ МАТ</button>
+        </div>
+
+        <!-- Камінь Ножиці Папір ONLINE (2 реальні гравці, два пристрої) -->
+        <div id="casino-rps-online" style="display:none;">
+
+            <!-- Форма: створення виклику -->
+            <div id="rps-online-lobby">
+                <div class="glass">
+                    <p style="text-align:center; font-size:11px; color:var(--p); letter-spacing:2px; margin:0 0 10px;">✊ КНП ONLINE — ВИКЛИК ДРУГА</p>
+                    <div style="font-size:10px; color:#888; margin-bottom:10px;">
+                        Баланс: <b id="rps-online-my-balance" style="color:var(--g);">0.00</b> BB
+                    </div>
+                    <label style="font-size:10px; color:var(--p);">ЛОГІН СУПЕРНИКА</label>
+                    <input type="text" id="rps-online-opponent" placeholder="Логін друга..." oninput="rpsOnlineSearchOpponent()">
+                    <div id="rps-online-search-results" class="user-search-results" style="display:none; margin-bottom:8px;"></div>
+                    <label style="font-size:10px; color:var(--p);">СТАВКА (BB)</label>
+                    <input type="number" id="rps-online-bet" placeholder="0.01" min="0.01" step="0.01">
+                    <button class="btn" onclick="rpsOnlineSendInvite()" style="margin-top:10px;">📨 НАДІСЛАТИ ВИКЛИК</button>
+                </div>
+
+                <!-- Очікування відповіді на відісланий виклик -->
+                <div id="rps-online-waiting" style="display:none;">
+                    <div class="glass" style="text-align:center; padding:20px;">
+                        <div style="font-size:2rem; margin-bottom:8px;">⏳</div>
+                        <div id="rps-online-waiting-msg" style="font-size:12px; color:var(--gold); font-weight:900; margin-bottom:6px;">Очікування відповіді...</div>
+                        <div id="rps-online-waiting-sub" style="font-size:10px; color:#666; margin-bottom:14px;"></div>
+                        <button class="btn" onclick="rpsOnlineCancelInvite()" style="background:#1a1a1a; border:1px solid #444; color:#aaa; font-size:11px; padding:10px;">↺ СКАСУВАТИ</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Активний матч -->
+            <div id="rps-online-match" style="display:none;">
+                <div class="glass" style="text-align:center;">
+                    <div id="rps-online-match-header" style="font-size:10px; color:var(--p); letter-spacing:2px; margin-bottom:6px;">МАТЧ</div>
+                    <div style="display:flex; justify-content:space-around; align-items:center; margin-bottom:8px;">
+                        <div>
+                            <div id="rps-online-p1-name" style="font-size:10px; color:#888;"></div>
+                            <div id="rps-online-p1-icon" style="font-size:2.4rem;">❓</div>
+                            <div id="rps-online-p1-status" style="font-size:9px; color:#555;"></div>
+                        </div>
+                        <div style="font-size:1rem; color:#333; font-weight:900;">VS</div>
+                        <div>
+                            <div id="rps-online-p2-name" style="font-size:10px; color:#888;"></div>
+                            <div id="rps-online-p2-icon" style="font-size:2.4rem;">❓</div>
+                            <div id="rps-online-p2-status" style="font-size:9px; color:#555;"></div>
+                        </div>
+                    </div>
+                    <div id="rps-online-bet-display" style="font-size:11px; color:var(--gold); margin-bottom:12px;"></div>
+
+                    <!-- Кнопки вибору -->
+                    <div id="rps-online-choose-section">
+                        <div style="font-size:11px; color:var(--p); margin-bottom:8px;">ВАШ ВИБІР:</div>
+                        <div style="display:flex; gap:8px; justify-content:center;">
+                            <button class="rps-online-choice-btn" onclick="rpsOnlineMakeChoice('rock')" id="rps-btn-rock">✊<br><small style="font-size:8px;">КАМІНЬ</small></button>
+                            <button class="rps-online-choice-btn" onclick="rpsOnlineMakeChoice('scissors')" id="rps-btn-scissors">✌️<br><small style="font-size:8px;">НОЖИЦІ</small></button>
+                            <button class="rps-online-choice-btn" onclick="rpsOnlineMakeChoice('paper')" id="rps-btn-paper">🖐️<br><small style="font-size:8px;">ПАПІР</small></button>
+                        </div>
+                        <div id="rps-online-waiting-choice" style="display:none; margin-top:10px; font-size:11px; color:#888;">Ви вибрали — очікуємо суперника...</div>
+                    </div>
+
+                    <!-- Результат -->
+                    <div id="rps-online-result-section" style="display:none;">
+                        <div id="rps-online-result-msg" class="rps-online-result"></div>
+                        <button class="btn" onclick="rpsOnlineCloseMatch()" style="background:var(--p); color:#000; margin-top:8px; font-size:11px;">ЗАКРИТИ</button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </div><!-- /tab3 Casino -->
 
     <!-- ВКЛ.4: ДРУЗІ -->
     <div id="tab4" class="view">
@@ -385,11 +549,1967 @@
     </div>
 </div>
 
-<!-- 🔥 FIREBASE SYNC MODULE -->
+<!-- FIREBASE SYNC MODULE -->
 <script src="firebase-sync.js"></script>
 
 <script>
-    console.log('✅ index.html loaded with firebase-security.js');
+    const avatarGallery = [
+        'https://api.dicebear.com/7.x/avataaars/svg?seed=user1',
+        'https://api.dicebear.com/7.x/avataaars/svg?seed=user2',
+        'https://api.dicebear.com/7.x/avataaars/svg?seed=user3',
+        'https://api.dicebear.com/7.x/avataaars/svg?seed=user4',
+        'https://api.dicebear.com/7.x/avataaars/svg?seed=user5',
+        'https://api.dicebear.com/7.x/avataaars/svg?seed=user6',
+    ];
+    const rouletteColorMeta = {
+        red: { hex: '#ff3366', emoji: '🔴' },
+        green: { hex: '#00ff88', emoji: '🟢' },
+        black: { hex: '#1a1a1a', emoji: '⚫' }
+    };
+    const rouletteSegmentColors = ['green', 'red', 'black', 'red', 'black', 'red', 'black', 'red', 'black', 'red', 'black', 'red', 'black', 'red', 'black'];
+    const rouletteSegments = rouletteSegmentColors.map((segmentColor, index) => {
+        const segmentAngle = 360 / rouletteSegmentColors.length;
+        return {
+            color: segmentColor,
+            start: index * segmentAngle,
+            end: (index + 1) * segmentAngle
+        };
+    });
+    const roulettePayouts = { red: 2, black: 2, green: 14 };
+    const rouletteSpinDuration = 5600;
+    const roulettePointerPadding = 2;
+    const rouletteMinSegmentRange = 0.1;
+    const rouletteMinFullTurns = 6;
+    const rouletteExtraFullTurnsRange = 3;
+    const chatPollingIntervalMs = 2500;
+    const chatSignatureTextPreviewLength = 48;
+    const maxDisplayNameLength = 24;
+    const minPasswordLength = 4;
+    const maxAvatarFileSize = 2 * 1024 * 1024;
+    const maxAvatarFileSizeMB = maxAvatarFileSize / (1024 * 1024);
+
+    let allUsers = {};
+    let mineInterval = null;
+    let pendingGameRequest = null;
+    let typingTimeout = null;
+    const chatRealtimeBridge = {
+        timer: null,
+        activeChatFriend: null
+    };
+
+    let gameState = {
+        user: null,
+        displayName: null,
+        avatar: avatarGallery[0],
+        balance: 0,
+        mining: false,
+        friends: [],
+        friendRequests: [],
+        privateChatMessages: {},
+        chatMessageSignatures: {},
+        gameInvitations: {},
+        currentChatFriend: null,
+        miningStartTime: 0,
+        expandedFriendRequest: null,
+        rouletteRotation: 0,
+        rouletteSpinning: false,
+        unreadCounts: {},
+        friendsOnline: {}
+    };
+
+    // ===== ІНІЦІАЛІЗАЦІЯ =====
+    document.addEventListener('DOMContentLoaded', () => {
+        // Ініціалізувати Firebase
+        initFirebaseSync();
+        renderRouletteWheel();
+        document.getElementById('avatar-file-input').addEventListener('change', handleAvatarFileChange);
+        // Ініціалізувати КНП гру
+        rpsInit();
+    });
+
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function normalizeAngle(angle) {
+        return ((angle % 360) + 360) % 360;
+    }
+
+    function getRouletteGradient() {
+        return `conic-gradient(from -90deg, ${rouletteSegments.map(segment =>
+            `${rouletteColorMeta[segment.color].hex} ${segment.start}deg ${segment.end}deg`
+        ).join(', ')})`;
+    }
+
+    function renderRouletteWheel() {
+        const wheel = document.getElementById('wheel');
+        if (!wheel) return;
+        wheel.style.background = getRouletteGradient();
+        wheel.style.transform = `rotate(${gameState.rouletteRotation}deg)`;
+    }
+
+    function getRouletteSegmentByWheelAngle(angle) {
+        const normalized = normalizeAngle(angle);
+        return rouletteSegments.find(segment => normalized >= segment.start && normalized < segment.end) || rouletteSegments[rouletteSegments.length - 1];
+    }
+
+    function getWheelAngleUnderPointer(rotation) {
+        return normalizeAngle(360 - normalizeAngle(rotation));
+    }
+
+    function getRouletteResultForRotation(rotation) {
+        return getRouletteSegmentByWheelAngle(getWheelAngleUnderPointer(rotation));
+    }
+
+    function pickRouletteSegment() {
+        return rouletteSegments[Math.floor(Math.random() * rouletteSegments.length)];
+    }
+
+    function getRandomStopAngleForSegment(segment) {
+        const safeStart = segment.start + roulettePointerPadding;
+        const safeEnd = segment.end - roulettePointerPadding;
+        return safeStart + (Math.random() * Math.max(safeEnd - safeStart, rouletteMinSegmentRange));
+    }
+
+    function formatUserLabel(username) {
+        const userData = allUsers[username] || {};
+        const displayName = (userData.displayName || username || '').trim();
+        return displayName !== username ? `${displayName} (@${username})` : username;
+    }
+
+    function sanitizeAvatarUrl(url) {
+        if (typeof url !== 'string') return '';
+        const value = url.trim();
+        if (!value) return '';
+        if (value.startsWith('data:image/')) return value;
+        if (/^https?:\/\//i.test(value)) return value;
+        return '';
+    }
+
+    function getUserInitials(username) {
+        const label = formatUserLabel(username).replace(/\(.*\)/, '').trim();
+        const parts = label.split(/\s+/).filter(Boolean);
+        if (parts.length >= 2) {
+            return parts.slice(0, 2).map(part => part[0] || '').join('').toUpperCase() || '?';
+        }
+        return (label.slice(0, 2) || '?').toUpperCase();
+    }
+
+    function getUserAvatarUrl(username) {
+        return sanitizeAvatarUrl((allUsers[username] || {}).avatar || '');
+    }
+
+    function getAvatarImageHtml(avatar, alt) {
+        if (!avatar) return '';
+        return `<img class="avatar-img" src="${escapeHtml(avatar)}" alt="${alt}">`;
+    }
+
+    function buildListAvatarHtml(username) {
+        const avatar = getUserAvatarUrl(username);
+        const initials = escapeHtml(getUserInitials(username));
+        const alt = escapeHtml(formatUserLabel(username));
+        return `
+            <span class="list-avatar-wrap">
+                ${getAvatarImageHtml(avatar, alt)}
+                <span class="list-avatar-fallback" style="${avatar ? 'display:none;' : 'display:flex;'}">${initials}</span>
+            </span>
+        `;
+    }
+
+    function buildChatAvatarHtml(username) {
+        const avatar = getUserAvatarUrl(username);
+        const initials = escapeHtml(getUserInitials(username));
+        const alt = escapeHtml(formatUserLabel(username));
+        return `
+            <span class="chat-avatar-wrap">
+                ${getAvatarImageHtml(avatar, alt)}
+                <span class="chat-avatar-fallback" style="${avatar ? 'display:none;' : 'display:flex;'}">${initials}</span>
+            </span>
+        `;
+    }
+
+    function normalizeChatMessages(rawMessages) {
+        if (!rawMessages) return [];
+        const list = Array.isArray(rawMessages) ? rawMessages : Object.values(rawMessages);
+        return list
+            .filter(item => item && typeof item.text === 'string')
+            .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+    }
+
+    function getChatMessagesSignature(messages) {
+        const last = messages[messages.length - 1];
+        const lastPreview = (last?.text || '').slice(0, chatSignatureTextPreviewLength);
+        const lastStamp = last ? `${last.timestamp || 0}:${last.from || ''}:${lastPreview}` : 'none';
+        return `${messages.length}|${lastStamp}`;
+    }
+
+    function getChatLastReadKey(friendUsername) {
+        return `lastReadCount_${gameState.user}_${friendUsername}`;
+    }
+
+    function applyIncomingChatMessages(friendUsername, rawMessages) {
+        const normalized = normalizeChatMessages(rawMessages);
+        const signature = getChatMessagesSignature(normalized);
+        if (gameState.chatMessageSignatures[friendUsername] === signature) {
+            return false;
+        }
+        const localPrevCount = (gameState.privateChatMessages[friendUsername] || []).length;
+        // On first load after login (localPrevCount === 0 and no signature yet),
+        // use the stored last-read count so we only show messages that arrived since last visit.
+        const storedLastRead = gameState.user
+            ? parseInt(localStorage.getItem(getChatLastReadKey(friendUsername)) || '0', 10)
+            : 0;
+        const prevCount = localPrevCount > 0 ? localPrevCount : storedLastRead;
+
+        gameState.privateChatMessages[friendUsername] = normalized;
+        gameState.chatMessageSignatures[friendUsername] = signature;
+
+        // Track unread incoming messages when chat is not open
+        if (gameState.currentChatFriend !== friendUsername) {
+            const newMsgs = normalized.slice(Math.max(0, prevCount));
+            const unreadFromFriend = newMsgs.filter(m => m.from !== gameState.user).length;
+            if (unreadFromFriend > 0) {
+                gameState.unreadCounts[friendUsername] = (gameState.unreadCounts[friendUsername] || 0) + unreadFromFriend;
+                updateFriendsList();
+                updateChatTabBadge();
+            }
+        }
+
+        if (gameState.currentChatFriend === friendUsername) {
+            displayPrivateChat();
+        }
+        return true;
+    }
+
+    function formatChatTimestamp(timestamp) {
+        if (!timestamp) return '--:--';
+        const parsed = new Date(Number(timestamp));
+        if (Number.isNaN(parsed.getTime())) return '--:--';
+        return parsed.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    async function refreshChatByPolling(currentUser, friendUsername) {
+        if (!currentUser || !friendUsername || typeof loadChatMessagesFirebase !== 'function') return;
+        try {
+            const messages = await loadChatMessagesFirebase(currentUser, friendUsername);
+            applyIncomingChatMessages(friendUsername, messages);
+        } catch (error) {
+            console.warn(`⚠️ Помилка polling чату (${currentUser} -> ${friendUsername}):`, error);
+        }
+    }
+
+    function stopChatRealtimeBridge() {
+        if (chatRealtimeBridge.timer) {
+            clearInterval(chatRealtimeBridge.timer);
+            chatRealtimeBridge.timer = null;
+        }
+        chatRealtimeBridge.activeChatFriend = null;
+    }
+
+    function startChatRealtimeBridge(currentUser, friendUsername) {
+        stopChatRealtimeBridge();
+        chatRealtimeBridge.activeChatFriend = friendUsername;
+        refreshChatByPolling(currentUser, friendUsername);
+        chatRealtimeBridge.timer = setInterval(() => {
+            // Перевіряємо і стан bridge, і поточний відкритий чат, щоб interval не працював для неактивного діалогу.
+            if (chatRealtimeBridge.activeChatFriend !== friendUsername || gameState.currentChatFriend !== friendUsername) {
+                stopChatRealtimeBridge();
+                return;
+            }
+            refreshChatByPolling(currentUser, friendUsername);
+        }, chatPollingIntervalMs);
+    }
+
+    function attachAvatarFallbackHandlers(scopeElement) {
+        if (!scopeElement) return;
+        scopeElement.querySelectorAll('img.avatar-img').forEach((image) => {
+            if (image.dataset.fallbackBound === '1') return;
+            image.dataset.fallbackBound = '1';
+            image.addEventListener('error', () => {
+                image.style.display = 'none';
+                if (image.nextElementSibling) {
+                    image.nextElementSibling.style.display = 'flex';
+                }
+            });
+        });
+    }
+
+    window.stickChatRealtime = window.stickChatRealtime || {};
+    window.stickChatRealtime.handleSnapshot = (friendUsername, rawMessages) => {
+        applyIncomingChatMessages(friendUsername, rawMessages);
+    };
+
+    function updateCachedUser(username, updates) {
+        allUsers[username] = {
+            ...(allUsers[username] || {}),
+            ...updates
+        };
+    }
+
+    function refreshSettingsForm() {
+        if (!gameState.user) return;
+        document.getElementById('settings-display-name').value = gameState.displayName || gameState.user;
+        document.getElementById('settings-avatar-preview').src = gameState.avatar || avatarGallery[0];
+    }
+
+    window.__stickAppDebug = {
+        getRouletteSegments: () => rouletteSegments.map(segment => ({ ...segment })),
+        normalizeAngle,
+        getWheelAngleUnderPointer,
+        getRouletteResultForRotation
+    };
+
+    // ===== АУТЕНТИФІКАЦІЯ =====
+    function switchAuth(type) {
+        document.getElementById('login-form').style.display = type === 'login' ? 'block' : 'none';
+        document.getElementById('register-form').style.display = type === 'register' ? 'block' : 'none';
+    }
+
+    async function register() {
+        const username = document.getElementById('reg-u').value.trim();
+        const password = document.getElementById('reg-p').value;
+        const passwordConfirm = document.getElementById('reg-p2').value;
+
+        if (!username || !password || !passwordConfirm) {
+            alert('Заповніть всі поля!');
+            return;
+        }
+        if (password !== passwordConfirm) {
+            alert('Паролі не співпадають!');
+            return;
+        }
+
+        const userData = {
+            username: username,
+            displayName: username,
+            password: password,
+            balance: 0,
+            avatar: avatarGallery[Math.floor(Math.random() * avatarGallery.length)],
+            friends: [],
+            friendRequests: [],
+            privateChatMessages: {},
+            gameInvitations: {},
+            mining: false,
+            miningStartTime: 0,
+            createdAt: new Date().toISOString()
+        };
+
+        await saveUserToFirebase(username, userData);
+        alert('Акаунт створено! 🎉');
+        document.getElementById('reg-u').value = '';
+        document.getElementById('reg-p').value = '';
+        document.getElementById('reg-p2').value = '';
+        switchAuth('login');
+    }
+
+    async function auth() {
+        const username = document.getElementById('login-u').value.trim();
+        const password = document.getElementById('login-p').value;
+
+        if (!username || !password) {
+            alert('Заповніть все!');
+            return;
+        }
+
+        const userData = await loadUserFromFirebase(username);
+        
+        if (!userData) {
+            alert('Користувача не знайдено!');
+            return;
+        }
+        if (userData.password !== password) {
+            alert('Неправильний пароль!');
+            return;
+        }
+
+        gameState.user = username;
+        gameState.displayName = userData.displayName || username;
+        gameState.avatar = userData.avatar || avatarGallery[0];
+        gameState.balance = userData.balance || 0;
+        gameState.friends = userData.friends || [];
+        gameState.friendRequests = userData.friendRequests || [];
+        gameState.privateChatMessages = {};
+        gameState.chatMessageSignatures = {};
+        gameState.currentChatFriend = null;
+        gameState.expandedFriendRequest = null;
+        gameState.unreadCounts = {};
+
+        // Показати основний екран
+        document.getElementById('auth-scr').style.display = 'none';
+        document.getElementById('main-scr').style.display = 'flex';
+
+        // Налаштувати слухачі FIREBASE
+        setupAllListenersOnLogin(username);
+        
+        updateHeader();
+
+        // Завантажити всіх користувачів
+        allUsers = await loadAllUsersFromFirebase();
+        updateCachedUser(username, userData);
+        refreshSettingsForm();
+        updateFriendRequestsList();
+        updateFriendsList();
+
+        // Відновити активний RPS матч (якщо є)
+        if (userData.activeRpsMatchId) {
+            rpsOnlineState.matchId = userData.activeRpsMatchId;
+            // Determine player number from match data
+            try {
+                const db = firebase.database();
+                const mSnap = await db.ref(`rpsMatches/${userData.activeRpsMatchId}`).once('value');
+                const mData = mSnap.val();
+                if (mData && mData.status !== 'completed') {
+                    rpsOnlineState.playerNum = mData.player1 === username ? 1 : 2;
+                    setupRpsMatchListener(userData.activeRpsMatchId, (matchData) => {
+                        rpsOnlineState.matchData = matchData;
+                    });
+                    showGameNotification('🎮 У вас є активний RPS матч! Casino → КНП Online');
+                } else {
+                    rpsOnlineState.matchId = null;
+                }
+            } catch (_e) {}
+        }
+
+        // Завантажити дані магазину
+        shopLoad();
+    }
+
+    function updateHeader() {
+        document.getElementById('h-u').textContent = gameState.displayName || gameState.user || '---';
+        document.getElementById('h-b').textContent = gameState.balance.toFixed(4);
+        document.getElementById('v-bal').textContent = gameState.balance.toFixed(4);
+        document.getElementById('h-a').src = gameState.avatar || avatarGallery[0];
+        document.getElementById('settings-avatar-preview').src = gameState.avatar || avatarGallery[0];
+    }
+
+    function updateSyncIndicator(isSynced) {
+        const indicator = document.getElementById('sync-indicator');
+        if (isSynced) {
+            indicator.classList.add('active');
+            setTimeout(() => indicator.classList.remove('active'), 500);
+        }
+    }
+
+    function updateChatTabBadge() {
+        const total = Object.values(gameState.unreadCounts).reduce((s, n) => s + (n || 0), 0);
+        const tab = document.getElementById('friends-nav-tab');
+        if (!tab) return;
+        let badge = tab.querySelector('.tab-nav-badge');
+        if (total > 0) {
+            if (!badge) {
+                badge = document.createElement('div');
+                badge.className = 'tab-nav-badge';
+                tab.appendChild(badge);
+            }
+            badge.textContent = total > 9 ? '9+' : String(total);
+            badge.style.display = 'flex';
+        } else if (badge) {
+            badge.style.display = 'none';
+        }
+    }
+
+    function updateChatOnlineDot(isOnline) {
+        const dot = document.getElementById('chat-online-dot');
+        if (dot) dot.style.display = isOnline ? 'inline-block' : 'none';
+    }
+
+    function showGameNotification(message) {
+        const notif = document.getElementById('game-notification');
+        notif.textContent = message;
+        notif.style.display = 'block';
+        setTimeout(() => {
+            notif.style.display = 'none';
+        }, 4000);
+    }
+
+    // ===== ТАБУЛЯЦІЯ =====
+    function switchTab(tabNum) {
+        document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
+        document.querySelectorAll('nav .tab').forEach(t => t.classList.remove('active'));
+        
+        const tabMap = {1: 'tab1', 2: 'tab2', 3: 'tab3', 4: 'tab4', 5: 'tab5', 6: 'tab6'};
+        document.getElementById(tabMap[tabNum]).style.display = 'block';
+        document.querySelectorAll('nav .tab')[tabNum - 1].classList.add('active');
+        if (tabNum === 4) {
+            updateFriendRequestsList();
+            updateFriendsList();
+        }
+        if (tabNum === 5) {
+            refreshSettingsForm();
+        }
+        if (tabNum === 6) {
+            shopRender();
+        }
+    }
+
+    // ===== МАЙНИНГ =====
+    function toggleMine() {
+        const btn = document.getElementById('mbtn');
+        gameState.mining = !gameState.mining;
+        
+        if (gameState.mining) {
+            btn.classList.add('on');
+            btn.textContent = 'MINING...';
+            gameState.miningStartTime = Date.now();
+            
+            mineInterval = setInterval(() => {
+                if (!gameState.mining) {
+                    clearInterval(mineInterval);
+                    return;
+                }
+                gameState.balance += 0.0001;
+                updateHeader();
+                
+                // Оновити Firebase кожні 5 секунд
+                if (Math.floor((Date.now() - gameState.miningStartTime) / 5000) % 1 === 0) {
+                    updateMiningBalanceFirebase(gameState.user, gameState.balance);
+                }
+            }, 1000);
+        } else {
+            btn.classList.remove('on');
+            btn.textContent = 'START\nMINING';
+            clearInterval(mineInterval);
+            
+            // Фінальне оновлення
+            updateMiningBalanceFirebase(gameState.user, gameState.balance);
+        }
+    }
+
+    // ===== ПЕРЕДАЧА МОНЕТ =====
+    function searchTransferUser() {
+        const input = document.getElementById('transfer-user').value.trim();
+        const resultsDiv = document.getElementById('transfer-search-results');
+        
+        if (!input) {
+            resultsDiv.style.display = 'none';
+            return;
+        }
+
+        const results = Object.keys(allUsers).filter(u => 
+            u.toLowerCase().includes(input.toLowerCase()) && u !== gameState.user
+        );
+
+        resultsDiv.innerHTML = results.map(user => `
+            <div class="user-result" onclick="selectTransferUser('${user}')">
+                <div style="flex:1;">${user}</div>
+            </div>
+        `).join('');
+        resultsDiv.style.display = results.length > 0 ? 'block' : 'none';
+    }
+
+    function selectTransferUser(username) {
+        document.getElementById('transfer-user').value = username;
+        document.getElementById('transfer-search-results').style.display = 'none';
+    }
+
+    async function transferCoins() {
+        const recipient = document.getElementById('transfer-user').value.trim();
+        const amount = parseFloat(document.getElementById('transfer-amount').value);
+
+        if (!recipient || !amount || amount <= 0) {
+            alert('Введіть коректні дані!');
+            return;
+        }
+
+        if (amount > gameState.balance) {
+            alert('Недостатньо коштів!');
+            return;
+        }
+
+        const success = await transferCoinsFirebase(gameState.user, recipient, amount);
+        
+        if (success) {
+            gameState.balance -= amount;
+            updateHeader();
+            showGameNotification(`💳 Передано ${amount.toFixed(4)} BB`);
+            document.getElementById('transfer-user').value = '';
+            document.getElementById('transfer-amount').value = '';
+        }
+    }
+
+    // ===== РУЛЕТКА =====
+    function spin(color) {
+        if (gameState.rouletteSpinning) {
+            return;
+        }
+
+        const amount = parseFloat(document.getElementById('bet-amt').value);
+        if (!amount || amount <= 0) {
+            alert('Введіть ставку!');
+            return;
+        }
+        if (amount > gameState.balance) {
+            alert('Недостатньо коштів!');
+            return;
+        }
+
+        const wheel = document.getElementById('wheel');
+        const winningSegment = pickRouletteSegment();
+        const stopWheelAngle = getRandomStopAngleForSegment(winningSegment);
+        const finalRotationNormalized = normalizeAngle(360 - stopWheelAngle);
+        const currentRotationNormalized = normalizeAngle(gameState.rouletteRotation);
+        const deltaRotation = normalizeAngle(finalRotationNormalized - currentRotationNormalized);
+        const fullTurns = rouletteMinFullTurns + Math.floor(Math.random() * rouletteExtraFullTurnsRange);
+        const targetRotation = gameState.rouletteRotation + (fullTurns * 360) + deltaRotation;
+
+        gameState.rouletteSpinning = true;
+        wheel.style.transition = 'none';
+        wheel.style.transform = `rotate(${gameState.rouletteRotation}deg)`;
+
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                wheel.style.transition = `transform ${rouletteSpinDuration}ms cubic-bezier(0.12, 0.82, 0.18, 1)`;
+                wheel.style.transform = `rotate(${targetRotation}deg)`;
+            });
+        });
+
+        setTimeout(async () => {
+            gameState.rouletteRotation = normalizeAngle(targetRotation);
+            wheel.style.transition = 'none';
+            wheel.style.transform = `rotate(${gameState.rouletteRotation}deg)`;
+            gameState.rouletteSpinning = false;
+
+            const resultSegment = getRouletteResultForRotation(gameState.rouletteRotation);
+            const isWin = resultSegment.color === color;
+            const multiplier = roulettePayouts[resultSegment.color];
+            const resultEmoji = rouletteColorMeta[resultSegment.color].emoji;
+
+            if (isWin) {
+                gameState.balance += amount * multiplier;
+                showGameNotification(`🎯 ${resultEmoji} ${resultSegment.color.toUpperCase()} — ВИГРАШ +${(amount * multiplier).toFixed(4)}`);
+            } else {
+                gameState.balance -= amount;
+                showGameNotification(`🎯 ${resultEmoji} ${resultSegment.color.toUpperCase()} — ПРОГРАШ -${amount.toFixed(4)}`);
+            }
+
+            document.getElementById('bet-amt').value = '';
+            updateHeader();
+            await updateMiningBalanceFirebase(gameState.user, gameState.balance);
+        }, rouletteSpinDuration);
+    }
+
+    // ===== ДРУЗІ =====
+    function searchFriendUser() {
+        const input = document.getElementById('f-u').value.trim();
+        const resultsDiv = document.getElementById('friend-search-results');
+        
+        if (!input) {
+            resultsDiv.style.display = 'none';
+            return;
+        }
+
+        const results = Object.keys(allUsers).filter(u => 
+            u.toLowerCase().includes(input.toLowerCase()) && 
+            u !== gameState.user && 
+            !gameState.friends.includes(u)
+        );
+        resultsDiv.innerHTML = '';
+        results.forEach(user => {
+            const item = document.createElement('div');
+            item.className = 'user-result';
+            item.textContent = formatUserLabel(user);
+            item.addEventListener('click', () => selectFriendToAdd(user));
+            resultsDiv.appendChild(item);
+        });
+        resultsDiv.style.display = results.length > 0 ? 'block' : 'none';
+    }
+
+    function selectFriendToAdd(username) {
+        document.getElementById('f-u').value = username;
+        document.getElementById('friend-search-results').style.display = 'none';
+    }
+
+    async function sendFriendRequest() {
+        const username = document.getElementById('f-u').value.trim();
+        if (!username) {
+            alert('Виберіть користувача!');
+            return;
+        }
+        if (username === gameState.user) {
+            alert('Не можна додати себе!');
+            return;
+        }
+
+        const success = await sendFriendRequestFirebase(gameState.user, username);
+        if (!success) {
+            alert('Не вдалося надіслати запит або він уже існує');
+            return;
+        }
+
+        showGameNotification(`📬 Запит відправлено ${username}`);
+        document.getElementById('f-u').value = '';
+    }
+
+    function updateFriendRequestsList() {
+        const container = document.getElementById('f-requests');
+        if (gameState.friendRequests.length === 0) {
+            container.innerHTML = '<div class="chat-empty">Немає нових запитів</div>';
+            return;
+        }
+
+        container.innerHTML = '';
+        gameState.friendRequests.forEach(requester => {
+            const card = document.createElement('div');
+            card.className = 'friend-item';
+            card.setAttribute('role', 'button');
+            card.setAttribute('tabindex', '0');
+
+            const expanded = gameState.expandedFriendRequest === requester;
+            card.innerHTML = `
+                <div class="friend-item-identity">
+                    ${buildListAvatarHtml(requester)}
+                    <div class="friend-item-main">
+                        <strong>${escapeHtml(formatUserLabel(requester))}</strong>
+                        <span class="friend-item-subtitle">${expanded ? 'Оберіть дію для запиту' : 'Натисніть, щоб відкрити дії'}</span>
+                    </div>
+                </div>
+            `;
+
+            card.addEventListener('click', () => toggleFriendRequestActions(requester));
+            card.addEventListener('keypress', (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    toggleFriendRequestActions(requester);
+                }
+            });
+
+            if (expanded) {
+                const actions = document.createElement('div');
+                actions.className = 'request-actions';
+
+                const acceptButton = document.createElement('button');
+                acceptButton.className = 'btn';
+                acceptButton.style.background = 'var(--g)';
+                acceptButton.style.color = '#000';
+                acceptButton.textContent = 'ПРИЙНЯТИ';
+                acceptButton.addEventListener('click', async (event) => {
+                    event.stopPropagation();
+                    await acceptFriendRequest(requester);
+                });
+
+                const rejectButton = document.createElement('button');
+                rejectButton.className = 'btn danger-btn';
+                rejectButton.textContent = 'ВІДХИЛИТИ';
+                rejectButton.addEventListener('click', async (event) => {
+                    event.stopPropagation();
+                    await rejectFriendRequest(requester);
+                });
+
+                actions.appendChild(acceptButton);
+                actions.appendChild(rejectButton);
+                card.appendChild(actions);
+            }
+
+            container.appendChild(card);
+        });
+        attachAvatarFallbackHandlers(container);
+    }
+
+    function updateFriendsList() {
+        const container = document.getElementById('f-list');
+        if (gameState.friends.length === 0) {
+            container.innerHTML = '<div class="chat-empty">Список друзів порожній</div>';
+            return;
+        }
+
+        container.innerHTML = '';
+        gameState.friends.forEach(friend => {
+            const item = document.createElement('div');
+            item.className = 'friend-item';
+            item.setAttribute('role', 'button');
+            item.setAttribute('tabindex', '0');
+            const isOnline = gameState.friendsOnline[friend] === true;
+            const unread = gameState.unreadCounts[friend] || 0;
+            item.innerHTML = `
+                <div class="friend-item-identity">
+                    ${buildListAvatarHtml(friend)}
+                    <div class="friend-item-main">
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <strong>${escapeHtml(formatUserLabel(friend))}</strong>
+                            ${isOnline ? '<span class="online-dot" title="Онлайн"></span>' : ''}
+                        </div>
+                        <span class="friend-item-subtitle">Натисніть, щоб відкрити чат</span>
+                    </div>
+                </div>
+                ${unread > 0
+                    ? `<span class="unread-badge" aria-label="${unread} непрочитаних">${unread > 9 ? '9+' : unread}</span>`
+                    : '<span aria-hidden="true">💬</span>'}
+            `;
+            item.addEventListener('click', () => openChat(friend));
+            item.addEventListener('keypress', (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    openChat(friend);
+                }
+            });
+            container.appendChild(item);
+        });
+        attachAvatarFallbackHandlers(container);
+    }
+
+    function openChat(friendUsername) {
+        // Clear unread count for this friend and persist last-read position
+        gameState.unreadCounts[friendUsername] = 0;
+        const msgs = gameState.privateChatMessages[friendUsername] || [];
+        if (gameState.user) {
+            localStorage.setItem(getChatLastReadKey(friendUsername), String(msgs.length));
+        }
+        updateChatTabBadge();
+
+        gameState.currentChatFriend = friendUsername;
+        startChatRealtimeBridge(gameState.user, friendUsername);
+        setupChatListener(gameState.user, friendUsername);
+        document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
+        const chatView = document.getElementById('tab4-chat');
+        chatView.style.display = 'block';
+        chatView.classList.add('chat-view-active');
+        document.getElementById('chat-friend-name').textContent = formatUserLabel(friendUsername);
+        const nav = document.querySelector('nav');
+        if (nav) nav.style.display = 'none';
+
+        // Show online status in chat header
+        updateChatOnlineDot(gameState.friendsOnline[friendUsername] === true);
+
+        // Hide typing indicator when opening chat
+        const typingEl = document.getElementById('typing-indicator');
+        if (typingEl) typingEl.style.display = 'none';
+
+        // Setup typing listener for this friend
+        if (typeof setupTypingListener === 'function') {
+            setupTypingListener(gameState.user, friendUsername, (isTyping) => {
+                const el = document.getElementById('typing-indicator');
+                if (el) el.style.display = isTyping ? 'block' : 'none';
+            });
+        }
+
+        displayPrivateChat();
+    }
+
+    function backToFriendsList() {
+        // Clear typing indicator and listener
+        if (gameState.currentChatFriend && gameState.user) {
+            if (typeof clearTypingIndicator === 'function') {
+                clearTypingIndicator(gameState.user, gameState.currentChatFriend);
+            }
+            if (typeof removeTypingListener === 'function') {
+                removeTypingListener(gameState.user, gameState.currentChatFriend);
+            }
+        }
+        clearTimeout(typingTimeout);
+        typingTimeout = null;
+
+        stopChatRealtimeBridge();
+        gameState.currentChatFriend = null;
+        document.getElementById('private-msg-in').value = '';
+        const nav = document.querySelector('nav');
+        if (nav) nav.style.display = '';
+        document.getElementById('tab4-chat').classList.remove('chat-view-active');
+        switchTab(4);
+    }
+
+    function displayPrivateChat() {
+        const container = document.getElementById('private-chat-messages');
+        const raw = gameState.privateChatMessages[gameState.currentChatFriend];
+        const messages = normalizeChatMessages(raw);
+
+        // Mark all currently-visible messages as read
+        if (gameState.user && gameState.currentChatFriend) {
+            localStorage.setItem(getChatLastReadKey(gameState.currentChatFriend), String(messages.length));
+        }
+
+        if (messages.length === 0) {
+            container.innerHTML = '<div class="chat-empty">Напишіть перше повідомлення</div>';
+            return;
+        }
+
+        container.innerHTML = messages.map(msg => `
+            <div class="chat-row ${msg.from === gameState.user ? 'own' : 'other'}">
+                ${buildChatAvatarHtml(msg.from)}
+                <div class="chat-msg">
+                    <div class="chat-meta">
+                        <span>${escapeHtml(formatUserLabel(msg.from))}</span>
+                        <span>${escapeHtml(formatChatTimestamp(msg.timestamp))}</span>
+                    </div>
+                    <div class="chat-text">${escapeHtml(msg.text)}</div>
+                </div>
+            </div>
+        `).join('');
+        attachAvatarFallbackHandlers(container);
+
+        container.scrollTop = container.scrollHeight;
+    }
+
+    function handlePrivateChatKeypress(event) {
+        if (event.key === 'Enter') {
+            sendPrivateMsg();
+        }
+    }
+
+    function handleChatInput() {
+        if (!gameState.currentChatFriend || !gameState.user) return;
+        if (typeof sendTypingIndicator === 'function') {
+            sendTypingIndicator(gameState.user, gameState.currentChatFriend);
+        }
+        clearTimeout(typingTimeout);
+        typingTimeout = setTimeout(() => {
+            if (gameState.currentChatFriend && gameState.user && typeof clearTypingIndicator === 'function') {
+                clearTypingIndicator(gameState.user, gameState.currentChatFriend);
+            }
+        }, 3000);
+    }
+
+    async function sendPrivateMsg() {
+        const input = document.getElementById('private-msg-in');
+        const message = input.value.trim();
+
+        if (!message || !gameState.currentChatFriend) return;
+
+        // Clear typing on send
+        clearTimeout(typingTimeout);
+        typingTimeout = null;
+        if (typeof clearTypingIndicator === 'function') {
+            clearTypingIndicator(gameState.user, gameState.currentChatFriend);
+        }
+
+        const success = await sendPrivateMessageFirebase(gameState.user, gameState.currentChatFriend, message);
+        if (!success) {
+            alert('Не вдалося надіслати повідомлення');
+            return;
+        }
+
+        input.value = '';
+    }
+
+    function toggleFriendRequestActions(requester) {
+        gameState.expandedFriendRequest = gameState.expandedFriendRequest === requester ? null : requester;
+        updateFriendRequestsList();
+    }
+
+    async function acceptFriendRequest(requester) {
+        const success = await acceptFriendRequestFirebase(gameState.user, requester);
+        if (!success) {
+            alert('Не вдалося прийняти запит');
+            return;
+        }
+
+        gameState.friendRequests = gameState.friendRequests.filter(name => name !== requester);
+        gameState.friends = [...new Set([...gameState.friends, requester])];
+        gameState.expandedFriendRequest = null;
+        const requesterFriends = [...new Set([...(allUsers[requester]?.friends || []), gameState.user])];
+        updateCachedUser(gameState.user, { friends: gameState.friends, friendRequests: gameState.friendRequests });
+        updateCachedUser(requester, { friends: requesterFriends });
+
+        // Set up online listener for the new friend
+        if (typeof setupFriendOnlineListener === 'function') {
+            setupFriendOnlineListener(requester, (friendName, isOnline) => {
+                gameState.friendsOnline[friendName] = isOnline;
+                updateFriendsList();
+                if (gameState.currentChatFriend === friendName) {
+                    updateChatOnlineDot(isOnline);
+                }
+            });
+        }
+        // Set up chat listener for the new friend
+        if (typeof setupChatListener === 'function') {
+            setupChatListener(gameState.user, requester);
+        }
+
+        updateFriendRequestsList();
+        updateFriendsList();
+        showGameNotification(`✅ ${formatUserLabel(requester)} додано в друзі`);
+    }
+
+    async function rejectFriendRequest(requester) {
+        const success = await rejectFriendRequestFirebase(gameState.user, requester);
+        if (!success) {
+            alert('Не вдалося відхилити запит');
+            return;
+        }
+
+        gameState.friendRequests = gameState.friendRequests.filter(name => name !== requester);
+        gameState.expandedFriendRequest = null;
+        updateCachedUser(gameState.user, { friendRequests: gameState.friendRequests });
+        updateFriendRequestsList();
+        showGameNotification(`❌ Запит від ${formatUserLabel(requester)} відхилено`);
+    }
+
+    function showGameRequestModal(invite) {
+        const betFormatted = typeof invite.bet === 'number' ? invite.bet.toFixed(2) : invite.bet;
+        document.getElementById('ttt-request-text').innerHTML =
+            `<b style="color:var(--p);">${escapeHtml(formatUserLabel(invite.from))}</b> кидає вам виклик на ✊ КНП Online!<br>` +
+            `<span style="color:var(--gold); font-size:13px;">Ставка: <b>${escapeHtml(String(betFormatted))} BB</b></span>`;
+        document.getElementById('ttt-request-modal').style.display = 'block';
+    }
+
+    async function acceptGameRequest() {
+        document.getElementById('ttt-request-modal').style.display = 'none';
+        const invite = pendingGameRequest;
+        pendingGameRequest = null;
+        if (!invite) return;
+
+        if (invite.from === gameState.user) {
+            showGameNotification('❌ Не можна грати із собою!');
+            return;
+        }
+
+        showGameNotification('⏳ Прийняття виклику...');
+        const result = await acceptRpsInvitationFirebase(gameState.user, invite);
+        if (!result.success) {
+            showGameNotification(`❌ ${result.error || 'Не вдалося прийняти виклик'}`);
+            return;
+        }
+
+        // Activate the online match screen
+        switchTab(3);
+        switchCasinoTab('rps-online');
+        rpsOnlineStartMatch(result.matchId, 2); // This user is player2
+        showGameNotification('✅ Виклик прийнято! Зробіть свій вибір.');
+    }
+
+    async function rejectGameRequest() {
+        document.getElementById('ttt-request-modal').style.display = 'none';
+        const invite = pendingGameRequest;
+        pendingGameRequest = null;
+        if (!invite) return;
+        await rejectRpsInvitationFirebase(gameState.user, invite);
+        showGameNotification('❌ Виклик відхилено');
+    }
+
+    function openAvatarModal() {
+        const modal = document.getElementById('avatar-modal');
+        const gallery = document.getElementById('avatar-gallery');
+        gallery.innerHTML = '';
+        avatarGallery.forEach(avatar => {
+            const image = document.createElement('img');
+            image.src = avatar;
+            image.alt = 'avatar';
+            image.style.width = '60px';
+            image.style.height = '60px';
+            image.style.borderRadius = '50%';
+            image.style.cursor = 'pointer';
+            image.style.border = '2px solid #333';
+            image.style.transition = 'all 0.2s';
+            image.title = 'Select';
+            image.addEventListener('click', () => selectAvatar(avatar));
+            gallery.appendChild(image);
+        });
+        document.getElementById('avatar-file-input').value = '';
+        modal.classList.add('active');
+    }
+
+    async function selectAvatar(avatar) {
+        const success = await updateUserProfileFirebase(gameState.user, { avatar });
+        if (!success) {
+            alert('Не вдалося зберегти аватар');
+            return;
+        }
+
+        gameState.avatar = avatar;
+        updateCachedUser(gameState.user, { avatar });
+        updateHeader();
+        closeAvatarModal();
+        showGameNotification('🖼️ Аватар оновлено');
+    }
+
+    async function handleAvatarFileChange(event) {
+        const [file] = event.target.files || [];
+        if (!file) return;
+        if (!file.type.startsWith('image/')) {
+            alert('Оберіть файл зображення');
+            event.target.value = '';
+            return;
+        }
+        if (file.size > maxAvatarFileSize) {
+            alert(`Зображення має бути менше ${maxAvatarFileSizeMB} MB`);
+            event.target.value = '';
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = async () => {
+            const avatar = reader.result;
+            const success = await updateUserProfileFirebase(gameState.user, { avatar });
+            if (!success) {
+                alert('Не вдалося зберегти аватар');
+                event.target.value = '';
+                return;
+            }
+
+            gameState.avatar = avatar;
+            updateCachedUser(gameState.user, { avatar });
+            updateHeader();
+            closeAvatarModal();
+            showGameNotification('🖼️ Аватар із галереї збережено');
+            event.target.value = '';
+        };
+        reader.readAsDataURL(file);
+    }
+
+    async function saveDisplayName() {
+        const displayNameInput = document.getElementById('settings-display-name');
+        const nextDisplayName = displayNameInput.value.trim();
+
+        if (!nextDisplayName) {
+            alert('Введіть імʼя');
+            return;
+        }
+        if (nextDisplayName.length > maxDisplayNameLength) {
+            alert(`Імʼя має бути до ${maxDisplayNameLength} символів`);
+            return;
+        }
+
+        const success = await updateUserProfileFirebase(gameState.user, { displayName: nextDisplayName });
+        if (!success) {
+            alert('Не вдалося зберегти імʼя');
+            return;
+        }
+
+        gameState.displayName = nextDisplayName;
+        updateCachedUser(gameState.user, { displayName: nextDisplayName });
+        updateHeader();
+        updateFriendRequestsList();
+        updateFriendsList();
+        showGameNotification('✅ Імʼя оновлено');
+    }
+
+    async function changePassword() {
+        const currentPassword = document.getElementById('settings-current-password').value;
+        const newPassword = document.getElementById('settings-new-password').value;
+        const confirmPassword = document.getElementById('settings-confirm-password').value;
+
+        if (!currentPassword || !newPassword || !confirmPassword) {
+            alert('Заповніть усі поля пароля');
+            return;
+        }
+        if (newPassword.length < minPasswordLength) {
+            alert(`Новий пароль має містити мінімум ${minPasswordLength} символи`);
+            return;
+        }
+        if (newPassword !== confirmPassword) {
+            alert('Нові паролі не співпадають');
+            return;
+        }
+
+        const currentUserData = await loadUserFromFirebase(gameState.user);
+        if (!currentUserData || currentUserData.password !== currentPassword) {
+            alert('Поточний пароль неправильний');
+            return;
+        }
+
+        const success = await updateUserPasswordFirebase(gameState.user, newPassword);
+        if (!success) {
+            alert('Не вдалося оновити пароль');
+            return;
+        }
+
+        document.getElementById('settings-current-password').value = '';
+        document.getElementById('settings-new-password').value = '';
+        document.getElementById('settings-confirm-password').value = '';
+        showGameNotification('🔒 Пароль оновлено');
+    }
+
+    function closeAvatarModal() {
+        document.getElementById('avatar-modal').classList.remove('active');
+    }
+
+    // ===== КАМІНЬ НОЖИЦІ ПАПІР (КНП) — PvP =====
+
+    // Відповідності: символи, назви та правила перемоги
+    const RPS_ICONS = { rock: '✊', scissors: '✌️', paper: '🖐️' };
+    const RPS_NAMES = { rock: 'КАМІНЬ', scissors: 'НОЖИЦІ', paper: 'ПАПІР' };
+
+    // Повертає: 1 (c1 виграє), -1 (c2 виграє), 0 (нічия), null (обидва не вибрали)
+    function rpsWinner(c1, c2) {
+        if (!c1 && !c2) return 0; // обидва не встигли — нічия
+        if (!c1) return -1;       // гравець 1 не встиг — програш
+        if (!c2) return 1;        // гравець 2 не встиг — програш
+        if (c1 === c2) return 0;
+        if ((c1==='rock'&&c2==='scissors') || (c1==='scissors'&&c2==='paper') || (c1==='paper'&&c2==='rock')) return 1;
+        return -1;
+    }
+
+    // Стан КНП гри (локальні гравці, незалежно від Firebase балансу)
+    let rpsGame = {
+        p1Name: 'Гравець 1',
+        p2Name: 'Гравець 2',
+        p1Bal: 100,
+        p2Bal: 100,
+        bet1: 0,
+        bet2: 0,
+        bet1Ok: false,
+        bet2Ok: false,
+        round: 1,
+        c1: null,
+        c2: null,
+        phase: 'betting', // betting | p1choose | handoff | p2choose | reveal
+        timer: null,
+        countdown: 3,
+        currentPlayer: 1  // чий хід (1 або 2)
+    };
+
+    function rpsLoadSaved() {
+        const saved = localStorage.getItem('rpsGame');
+        if (!saved) return;
+        try {
+            const d = JSON.parse(saved);
+            rpsGame.p1Name = d.p1Name || 'Гравець 1';
+            rpsGame.p2Name = d.p2Name || 'Гравець 2';
+            rpsGame.p1Bal = typeof d.p1Bal === 'number' ? d.p1Bal : 100;
+            rpsGame.p2Bal = typeof d.p2Bal === 'number' ? d.p2Bal : 100;
+        } catch(e) {}
+    }
+
+    function rpsSaveBalances() {
+        localStorage.setItem('rpsGame', JSON.stringify({
+            p1Name: rpsGame.p1Name,
+            p2Name: rpsGame.p2Name,
+            p1Bal: rpsGame.p1Bal,
+            p2Bal: rpsGame.p2Bal
+        }));
+    }
+
+    function rpsInit() {
+        rpsLoadSaved();
+        rpsShowPhase('betting');
+        rpsRenderBetting();
+    }
+
+    function rpsRenderBetting() {
+        document.getElementById('rps-p1-name-lbl').textContent = rpsGame.p1Name;
+        document.getElementById('rps-p2-name-lbl').textContent = rpsGame.p2Name;
+        document.getElementById('rps-p1-bal').textContent = rpsGame.p1Bal.toFixed(2);
+        document.getElementById('rps-p2-bal').textContent = rpsGame.p2Bal.toFixed(2);
+
+        const btn1 = document.getElementById('rps-confirm1-btn');
+        const in1  = document.getElementById('rps-bet1');
+        if (rpsGame.bet1Ok) {
+            btn1.textContent = `✅ СТАВКА ${rpsGame.bet1} — OK`;
+            btn1.style.cssText = 'margin-top:8px;padding:10px;background:rgba(0,255,136,0.1);color:var(--g);border:1px solid var(--g);';
+            btn1.disabled = true;
+            in1.disabled = true;
+        } else {
+            btn1.textContent = '✓ ПІДТВЕРДИТИ';
+            btn1.style.cssText = 'margin-top:8px;padding:10px;';
+            btn1.disabled = false;
+            in1.disabled = false;
+        }
+
+        const btn2 = document.getElementById('rps-confirm2-btn');
+        const in2  = document.getElementById('rps-bet2');
+        if (rpsGame.bet2Ok) {
+            btn2.textContent = `✅ СТАВКА ${rpsGame.bet2} — OK`;
+            btn2.style.cssText = 'margin-top:8px;padding:10px;background:rgba(0,255,136,0.1);color:var(--g);border:1px solid var(--g);';
+            btn2.disabled = true;
+            in2.disabled = true;
+        } else {
+            btn2.textContent = '✓ ПІДТВЕРДИТИ';
+            btn2.style.cssText = 'margin-top:8px;padding:10px;background:#1a1a1a;border:2px solid var(--r);color:var(--r);';
+            btn2.disabled = false;
+            in2.disabled = false;
+        }
+
+        const startBtn = document.getElementById('rps-start-btn');
+        if (rpsGame.bet1Ok && rpsGame.bet2Ok) {
+            startBtn.disabled = false;
+            startBtn.style.cssText = '';
+        } else {
+            startBtn.disabled = true;
+            startBtn.style.cssText = 'background:#222;color:#555;cursor:not-allowed;';
+        }
+
+        const pot = (rpsGame.bet1Ok ? rpsGame.bet1 : 0) + (rpsGame.bet2Ok ? rpsGame.bet2 : 0);
+        const potEl = document.getElementById('rps-pot-display');
+        potEl.textContent = (rpsGame.bet1Ok || rpsGame.bet2Ok) ? `🏆 Банк: ${pot.toFixed(2)}` : '';
+    }
+
+    function rpsConfirmBet(player) {
+        const input = document.getElementById(`rps-bet${player}`);
+        const amount = parseFloat(input.value);
+        const bal = player === 1 ? rpsGame.p1Bal : rpsGame.p2Bal;
+
+        if (!amount || isNaN(amount) || amount <= 0) {
+            showGameNotification('❌ Введіть коректну ставку!');
+            return;
+        }
+        if (amount > bal) {
+            showGameNotification(`❌ Гравець ${player}: недостатньо коштів!`);
+            return;
+        }
+
+        if (player === 1) { rpsGame.bet1 = amount; rpsGame.bet1Ok = true; }
+        else               { rpsGame.bet2 = amount; rpsGame.bet2Ok = true; }
+        rpsRenderBetting();
+    }
+
+    function rpsShowPhase(phase) {
+        rpsGame.phase = phase;
+        document.getElementById('rps-phase-betting').style.display  = phase === 'betting'  ? 'block' : 'none';
+        document.getElementById('rps-phase-choose').style.display   = (phase === 'p1choose' || phase === 'p2choose') ? 'block' : 'none';
+        document.getElementById('rps-phase-handoff').style.display  = phase === 'handoff'  ? 'block' : 'none';
+        document.getElementById('rps-phase-reveal').style.display   = phase === 'reveal'   ? 'block' : 'none';
+
+        if (phase === 'p1choose' || phase === 'p2choose') {
+            const pNum  = phase === 'p1choose' ? 1 : 2;
+            const pName = pNum === 1 ? rpsGame.p1Name : rpsGame.p2Name;
+            document.getElementById('rps-round-label').textContent = `РАУНД ${rpsGame.round}`;
+            document.getElementById('rps-turn-label').textContent  = `ХІД: ${pName}`;
+            document.getElementById('rps-countdown').textContent   = '3';
+            // Активувати кнопки вибору
+            document.querySelectorAll('.rps-choice-btn').forEach(b => { b.disabled = false; });
+        }
+
+        if (phase === 'handoff') {
+            document.getElementById('rps-handoff-msg').textContent =
+                `Передайте пристрій ${rpsGame.p2Name}!`;
+        }
+
+        if (phase === 'reveal') {
+            const c1 = rpsGame.c1;
+            const c2 = rpsGame.c2;
+            document.getElementById('rps-reveal-round').textContent   = `РАУНД ${rpsGame.round} — РЕЗУЛЬТАТ`;
+            document.getElementById('rps-p1-reveal-icon').textContent = c1 ? RPS_ICONS[c1]  : '❓';
+            document.getElementById('rps-p2-reveal-icon').textContent = c2 ? RPS_ICONS[c2]  : '❓';
+            document.getElementById('rps-p1-reveal-name').textContent = rpsGame.p1Name;
+            document.getElementById('rps-p2-reveal-name').textContent = rpsGame.p2Name;
+            document.getElementById('rps-p1-reveal-choice').textContent = c1 ? RPS_NAMES[c1] : '(не вибрав)';
+            document.getElementById('rps-p2-reveal-choice').textContent = c2 ? RPS_NAMES[c2] : '(не вибрав)';
+
+            const result  = rpsWinner(c1, c2);
+            const resultDiv = document.getElementById('rps-round-result');
+            const nextBtn   = document.getElementById('rps-next-btn');
+            const finBtn    = document.getElementById('rps-finish-btn');
+            nextBtn.style.display = 'none';
+            finBtn.style.display  = 'none';
+
+            const pot = rpsGame.bet1 + rpsGame.bet2;
+            if (result === 0) {
+                // Нічия — наступний раунд
+                const nextRound = rpsGame.round + 1;
+                resultDiv.textContent = `🤝 НІЧИЯ! Починається Раунд ${nextRound}...`;
+                resultDiv.style.cssText = 'background:rgba(255,204,0,0.1);color:var(--gold);padding:12px;border-radius:8px;margin:10px 0;font-size:13px;font-weight:900;';
+                nextBtn.style.display = 'block';
+            } else {
+                const winName = result === 1 ? rpsGame.p1Name : rpsGame.p2Name;
+                resultDiv.textContent = `🏆 ${winName} ПЕРЕМАГАЄ! +${pot.toFixed(2)}`;
+                resultDiv.style.cssText = 'background:rgba(0,255,136,0.1);color:var(--g);padding:12px;border-radius:8px;margin:10px 0;font-size:13px;font-weight:900;';
+                finBtn.style.display = 'block';
+            }
+        }
+    }
+
+    function rpsStartRound() {
+        if (!rpsGame.bet1Ok || !rpsGame.bet2Ok) return;
+        rpsGame.c1 = null;
+        rpsGame.c2 = null;
+        rpsGame.currentPlayer = 1;
+        rpsShowPhase('p1choose');
+        rpsStartCountdown(1);
+    }
+
+    function rpsStartCountdown(player) {
+        rpsGame.countdown = 3;
+        clearInterval(rpsGame.timer);
+        const el = document.getElementById('rps-countdown');
+        el.textContent = '3';
+        el.style.color = 'var(--r)';
+
+        rpsGame.timer = setInterval(() => {
+            rpsGame.countdown--;
+            if (rpsGame.countdown > 0) {
+                el.textContent = rpsGame.countdown;
+            } else {
+                // Час вийшов
+                clearInterval(rpsGame.timer);
+                el.textContent = '⏱️';
+                // Заблокувати кнопки вибору
+                document.querySelectorAll('.rps-choice-btn').forEach(b => { b.disabled = true; });
+
+                if (player === 1) {
+                    rpsGame.c1 = null; // не вибрав
+                    rpsShowPhase('handoff');
+                } else {
+                    rpsGame.c2 = null; // не вибрав
+                    rpsShowPhase('reveal');
+                }
+            }
+        }, 1000);
+    }
+
+    function rpsChoose(choice) {
+        if (rpsGame.phase !== 'p1choose' && rpsGame.phase !== 'p2choose') return;
+        clearInterval(rpsGame.timer);
+        // Заблокувати кнопки від повторного вибору
+        document.querySelectorAll('.rps-choice-btn').forEach(b => { b.disabled = true; });
+
+        if (rpsGame.phase === 'p1choose') {
+            rpsGame.c1 = choice;
+            rpsShowPhase('handoff');
+        } else {
+            rpsGame.c2 = choice;
+            rpsShowPhase('reveal');
+        }
+    }
+
+    function rpsHandoffReady() {
+        // Передача пристрою Гравцю 2
+        rpsGame.currentPlayer = 2;
+        rpsShowPhase('p2choose');
+        rpsStartCountdown(2);
+    }
+
+    function rpsNextRound() {
+        // Нічия — починаємо наступний раунд (ставки залишаються)
+        rpsGame.round++;
+        rpsGame.c1 = null;
+        rpsGame.c2 = null;
+        rpsGame.currentPlayer = 1;
+        rpsShowPhase('p1choose');
+        rpsStartCountdown(1);
+    }
+
+    function rpsFinish() {
+        // Визначити переможця та оновити баланси
+        const result = rpsWinner(rpsGame.c1, rpsGame.c2);
+        const pot = rpsGame.bet1 + rpsGame.bet2;
+
+        if (result === 1) {
+            // Гравець 1 виграє — забирає банк
+            rpsGame.p1Bal = parseFloat((rpsGame.p1Bal - rpsGame.bet1 + pot).toFixed(2));
+            rpsGame.p2Bal = parseFloat((rpsGame.p2Bal - rpsGame.bet2).toFixed(2));
+        } else if (result === -1) {
+            // Гравець 2 виграє — забирає банк
+            rpsGame.p2Bal = parseFloat((rpsGame.p2Bal - rpsGame.bet2 + pot).toFixed(2));
+            rpsGame.p1Bal = parseFloat((rpsGame.p1Bal - rpsGame.bet1).toFixed(2));
+        }
+
+        rpsSaveBalances();
+        rpsReset(false); // Повернутись до ставок, зберігаючи баланс
+    }
+
+    function rpsReset(fullReset) {
+        clearInterval(rpsGame.timer);
+        rpsGame.bet1   = 0;
+        rpsGame.bet2   = 0;
+        rpsGame.bet1Ok = false;
+        rpsGame.bet2Ok = false;
+        rpsGame.round  = 1;
+        rpsGame.c1     = null;
+        rpsGame.c2     = null;
+        rpsGame.phase  = 'betting';
+        rpsGame.countdown = 3;
+        rpsGame.currentPlayer = 1;
+
+        if (fullReset) {
+            // Повне скидання: відновити початковий баланс
+            rpsGame.p1Bal = 100;
+            rpsGame.p2Bal = 100;
+            rpsSaveBalances();
+        }
+
+        document.getElementById('rps-bet1').value = '';
+        document.getElementById('rps-bet2').value = '';
+        document.getElementById('rps-bet1').disabled = false;
+        document.getElementById('rps-bet2').disabled = false;
+        rpsShowPhase('betting');
+        rpsRenderBetting();
+    }
+
+    // ===== КНП ONLINE (2 пристрої, Firebase) =====
+
+    let rpsOnlineState = {
+        matchId: null,
+        playerNum: null,    // 1 or 2
+        matchListener: null,
+        outgoingListener: null,
+        myChoice: null,
+        matchData: null
+    };
+
+    function rpsOnlineRefreshLobby() {
+        // Update balance display
+        if (gameState.user) {
+            document.getElementById('rps-online-my-balance').textContent = gameState.balance.toFixed(2);
+        }
+        // If there is an active match, show match screen instead
+        if (rpsOnlineState.matchId && rpsOnlineState.matchData && rpsOnlineState.matchData.status !== 'completed') {
+            rpsOnlineShowMatchScreen();
+        } else if (!rpsOnlineState.matchId) {
+            rpsOnlineShowLobby();
+        }
+    }
+
+    function rpsOnlineShowLobby() {
+        document.getElementById('rps-online-lobby').style.display = 'block';
+        document.getElementById('rps-online-match').style.display = 'none';
+    }
+
+    function rpsOnlineShowMatchScreen() {
+        document.getElementById('rps-online-lobby').style.display = 'none';
+        document.getElementById('rps-online-match').style.display = 'block';
+    }
+
+    function rpsOnlineSearchOpponent() {
+        const input = document.getElementById('rps-online-opponent').value.trim();
+        const resultsDiv = document.getElementById('rps-online-search-results');
+        if (!input) {
+            resultsDiv.style.display = 'none';
+            return;
+        }
+        const results = Object.keys(allUsers).filter(u =>
+            u.toLowerCase().includes(input.toLowerCase()) &&
+            u !== gameState.user &&
+            gameState.friends.includes(u)
+        );
+        if (results.length === 0) {
+            resultsDiv.style.display = 'none';
+            return;
+        }
+        resultsDiv.innerHTML = results.map(u =>
+            `<div class="user-result" onclick="rpsOnlineSelectOpponent('${escapeHtml(u)}')">${escapeHtml(formatUserLabel(u))}</div>`
+        ).join('');
+        resultsDiv.style.display = 'block';
+    }
+
+    function rpsOnlineSelectOpponent(username) {
+        document.getElementById('rps-online-opponent').value = username;
+        document.getElementById('rps-online-search-results').style.display = 'none';
+    }
+
+    async function rpsOnlineSendInvite() {
+        if (!gameState.user) return;
+        const opponent = document.getElementById('rps-online-opponent').value.trim();
+        const bet = parseFloat(document.getElementById('rps-online-bet').value);
+
+        if (!opponent) {
+            showGameNotification('❌ Введіть логін суперника!');
+            return;
+        }
+        if (opponent === gameState.user) {
+            showGameNotification('❌ Не можна грати із собою!');
+            return;
+        }
+        if (!gameState.friends.includes(opponent)) {
+            showGameNotification('❌ Можна грати лише з друзями!');
+            return;
+        }
+        if (!bet || isNaN(bet) || bet <= 0) {
+            showGameNotification('❌ Введіть коректну ставку!');
+            return;
+        }
+        if (bet > gameState.balance) {
+            showGameNotification('❌ Недостатньо BB для ставки!');
+            return;
+        }
+
+        showGameNotification('⏳ Надсилання виклику...');
+        const result = await sendRpsInvitationFirebase(gameState.user, opponent, bet);
+        if (!result.success) {
+            showGameNotification('❌ Не вдалося надіслати виклик');
+            return;
+        }
+
+        // Show waiting UI
+        document.getElementById('rps-online-waiting').style.display = 'block';
+        document.getElementById('rps-online-waiting-msg').textContent = 'Виклик надіслано!';
+        document.getElementById('rps-online-waiting-sub').textContent = `Очікуємо відповідь від ${formatUserLabel(opponent)}...`;
+
+        // Listen for the match being created (when opponent accepts)
+        rpsOnlineState.outgoingListener = setupRpsOutgoingInviteListener(gameState.user, (inviteData) => {
+            if (!inviteData) return;
+            if (inviteData.status === 'accepted' && inviteData.matchId) {
+                rpsOnlineStartMatch(inviteData.matchId, 1); // This user is player1
+                showGameNotification('✅ Суперник прийняв виклик! Зробіть вибір.');
+            } else if (inviteData.status === 'rejected') {
+                document.getElementById('rps-online-waiting').style.display = 'none';
+                showGameNotification('❌ Суперник відхилив виклик');
+                rpsOnlineClearOutgoingListener();
+            }
+        });
+    }
+
+    function rpsOnlineClearOutgoingListener() {
+        // Listener is managed by firebase-sync; just detach if needed
+        rpsOnlineState.outgoingListener = null;
+    }
+
+    async function rpsOnlineCancelInvite() {
+        document.getElementById('rps-online-waiting').style.display = 'none';
+        rpsOnlineClearOutgoingListener();
+        // Mark invite as cancelled in Firebase
+        if (gameState.user) {
+            try {
+                const db = firebase.database();
+                await db.ref(`users/${gameState.user}/outgoingRpsInvite`).remove();
+            } catch (_e) {}
+        }
+        showGameNotification('↺ Виклик скасовано');
+    }
+
+    function rpsOnlineStartMatch(matchId, playerNum) {
+        rpsOnlineState.matchId = matchId;
+        rpsOnlineState.playerNum = playerNum;
+        rpsOnlineState.myChoice = null;
+
+        // Hide waiting, hide lobby, show match
+        document.getElementById('rps-online-waiting').style.display = 'none';
+        rpsOnlineShowMatchScreen();
+
+        // Set up match listener
+        setupRpsMatchListener(matchId, (matchData) => {
+            rpsOnlineState.matchData = matchData;
+            rpsOnlineRenderMatch(matchData);
+        });
+    }
+
+    function rpsOnlineRenderMatch(match) {
+        if (!match) return;
+
+        const pNum = rpsOnlineState.playerNum;
+        const myKey = pNum === 1 ? 'player1' : 'player2';
+        const oppKey = pNum === 1 ? 'player2' : 'player1';
+        const myChoiceField = pNum === 1 ? 'choice1' : 'choice2';
+        const oppChoiceField = pNum === 1 ? 'choice2' : 'choice1';
+
+        document.getElementById('rps-online-match-header').textContent = `МАТЧ — СТАВКА: ${(match.bet || 0).toFixed(2)} BB`;
+        document.getElementById('rps-online-bet-display').textContent = `🏆 Банк: ${((match.bet || 0) * 2).toFixed(2)} BB`;
+
+        document.getElementById('rps-online-p1-name').textContent = escapeHtml(formatUserLabel(match.player1 || ''));
+        document.getElementById('rps-online-p2-name').textContent = escapeHtml(formatUserLabel(match.player2 || ''));
+
+        const chooseSection = document.getElementById('rps-online-choose-section');
+        const waitingChoice = document.getElementById('rps-online-waiting-choice');
+        const resultSection = document.getElementById('rps-online-result-section');
+
+        if (match.status === 'completed') {
+            // Show result
+            chooseSection.style.display = 'none';
+            resultSection.style.display = 'block';
+
+            const myChoiceVal = match[myChoiceField];
+            const oppChoiceVal = match[oppChoiceField];
+            const winnerField = match.winner; // 'player1', 'player2', 'draw'
+            const myPlayerField = `player${pNum}`;
+
+            document.getElementById('rps-online-p1-icon').textContent = RPS_ICONS[match.choice1] || '❓';
+            document.getElementById('rps-online-p2-icon').textContent = RPS_ICONS[match.choice2] || '❓';
+            document.getElementById('rps-online-p1-status').textContent = match.choice1 ? RPS_NAMES[match.choice1] : '';
+            document.getElementById('rps-online-p2-status').textContent = match.choice2 ? RPS_NAMES[match.choice2] : '';
+
+            const resultMsg = document.getElementById('rps-online-result-msg');
+            if (winnerField === 'draw') {
+                resultMsg.textContent = `🤝 НІЧИЯ! Ставки повернені`;
+                resultMsg.className = 'rps-online-result draw';
+            } else if (winnerField === myPlayerField) {
+                resultMsg.textContent = `🏆 ВИ ПЕРЕМОГЛИ! +${(match.bet * 2).toFixed(2)} BB`;
+                resultMsg.className = 'rps-online-result win';
+            } else {
+                resultMsg.textContent = `😢 ПРОГРАШ. -${(match.bet || 0).toFixed(2)} BB`;
+                resultMsg.className = 'rps-online-result lose';
+            }
+
+        } else {
+            // Active match - show choose section
+            resultSection.style.display = 'none';
+            chooseSection.style.display = 'block';
+
+            const myChoice = match[myChoiceField];
+            const oppChoice = match[oppChoiceField];
+
+            if (myChoice) {
+                // Already chose - show waiting message, disable buttons
+                document.querySelectorAll('.rps-online-choice-btn').forEach(b => { b.disabled = true; });
+                const btnId = `rps-btn-${myChoice}`;
+                const btn = document.getElementById(btnId);
+                if (btn) btn.classList.add('selected');
+                waitingChoice.style.display = 'block';
+                waitingChoice.textContent = `Ви вибрали ${RPS_NAMES[myChoice]} — очікуємо суперника...`;
+                document.getElementById('rps-online-p1-icon').textContent = pNum === 1 ? RPS_ICONS[myChoice] : '❓';
+                document.getElementById('rps-online-p2-icon').textContent = pNum === 2 ? RPS_ICONS[myChoice] : '❓';
+            } else {
+                document.querySelectorAll('.rps-online-choice-btn').forEach(b => { b.disabled = false; b.classList.remove('selected'); });
+                waitingChoice.style.display = 'none';
+                document.getElementById('rps-online-p1-icon').textContent = '❓';
+                document.getElementById('rps-online-p2-icon').textContent = '❓';
+            }
+
+            document.getElementById('rps-online-p1-status').textContent = match.choice1 ? '✅ Вибрав' : '⏳ Очікує...';
+            document.getElementById('rps-online-p2-status').textContent = match.choice2 ? '✅ Вибрав' : '⏳ Очікує...';
+        }
+    }
+
+    async function rpsOnlineMakeChoice(choice) {
+        if (!rpsOnlineState.matchId) return;
+        if (rpsOnlineState.myChoice) return; // already chose
+
+        const matchData = rpsOnlineState.matchData;
+        if (!matchData || matchData.status !== 'active') return;
+
+        // Validate not already completed
+        const myChoiceField = rpsOnlineState.playerNum === 1 ? 'choice1' : 'choice2';
+        if (matchData[myChoiceField]) return;
+
+        rpsOnlineState.myChoice = choice;
+
+        // Disable buttons immediately
+        document.querySelectorAll('.rps-online-choice-btn').forEach(b => { b.disabled = true; });
+        const btn = document.getElementById(`rps-btn-${choice}`);
+        if (btn) btn.classList.add('selected');
+        document.getElementById('rps-online-waiting-choice').style.display = 'block';
+        document.getElementById('rps-online-waiting-choice').textContent = `Ви вибрали ${RPS_NAMES[choice]} — очікуємо суперника...`;
+
+        await submitRpsChoiceFirebase(rpsOnlineState.matchId, rpsOnlineState.playerNum, choice);
+    }
+
+    async function rpsOnlineCloseMatch() {
+        // Clean up active match tracking in Firebase
+        if (gameState.user) {
+            try {
+                const db = firebase.database();
+                await db.ref(`users/${gameState.user}/activeRpsMatchId`).remove();
+                await db.ref(`users/${gameState.user}/outgoingRpsInvite`).remove();
+            } catch (_e) {}
+        }
+        // Remove match listener
+        if (rpsOnlineState.matchId && typeof firebase !== 'undefined') {
+            try {
+                const db = firebase.database();
+                db.ref(`rpsMatches/${rpsOnlineState.matchId}`).off();
+            } catch (_e) {}
+        }
+        rpsOnlineState.matchId = null;
+        rpsOnlineState.playerNum = null;
+        rpsOnlineState.myChoice = null;
+        rpsOnlineState.matchData = null;
+        document.getElementById('rps-online-match').style.display = 'none';
+        document.getElementById('rps-online-lobby').style.display = 'block';
+        document.getElementById('rps-online-waiting').style.display = 'none';
+        document.getElementById('rps-online-opponent').value = '';
+        document.getElementById('rps-online-bet').value = '';
+    }
+
+    function switchCasinoTab(type) {
+        document.getElementById('casino-roulette').style.display = type === 'roulette' ? 'block' : 'none';
+        document.getElementById('casino-rps').style.display      = type === 'rps'      ? 'block' : 'none';
+        document.getElementById('casino-rps-online').style.display = type === 'rps-online' ? 'block' : 'none';
+        document.getElementById('cs-roulette').classList.toggle('active', type === 'roulette');
+        document.getElementById('cs-rps').classList.toggle('active', type === 'rps');
+        document.getElementById('cs-rps-online').classList.toggle('active', type === 'rps-online');
+        // При переключенні від КНП — зупинити таймер
+        if (type === 'roulette') clearInterval(rpsGame.timer);
+        if (type === 'rps-online') rpsOnlineRefreshLobby();
+    }
+
+    // ===== МАГАЗИН =====
+
+    const shopCatalog = [
+        // Рамки для аватара
+        { id: 'frame_gold',   name: 'Золота рамка',      cat: 'frames',     price: 7,  icon: '🟡', desc: 'Розкішна золота рамка', shadow: '0 0 0 3px #ffcc00, 0 0 10px rgba(255,204,0,0.5)' },
+        { id: 'frame_neon',   name: 'Неонова рамка',     cat: 'frames',     price: 3,  icon: '🟢', desc: 'Яскрава зелена рамка',  shadow: '0 0 0 3px #00ff88, 0 0 10px rgba(0,255,136,0.5)' },
+        { id: 'frame_red',    name: 'Червона рамка',     cat: 'frames',     price: 2,  icon: '🔴', desc: 'Вогняно-червона рамка', shadow: '0 0 0 3px #ff3366, 0 0 10px rgba(255,51,102,0.5)' },
+        { id: 'frame_cyan',   name: 'Кіберпанк рамка',   cat: 'frames',     price: 9,  icon: '💠', desc: 'Стиль кіберпанк',       shadow: '0 0 0 3px #07FFFF, 0 0 14px rgba(7,255,255,0.6)' },
+        // Шпалери / фони головного екрану
+        { id: 'bg_space',     name: 'Космос',            cat: 'wallpapers', price: 4,  icon: '🌌', desc: 'Зоряне тло',    bg: 'radial-gradient(ellipse at 50% 100%, #1b2735 0%, #090a0f 100%)' },
+        { id: 'bg_neon',      name: 'Неоновий Мегаполіс', cat: 'wallpapers', price: 6, icon: '🌃', desc: 'Нічне місто',   bg: 'linear-gradient(180deg, #0a0015 0%, #1a0030 50%, #000510 100%)' },
+        { id: 'bg_purple',    name: 'Фіолетова галактика', cat: 'wallpapers', price: 5, icon: '💜', desc: 'Галактика',     bg: 'linear-gradient(135deg, #1a0030 0%, #0d001a 50%, #050010 100%)' },
+        { id: 'bg_matrix',    name: 'Матриця',           cat: 'wallpapers', price: 8,  icon: '💻', desc: 'Зелений код',   bg: 'linear-gradient(180deg, #000b00 0%, #001a00 50%, #000500 100%)' },
+        // Різне
+        { id: 'badge_vip',    name: 'VIP Значок',        cat: 'misc',       price: 10, icon: '👑', desc: 'Покажи свій VIP-статус' },
+        { id: 'title_boss',   name: 'Титул "КРИПТО БОС"', cat: 'misc',      price: 8,  icon: '💎', desc: 'Ексклюзивний титул' },
+        { id: 'effect_spark', name: 'Золоті іскри',      cat: 'misc',       price: 10, icon: '✨', desc: 'Анімовані частинки' },
+    ];
+
+    // Стан магазину (зберігається в localStorage per user)
+    let shopState = {
+        owned: [],
+        equippedFrame: null,
+        equippedWallpaper: null,
+        activeCat: 'frames'
+    };
+
+    function shopLoad() {
+        if (!gameState.user) return;
+        const saved = localStorage.getItem('shop_' + gameState.user);
+        if (saved) {
+            try {
+                const d = JSON.parse(saved);
+                shopState.owned          = Array.isArray(d.owned) ? d.owned : [];
+                shopState.equippedFrame  = d.equippedFrame  || null;
+                shopState.equippedWallpaper = d.equippedWallpaper || null;
+            } catch(e) {}
+        }
+        shopApplyEquipped();
+    }
+
+    function shopSave() {
+        if (!gameState.user) return;
+        localStorage.setItem('shop_' + gameState.user, JSON.stringify({
+            owned:            shopState.owned,
+            equippedFrame:    shopState.equippedFrame,
+            equippedWallpaper: shopState.equippedWallpaper
+        }));
+    }
+
+    function shopApplyEquipped() {
+        // Застосувати рамку до аватара
+        const avatarEl = document.getElementById('h-a');
+        if (avatarEl) {
+            const frameItem = shopState.equippedFrame
+                ? shopCatalog.find(i => i.id === shopState.equippedFrame)
+                : null;
+            avatarEl.style.boxShadow = frameItem ? frameItem.shadow : '';
+        }
+
+        // Застосувати шпалери до головного екрану
+        const mainEl = document.getElementById('main-scr');
+        if (mainEl) {
+            const bgItem = shopState.equippedWallpaper
+                ? shopCatalog.find(i => i.id === shopState.equippedWallpaper)
+                : null;
+            mainEl.style.background = bgItem ? bgItem.bg : '';
+        }
+    }
+
+    function shopSwitchCat(cat) {
+        shopState.activeCat = cat;
+        // Use data-cat attribute for reliable category matching
+        document.querySelectorAll('.shop-cat-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.cat === cat);
+        });
+        shopRender();
+    }
+
+    function shopRender() {
+        // Оновити відображення балансу
+        document.getElementById('shop-balance').textContent = (gameState.balance || 0).toFixed(4);
+
+        const grid  = document.getElementById('shop-grid');
+        const items = shopCatalog.filter(i => i.cat === shopState.activeCat);
+
+        grid.innerHTML = items.map(item => {
+            const owned    = shopState.owned.includes(item.id);
+            const equipped = shopState.equippedFrame === item.id || shopState.equippedWallpaper === item.id;
+            const canBuy   = !owned && (gameState.balance || 0) >= item.price;
+
+            let btnClass = 'shop-item-btn';
+            let btnText  = `🛒 ${item.price} BB`;
+            let btnDisabled = '';
+
+            if (owned && equipped) {
+                btnClass = 'shop-item-btn equipped-btn';
+                btnText  = '✅ ОСНАЩЕНО';
+            } else if (owned && item.cat !== 'misc') {
+                btnClass = 'shop-item-btn equip-btn';
+                btnText  = '👉 ОСНАСТИТИ';
+            } else if (owned) {
+                btnClass = 'shop-item-btn owned-misc-btn';
+                btnText  = '✅ КУПЛЕНО';
+                btnDisabled = 'disabled';
+            } else if (!canBuy) {
+                btnDisabled = 'disabled';
+            }
+
+            return `
+                <div class="shop-item ${owned ? 'owned' : ''} ${equipped ? 'equipped' : ''}">
+                    <div class="shop-item-preview">${item.icon}</div>
+                    <div class="shop-item-name">${escapeHtml(item.name)}</div>
+                    <div class="shop-item-price">${owned ? '✓ У вас є' : item.price + ' BB'}</div>
+                    <button class="${btnClass}" onclick="shopAction('${item.id}')" ${btnDisabled}>${btnText}</button>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function shopAction(itemId) {
+        const item  = shopCatalog.find(i => i.id === itemId);
+        if (!item) return;
+
+        const owned = shopState.owned.includes(itemId);
+
+        if (!owned) {
+            // Покупка
+            if ((gameState.balance || 0) < item.price) {
+                showGameNotification('❌ Недостатньо BB для купівлі!');
+                return;
+            }
+            gameState.balance -= item.price;
+            shopState.owned.push(itemId);
+            updateHeader();
+            // Зберегти новий баланс у Firebase
+            updateMiningBalanceFirebase(gameState.user, gameState.balance);
+            showGameNotification(`✅ ${item.name} — куплено!`);
+        } else if (item.cat === 'frames') {
+            // Перемкнути рамку
+            shopState.equippedFrame = (shopState.equippedFrame === itemId) ? null : itemId;
+            const msg = shopState.equippedFrame === itemId ? `✅ ${item.name} оснащено!` : `🔄 Рамку знято`;
+            showGameNotification(msg);
+            shopApplyEquipped();
+        } else if (item.cat === 'wallpapers') {
+            // Перемкнути шпалери
+            shopState.equippedWallpaper = (shopState.equippedWallpaper === itemId) ? null : itemId;
+            const msg = shopState.equippedWallpaper === itemId ? `✅ ${item.name} встановлено!` : `🔄 Шпалери знято`;
+            showGameNotification(msg);
+            shopApplyEquipped();
+        }
+
+        shopSave();
+        shopRender();
+    }
+
+    function logout() {
+        // Clear typing and set offline before cleanup
+        if (gameState.user) {
+            if (gameState.currentChatFriend && typeof clearTypingIndicator === 'function') {
+                clearTypingIndicator(gameState.user, gameState.currentChatFriend);
+            }
+            if (typeof setOffline === 'function') {
+                setOffline(gameState.user);
+            }
+        }
+        clearTimeout(typingTimeout);
+        typingTimeout = null;
+
+        stopChatRealtimeBridge();
+        removeAllListeners();
+        gameState.user = null;
+        gameState.displayName = null;
+        gameState.avatar = avatarGallery[0];
+        gameState.balance = 0;
+        gameState.friends = [];
+        gameState.friendRequests = [];
+        gameState.privateChatMessages = {};
+        gameState.chatMessageSignatures = {};
+        gameState.currentChatFriend = null;
+        gameState.expandedFriendRequest = null;
+        gameState.unreadCounts = {};
+        gameState.friendsOnline = {};
+        allUsers = {};
+        pendingGameRequest = null;
+        // Скинути RPS Online стан
+        rpsOnlineState.matchId = null;
+        rpsOnlineState.playerNum = null;
+        rpsOnlineState.myChoice = null;
+        rpsOnlineState.matchData = null;
+        rpsOnlineState.outgoingListener = null;
+        rpsOnlineState.matchListener = null;
+        // Скинути магазин
+        shopState.owned = [];
+        shopState.equippedFrame = null;
+        shopState.equippedWallpaper = null;
+        shopApplyEquipped();
+        document.getElementById('main-scr').style.display = 'none';
+        document.getElementById('auth-scr').style.display = 'flex';
+        document.getElementById('login-u').value = '';
+        document.getElementById('login-p').value = '';
+        document.getElementById('settings-display-name').value = '';
+        document.getElementById('settings-current-password').value = '';
+        document.getElementById('settings-new-password').value = '';
+        document.getElementById('settings-confirm-password').value = '';
+    }
 </script>
 
 </body>
