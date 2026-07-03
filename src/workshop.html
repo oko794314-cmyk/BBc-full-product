@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Майстерня — BBc</title>
+  <link rel="stylesheet" href="/src/css/workshop.css">
+</head>
+<body>
+  <header class="site-header">
+    <nav>
+      <a href="/index.html">Головна</a>
+      <a href="/src/workshop.html" class="active">Майстерня</a>
+      <a href="/src/marketplace.html">Магазин</a>
+      <a href="/src/moderation.html">Модерація</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <h1>Майстерня</h1>
+
+    <section class="create">
+      <h2>Створити новий елемент</h2>
+      <form id="itemForm">
+        <label>Тип
+          <select id="type">
+            <option value="background">Фон</option>
+            <option value="frame">Рамка</option>
+            <option value="title">Титул</option>
+            <option value="item">Предмет</option>
+          </select>
+        </label>
+
+        <label>Назва
+          <input id="title" required placeholder="Назва елемента" />
+        </label>
+
+        <label>Категорії (через коми)
+          <input id="categories" placeholder="наприклад: природа, небо" />
+        </label>
+
+        <label>Рідкість
+          <select id="rarity">
+            <option>Common</option>
+            <option>Rare</option>
+            <option>Epic</option>
+            <option>Legendary</option>
+            <option>Mythic</option>
+          </select>
+        </label>
+
+        <label>Опис
+          <textarea id="description" rows="3" placeholder="Опис..."></textarea>
+        </label>
+
+        <label>Зображення
+          <input id="image" type="file" accept="image/*" />
+        </label>
+
+        <div class="buttons">
+          <button type="submit">Зберегти чернетку</button>
+          <button id="publishBtn" type="button">Опублікувати в магазин</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="my-items">
+      <h2>Мої створення</h2>
+      <div id="myItems" class="grid"></div>
+    </section>
+  </main>
+
+  <script src="/src/js/workshop.js"></script>
+</body>
+</html>

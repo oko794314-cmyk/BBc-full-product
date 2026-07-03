@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Модерація — BBc</title>
+  <link rel="stylesheet" href="/src/css/workshop.css">
+</head>
+<body>
+  <header class="site-header">
+    <nav>
+      <a href="/index.html">Головна</a>
+      <a href="/src/workshop.html">Майстерня</a>
+      <a href="/src/marketplace.html">Магазин</a>
+      <a href="/src/moderation.html" class="active">Модерація</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <h1>Модерація</h1>
+    <p class="small">Тут відображаються елементи зі статусом <code>pending</code>. Це простий локальний інтерфейс для тестування.</p>
+
+    <section id="pendingList" class="grid"></section>
+  </main>
+
+  <script>
+    (function(){
+      const lsKey = 'workshop_items_v1';
+      const pendingList = document.getElementById('pendingList');
+
+      function loadItems(){ try{return JSON.parse(localStorage.getItem(lsKey)||'[]')}catch(e){return []} }
+      function saveItems(items){ localStorage.setItem(lsKey, JSON.stringify(items)); }
+
+      function render(){
+        const items = loadItems().filter(x=> x.status==='pending');
+        if(items.length===0){ pendingList.innerHTML = '<p class="small">Немає елементів на мо��ерацію.</p>'; return }
+        pendingList.innerHTML = items.map(it=>{
+          const img = it.imageUrl? `<img src="${it.imageUrl}" alt="${it.title}"/>` : '<div style="height:120px;background:#eee;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#888">No image</div>';
+          return `\
+            <div class="card">\
+              ${img}\
+              <h3>${escapeHtml(it.title)}</h3>\
+              <div class="meta">${escapeHtml(it.type)} • <span class="badge ${escapeClass(it.rarity)}">${escapeHtml(it.rarity)}</span></div>\
+              <p class="small">${escapeHtml(it.description||'')}</p>\
+              <div class="action-row">\
+                <button data-id="${it.id}" class="approve">Approve</button>\
+                <button data-id="${it.id}" class="reject">Reject</button>\
+              </div>\
+            </div>`;
+        }).join('');
+      }
+
+      function escapeHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+      function escapeClass(s){ return (s||'').toLowerCase(); }
+
+      pendingList.addEventListener('click', function(e){
+        const id = e.target.dataset.id; if(!id) return;
+        const items = loadItems(); const idx = items.findIndex(x=>x.id===id); if(idx===-1) return;
+        if(e.target.classList.contains('approve')){
+          items[idx].status = 'approved'; saveItems(items); render(); alert('Approved');
+        }
+        if(e.target.classList.contains('reject')){
+          const reason = prompt('Причина відхилення (необов\'язково)');
+          items[idx].status = 'rejected'; items[idx].moderationComment = reason||''; saveItems(items); render(); alert('Rejected');
+        }
+      });
+
+      render();
+    })();
+  </script>
+</body>
+</html>

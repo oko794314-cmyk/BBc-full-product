@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Магазин — BBc</title>
+  <link rel="stylesheet" href="/src/css/workshop.css">
+</head>
+<body>
+  <header class="site-header">
+    <nav>
+      <a href="/index.html">Головна</a>
+      <a href="/src/workshop.html">Майстерня</a>
+      <a href="/src/marketplace.html" class="active">Магазин</a>
+      <a href="/src/moderation.html">Модерація</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <h1>Магазин</h1>
+
+    <section class="filters">
+      <input id="q" placeholder="Пошук за назвою" />
+      <select id="filterRarity">
+        <option value="">Усі рідкості</option>
+        <option>Common</option>
+        <option>Rare</option>
+        <option>Epic</option>
+        <option>Legendary</option>
+        <option>Mythic</option>
+      </select>
+      <select id="sortBy">
+        <option value="new">Нові</option>
+        <option value="rarity">Рідкість</option>
+      </select>
+      <button id="apply">Застосувати</button>
+    </section>
+
+    <section class="results">
+      <div id="list" class="grid"></div>
+    </section>
+  </main>
+
+  <script>
+    (function(){
+      const lsKey = 'workshop_items_v1';
+      const listEl = document.getElementById('list');
+      const q = document.getElementById('q');
+      const filterRarity = document.getElementById('filterRarity');
+      const sortBy = document.getElementById('sortBy');
+      const apply = document.getElementById('apply');
+
+      function loadItems(){ try{return JSON.parse(localStorage.getItem(lsKey)||'[]')}catch(e){return []} }
+      function render(){
+        let items = loadItems().filter(x=>x.status==='approved');
+        const term = (q.value||'').toLowerCase();
+        if(term) items = items.filter(i=> (i.title||'').toLowerCase().includes(term) || (i.description||'').toLowerCase().includes(term));
+        if(filterRarity.value) items = items.filter(i=> i.rarity===filterRarity.value);
+        if(sortBy.value==='rarity') items = items.sort((a,b)=> a.rarity.localeCompare(b.rarity));
+        else items = items.sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt));
+
+        if(items.length===0){ listEl.innerHTML = '<p class="small">Немає доступних елементів.</p>'; return }
+        listEl.innerHTML = items.map(it=>{
+          const img = it.imageUrl? `<img src="${it.imageUrl}" alt="${it.title}"/>` : '<div style="height:120px;background:#eee;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#888">No image</div>';
+          const rclass = (it.rarity||'').toLowerCase();
+          return `\
+            <div class="card">\
+              ${img}\
+              <h3>${escapeHtml(it.title)}</h3>\
+              <div class="meta">${escapeHtml(it.type)} • <span class="badge ${rclass}">${escapeHtml(it.rarity)}</span></div>\
+              <p class="small">${escapeHtml(it.description||'')}</p>\
+              <div class="action-row">\
+                <button data-id="${it.id}" class="buy">Купити</button>\
+              </div>\
+            </div>`;
+        }).join('');
+      }
+
+      function escapeHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+      apply.addEventListener('click', render);
+      listEl.addEventListener('click', function(e){ if(e.target.classList.contains('buy')){ alert('Фейкове купівля (поки що)'); } });
+      render();
+    })();
+  </script>
+</body>
+</html>

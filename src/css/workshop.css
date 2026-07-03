@@ -1,0 +1,25 @@
+/* name=workshop.css */
+:root{--bg:#fff;--muted:#666;--accent:#4a90e2}
+body{font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:#222;margin:0}
+.site-header{background:#222;color:#fff;padding:10px}
+.site-header nav a{color:#ddd;margin-right:12px;text-decoration:none}
+.site-header nav a.active{color:#fff;font-weight:bold}
+.container{max-width:960px;margin:24px auto;padding:0 16px}
+h1,h2{margin:8px 0}
+form label{display:block;margin:8px 0}
+input,select,textarea{width:100%;padding:8px;border:1px solid #ccc;border-radius:4px}
+.buttons{margin-top:8px}
+.buttons button{padding:8px 12px;margin-right:8px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.card{border:1px solid #e0e0e0;padding:8px;border-radius:6px;background:#fafafa}
+.card img{max-width:100%;height:120px;object-fit:cover;border-radius:4px}
+.card .meta{font-size:13px;color:var(--muted);margin-top:6px}
+.badge{display:inline-block;padding:4px 8px;border-radius:12px;color:#fff;font-weight:600;font-size:12px}
+.badge.common{background:#9e9e9e}
+.badge.rare{background:#2196f3}
+.badge.epic{background:#9c27b0}
+.badge.legendary{background:#ff9800}
+.badge.mythic{background:linear-gradient(90deg,#ff4455,#ffcc00)}
+.small{font-size:13px;color:var(--muted)}
+.action-row{margin-top:8px;display:flex;gap:8px}
+.action-row button{flex:1;padding:6px}
