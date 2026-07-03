@@ -1,0 +1,5 @@
+/* modules/exchange/styles.css */
+/* Styles scoped to the exchange module */
+.exchange-module { /* container styles */ }
+.exchange-module__root { padding: 12px; }
+.exchange-module__content { color: #333; }
