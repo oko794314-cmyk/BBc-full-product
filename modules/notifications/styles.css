@@ -1,0 +1,4 @@
+/* modules/notifications/styles.css */
+.notifications-module { }
+.notifications-module__root { padding: 12px; }
+.notifications-module__content { color: #333; }
