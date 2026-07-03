@@ -1,4 +1,237 @@
 /* modules/news/styles.css */
-.news-module { }
-.news-module__root { padding: 12px; }
-.news-module__content { color: #333; }
+
+.news-module {
+  padding: 20px;
+  background-color: #f5f5f5;
+}
+
+.news-module__root {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.news-header {
+  margin-bottom: 30px;
+  border-bottom: 3px solid #007bff;
+  padding-bottom: 10px;
+}
+
+.news-header h2 {
+  margin: 0;
+  color: #333;
+  font-size: 28px;
+  font-weight: bold;
+}
+
+/* Sections */
+.news-section,
+.rankings-section {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.section-title {
+  font-size: 18px;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 15px;
+  border-left: 4px solid #007bff;
+  padding-left: 10px;
+}
+
+/* Stats Row */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.stat-card {
+  background: white;
+  border-radius: 8px;
+  padding: 15px;
+  display: flex;
+  align-items: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.stat-icon {
+  font-size: 32px;
+  margin-right: 15px;
+}
+
+.stat-content {
+  flex: 1;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #999;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: bold;
+  color: #007bff;
+}
+
+/* Lists */
+.news-feed,
+.rankings-list,
+.transfers-feed,
+.deals-feed,
+.achievements-list,
+.tournaments-list,
+.economy-stats {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.feed-item,
+.ranking-item,
+.achievement-item,
+.tournament-item {
+  padding: 10px 0;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.feed-item:last-child,
+.ranking-item:last-child,
+.achievement-item:last-child,
+.tournament-item:last-child {
+  border-bottom: none;
+}
+
+.ranking-item {
+  padding: 12px;
+  background: #f9f9f9;
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+.ranking-position {
+  display: inline-block;
+  width: 30px;
+  height: 30px;
+  background: #007bff;
+  color: white;
+  border-radius: 50%;
+  text-align: center;
+  line-height: 30px;
+  font-weight: bold;
+  margin-right: 10px;
+}
+
+.ranking-info {
+  flex: 1;
+}
+
+.ranking-name {
+  font-weight: bold;
+  color: #333;
+}
+
+.ranking-score {
+  font-size: 12px;
+  color: #999;
+}
+
+.ranking-value {
+  font-weight: bold;
+  color: #28a745;
+  font-size: 18px;
+}
+
+/* Chart Container */
+.chart-container {
+  position: relative;
+  height: 300px;
+  margin: 15px 0;
+}
+
+/* Bonus Container */
+.bonus-container {
+  text-align: center;
+  padding: 20px;
+}
+
+.bonus-button {
+  padding: 12px 30px;
+  background: linear-gradient(135deg, #28a745, #20c997);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.bonus-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+}
+
+.bonus-button:active {
+  transform: translateY(0);
+}
+
+.bonus-info {
+  margin-top: 10px;
+  color: #666;
+  font-size: 14px;
+}
+
+#bonus-timer {
+  font-weight: bold;
+  color: #007bff;
+}
+
+/* Loading State */
+.loading {
+  text-align: center;
+  padding: 20px;
+  color: #999;
+  font-style: italic;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .news-module {
+    padding: 10px;
+  }
+
+  .stats-row {
+    grid-template-columns: 1fr;
+  }
+
+  .news-header h2 {
+    font-size: 22px;
+  }
+
+  .section-title {
+    font-size: 16px;
+  }
+
+  .stat-card {
+    padding: 10px;
+  }
+
+  .stat-icon {
+    font-size: 28px;
+  }
+
+  .stat-value {
+    font-size: 18px;
+  }
+}
