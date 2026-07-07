@@ -1465,17 +1465,19 @@
         const frameItem = getWorkshopItemById(workshopStateEx?.equipped?.frameId);
         const backgroundItem = getWorkshopItemById(workshopStateEx?.equipped?.backgroundId);
         const titleItem = getWorkshopItemById(workshopStateEx?.equipped?.titleId);
+        const fallbackFrameItem = shopState.equippedFrame
+            ? shopCatalog.find(i => i.id === shopState.equippedFrame)
+            : null;
+        const fallbackBackgroundItem = shopState.equippedWallpaper
+            ? shopCatalog.find(i => i.id === shopState.equippedWallpaper)
+            : null;
 
-        if (avatarEl && frameItem?.style?.shadow) {
-            avatarEl.style.boxShadow = frameItem.style.shadow;
-        } else if (avatarEl && !shopState.equippedFrame) {
-            avatarEl.style.boxShadow = '';
+        if (avatarEl) {
+            avatarEl.style.boxShadow = frameItem?.style?.shadow || fallbackFrameItem?.shadow || '';
         }
 
-        if (mainEl && backgroundItem?.style?.background) {
-            mainEl.style.background = backgroundItem.style.background;
-        } else if (mainEl && !shopState.equippedWallpaper) {
-            mainEl.style.background = '';
+        if (mainEl) {
+            mainEl.style.background = backgroundItem?.style?.background || fallbackBackgroundItem?.bg || '';
         }
 
         if (titleEl && titleItem?.type === 'title') {
