@@ -661,7 +661,7 @@
         // Sanitize CSS color values: allow only hex, rgb/rgba, hsl, named colors, and CSS variables
         const safeCssColor = (v, fallback) => {
             const s = String(v || '');
-            return /^(#[0-9a-fA-F]{3,8}|rgba?\([^)]{0,60}\)|hsla?\([^)]{0,60}\)|var\(--[a-zA-Z0-9-]{1,40}\)|[a-zA-Z]{1,30})$/.test(s.trim()) ? s.trim() : fallback;
+            return /^(#[0-9a-fA-F]{3,8}|rgba?\([^)]{0,60}\)|hsla?\([^)]{0,60}\)|var\(--[a-zA-Z0-9-]{1,40}\)|[a-zA-Z]{1,20})$/.test(s.trim()) ? s.trim() : fallback;
         };
         identityRoot.innerHTML = `
             <img class="profile-avatar" src="${escapeText(gameState?.avatar || '')}" alt="avatar">
