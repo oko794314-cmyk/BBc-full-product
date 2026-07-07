@@ -4601,17 +4601,26 @@
             return;
         }
         listEl.innerHTML = groupChatsState.groups.map(g => `
-            <div class="group-chat-item" onclick="openGroupChat('${g.id}','${escapeAttr(g.name)}',${JSON.stringify(g.members || []).replace(/"/g,'&quot;')})">
+            <div class="group-chat-item" data-group-id="${escapeAttr(g.id)}" data-group-name="${escapeAttr(g.name)}" data-group-members="${escapeAttr(JSON.stringify(g.members || []))}">
                 <div class="group-chat-icon">💬</div>
                 <div class="group-chat-info">
                     <div class="group-chat-name">${escapeHtml(g.name)}</div>
-                    <div class="group-chat-last">${(g.members||[]).join(', ')}</div>
+                    <div class="group-chat-last">${(g.members||[]).map(escapeHtml).join(', ')}</div>
                 </div>
             </div>
         `).join('');
+        listEl.querySelectorAll('.group-chat-item').forEach(el => {
+            el.addEventListener('click', () => {
+                const groupId = el.dataset.groupId;
+                const groupName = el.dataset.groupName;
+                let members = [];
+                try { members = JSON.parse(el.dataset.groupMembers || '[]'); } catch(e) {}
+                openGroupChat(groupId, groupName, members);
+            });
+        });
     }
 
-    function escapeAttr(s) { return String(s).replace(/'/g,"\\'"); }
+    function escapeAttr(s) { return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
     function escapeHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
     function openGroupChat(groupId, groupName, members) {

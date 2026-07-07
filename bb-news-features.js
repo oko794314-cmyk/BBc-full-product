@@ -658,6 +658,11 @@
         const assetsRoot = document.getElementById('profile-assets-list');
         const activityRoot = document.getElementById('profile-recent-activity');
         if (!identityRoot || !statsRoot || !assetsRoot || !activityRoot || !state.accountHub) return;
+        // Sanitize CSS color values: allow only hex, rgb/rgba, hsl, named colors, and CSS variables
+        const safeCssColor = (v, fallback) => {
+            const s = String(v || '');
+            return /^(#[0-9a-fA-F]{3,8}|rgba?\([^)]{0,60}\)|hsla?\([^)]{0,60}\)|var\(--[a-zA-Z0-9-]{1,40}\)|[a-zA-Z]{1,30})$/.test(s.trim()) ? s.trim() : fallback;
+        };
         identityRoot.innerHTML = `
             <img class="profile-avatar" src="${escapeText(gameState?.avatar || '')}" alt="avatar">
             <div>
@@ -668,10 +673,14 @@
                     const shopTitleId = (typeof shopState !== 'undefined' && shopState?.equippedTitle) || null;
                     const shopTitleItem = (!workshopTitle && shopTitleId && typeof shopCatalog !== 'undefined') ? shopCatalog.find(i => i.id === shopTitleId) : null;
                     if (workshopTitle?.type === 'title') {
-                        return `<div class="profile-title-chip" style="display:inline-flex; color:${escapeText(workshopTitle.style?.color||'var(--gold)')}; border-color:${escapeText(workshopTitle.style?.accent||'rgba(255,204,0,0.35)')}; box-shadow:0 0 10px ${escapeText(workshopTitle.style?.accent||'#ffcc00')}33; margin-top:4px;"><span>${escapeText(workshopTitle.style?.icon||'✨')}</span><span>${escapeText(workshopTitle.name)}</span></div>`;
+                        const color = safeCssColor(workshopTitle.style?.color, 'var(--gold)');
+                        const accent = safeCssColor(workshopTitle.style?.accent, 'rgba(255,204,0,0.35)');
+                        return `<div class="profile-title-chip" style="display:inline-flex; color:${color}; border-color:${accent}; box-shadow:0 0 10px ${accent}33; margin-top:4px;"><span>${escapeText(workshopTitle.style?.icon||'✨')}</span><span>${escapeText(workshopTitle.name)}</span></div>`;
                     }
                     if (shopTitleItem?.titleStyle) {
-                        return `<div class="profile-title-chip" style="display:inline-flex; color:${escapeText(shopTitleItem.titleStyle.color||'var(--gold)')}; border-color:${escapeText(shopTitleItem.titleStyle.accent||'rgba(255,204,0,0.35)')}; box-shadow:0 0 10px ${escapeText(shopTitleItem.titleStyle.accent||'#ffcc00')}33; margin-top:4px;"><span>${escapeText(shopTitleItem.titleStyle.icon||'🏷️')}</span><span>${escapeText(shopTitleItem.name)}</span></div>`;
+                        const color = safeCssColor(shopTitleItem.titleStyle.color, 'var(--gold)');
+                        const accent = safeCssColor(shopTitleItem.titleStyle.accent, 'rgba(255,204,0,0.35)');
+                        return `<div class="profile-title-chip" style="display:inline-flex; color:${color}; border-color:${accent}; box-shadow:0 0 10px ${accent}33; margin-top:4px;"><span>${escapeText(shopTitleItem.titleStyle.icon||'🏷️')}</span><span>${escapeText(shopTitleItem.name)}</span></div>`;
                     }
                     return '';
                 })()}
