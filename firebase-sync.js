@@ -1067,7 +1067,7 @@ async function adjustUserBalanceFirebase(username, delta) {
         const result = await db.ref(`users/${username}/balance`).transaction((currentBalance) => {
             const normalized = firebaseNumber(currentBalance, 0);
             const candidate = normalized + firebaseNumber(delta, 0);
-            // Return undefined to abort the transaction when the balance would go negative.
+            // Firebase aborts the transaction without committing when we return undefined for insufficient balance.
             if (candidate < 0) return;
             nextBalance = candidate;
             return candidate;

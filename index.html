@@ -293,7 +293,7 @@
         <div style="text-align:right;">
             <small style="color:#555;">BALANCE</small><br>
             <b id="h-b" style="color:var(--g);">0.0000</b>
-            <div id="h-p" style="font-size:10px; color:var(--gold); margin-top:4px;">Prestige: 0</div>
+            <div id="h-p" style="font-size:10px; color:var(--gold); margin-top:4px;">Престиж: 0</div>
         </div>
         <img id="h-a" class="av" src="https://api.dicebear.com/7.x/avataaars/svg?seed=default" alt="avatar" onclick="openAvatarModal()">
     </div>
@@ -1787,7 +1787,7 @@
                                 <span>${escapeHtml(formatFeatureTime(item.updatedAt || item.createdAt))}</span>
                             </div>
                         </div>
-                        <span class="workshop-badge ${getWorkshopItemStatusClass(item.status)}">${escapeHtml(workshopStatusLabel(item.status))}</span>
+                        <span class="workshop-badge ${getWorkshopItemStatusClass(item.status)}">${workshopStatusLabel(item.status)}</span>
                     </div>
                     ${renderWorkshopItemPreview(item, true)}
                     <div class="feature-note">${escapeHtml(item.description || 'Без опису')}</div>
@@ -2383,7 +2383,7 @@
         document.getElementById('v-bal').textContent = gameState.balance.toFixed(4);
         document.getElementById('h-a').src = gameState.avatar || avatarGallery[0];
         document.getElementById('settings-avatar-preview').src = gameState.avatar || avatarGallery[0];
-        document.getElementById('h-p').textContent = `Prestige: ${Math.round(num(gameState.prestige, 0))}`;
+        document.getElementById('h-p').textContent = `Престиж: ${Math.round(num(gameState.prestige, 0))}`;
         applyWorkshopAppearance();
     }
 
@@ -3920,7 +3920,7 @@
         shopState.equippedWallpaper = null;
         document.getElementById('h-title').style.display = 'none';
         document.getElementById('h-title').innerHTML = '';
-        document.getElementById('h-p').textContent = 'Prestige: 0';
+        document.getElementById('h-p').textContent = 'Престиж: 0';
         resetWorkshopEditor();
         shopApplyEquipped();
         document.getElementById('main-scr').style.display = 'none';
