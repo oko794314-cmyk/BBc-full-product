@@ -47,8 +47,8 @@
         .c { aspect-ratio: 1; background: #000; border: 2px solid #333; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 900; border-radius: 8px; cursor: pointer; }
         .c:hover { border-color: var(--p); transform: scale(1.05); box-shadow: 0 0 10px rgba(7, 255, 255, 0.3); }
 
-        nav { position: fixed; bottom: 0; width: 100%; display: grid; grid-template-columns: repeat(7, 1fr); background: #000; border-top: 1px solid #111; padding: 10px 0 var(--app-nav-safe-bottom); z-index: 50; box-shadow: 0 -8px 20px rgba(0, 0, 0, 0.6); }
-        .tab { text-align: center; color: #444; font-size: 18px; cursor: pointer; transition: all 0.3s; }
+        nav { position: fixed; bottom: 0; width: 100%; display: grid; grid-template-columns: repeat(10, minmax(72px, 1fr)); background: #000; border-top: 1px solid #111; padding: 10px 0 var(--app-nav-safe-bottom); z-index: 50; box-shadow: 0 -8px 20px rgba(0, 0, 0, 0.6); overflow-x: auto; }
+        .tab { text-align: center; color: #444; font-size: 18px; cursor: pointer; transition: all 0.3s; min-width: 72px; }
         .tab.active { color: var(--p); animation: tabPulse 0.5s ease; }
         @keyframes tabPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.2); } }
         .tab span { display: block; font-size: 8px; text-transform: uppercase; margin-top: 4px; }
@@ -77,6 +77,7 @@
         .settings-avatar-actions { display:flex; gap:10px; margin-top:15px; }
         .settings-avatar-preview { width:72px; height:72px; border-radius:50%; border:2px solid var(--p); object-fit:cover; background:#000; display:block; margin:0 auto 10px; }
         .hidden-file-input { display:none; }
+        .profile-title-chip { display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border-radius:999px; font-size:9px; font-weight:900; margin-top:6px; background:rgba(255,204,0,0.12); border:1px solid rgba(255,204,0,0.35); color:var(--gold); text-transform:uppercase; letter-spacing:0.8px; }
 
         .user-search-results { background: #000; border: 1px solid #333; border-radius: 8px; max-height: 150px; overflow-y: auto; margin-top: 10px; }
         .user-result { padding: 10px; border-bottom: 1px solid #222; display: flex; align-items: center; cursor: pointer; }
@@ -201,6 +202,35 @@
         @media (max-width: 360px) {
             .market-stats { grid-template-columns:1fr; }
         }
+
+        /* 🛠️ Майстерня / 🏠 Нерухомість / 🚗 Авто */
+        .feature-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; }
+        .feature-card { background:#000; border:1px solid #222; border-radius:14px; padding:14px; }
+        .feature-card h4 { margin:0 0 8px; color:var(--gold); font-size:12px; }
+        .feature-card p { margin:0; font-size:10px; color:#888; line-height:1.5; }
+        .feature-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+        .feature-actions .btn, .feature-actions .shop-item-btn { width:auto; min-width:110px; margin:0; }
+        .feature-stat-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(110px, 1fr)); gap:8px; }
+        .feature-stat { background:#000; border:1px solid #222; border-radius:10px; padding:10px; }
+        .feature-stat-label { font-size:9px; color:#666; margin-bottom:4px; }
+        .feature-stat-value { font-size:13px; font-weight:900; color:var(--p); }
+        .workshop-preview { min-height:180px; border-radius:14px; border:1px dashed rgba(7,255,255,0.35); padding:14px; background:linear-gradient(145deg, rgba(7,255,255,0.08), rgba(0,0,0,0.85)); display:flex; flex-direction:column; justify-content:center; align-items:center; gap:12px; text-align:center; }
+        .workshop-preview-avatar { width:84px; height:84px; border-radius:50%; border:3px solid #111; object-fit:cover; background:#000; }
+        .workshop-preview-bg { width:100%; min-height:120px; border-radius:12px; display:flex; align-items:center; justify-content:center; padding:18px; border:1px solid rgba(255,255,255,0.08); }
+        .workshop-title-preview { display:inline-flex; align-items:center; gap:8px; padding:10px 16px; border-radius:999px; font-size:15px; font-weight:900; border:1px solid rgba(255,255,255,0.18); text-transform:uppercase; letter-spacing:1px; }
+        .workshop-item-list { display:grid; gap:10px; }
+        .workshop-item-card { background:#000; border:1px solid #222; border-radius:12px; padding:12px; }
+        .workshop-item-head { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:8px; }
+        .workshop-item-meta { font-size:9px; color:#777; display:flex; flex-wrap:wrap; gap:8px; }
+        .workshop-badge { display:inline-flex; align-items:center; gap:5px; padding:4px 8px; border-radius:999px; font-size:9px; font-weight:900; text-transform:uppercase; }
+        .workshop-badge.draft { background:rgba(102,102,102,0.18); color:#aaa; border:1px solid #444; }
+        .workshop-badge.pending { background:rgba(255,204,0,0.15); color:var(--gold); border:1px solid rgba(255,204,0,0.3); }
+        .workshop-badge.approved { background:rgba(0,255,136,0.12); color:var(--g); border:1px solid rgba(0,255,136,0.3); }
+        .workshop-badge.rejected { background:rgba(255,51,102,0.12); color:var(--r); border:1px solid rgba(255,51,102,0.3); }
+        .workshop-mini-preview { min-height:72px; border-radius:10px; border:1px solid #1b1b1b; display:flex; align-items:center; justify-content:center; padding:10px; margin-bottom:8px; background:#070707; overflow:hidden; }
+        .workshop-mini-preview .workshop-preview-avatar { width:54px; height:54px; }
+        .feature-note { font-size:10px; color:#888; line-height:1.45; }
+        .feature-pill { display:inline-flex; align-items:center; gap:5px; padding:5px 9px; border-radius:999px; font-size:9px; border:1px solid #333; color:#aaa; background:#050505; }
     </style>
 </head>
 <body>
@@ -255,8 +285,16 @@
 <!-- ГОЛОВНИЙ ЕКРАН -->
 <div id="main-scr" style="display:none; flex-direction:column; height:100vh;">
     <div class="header">
-        <div><small style="color:#555;">OPERATOR</small><br><b id="h-u">---</b></div>
-        <div style="text-align:right;"><small style="color:#555;">BALANCE</small><br><b id="h-b" style="color:var(--g);">0.0000</b></div>
+        <div>
+            <small style="color:#555;">OPERATOR</small><br>
+            <b id="h-u">---</b>
+            <div id="h-title" style="display:none;"></div>
+        </div>
+        <div style="text-align:right;">
+            <small style="color:#555;">BALANCE</small><br>
+            <b id="h-b" style="color:var(--g);">0.0000</b>
+            <div id="h-p" style="font-size:10px; color:var(--gold); margin-top:4px;">🏆 Престиж: 0</div>
+        </div>
         <img id="h-a" class="av" src="https://api.dicebear.com/7.x/avataaars/svg?seed=default" alt="avatar" onclick="openAvatarModal()">
     </div>
 
@@ -613,6 +651,163 @@
         </div>
     </div>
 
+    <!-- ВКЛ.8: МАЙСТЕРНЯ -->
+    <div id="tab8" class="view">
+        <h3 style="margin-top:0;">🔨 МАЙСТЕРНЯ</h3>
+
+        <div class="glass">
+            <div class="feature-stat-grid">
+                <div class="feature-stat">
+                    <div class="feature-stat-label">ВАШІ РОБОТИ</div>
+                    <div id="workshop-created-count" class="feature-stat-value">0</div>
+                </div>
+                <div class="feature-stat">
+                    <div class="feature-stat-label">КУПЛЕНІ / СВОЇ</div>
+                    <div id="workshop-owned-count" class="feature-stat-value">0</div>
+                </div>
+                <div class="feature-stat">
+                    <div class="feature-stat-label">АКТИВНІ ЛОТИ</div>
+                    <div id="workshop-market-count" class="feature-stat-value">0</div>
+                </div>
+                <div class="feature-stat">
+                    <div class="feature-stat-label">СТАТУС МОДЕРАЦІЇ</div>
+                    <div id="workshop-review-count" class="feature-stat-value">0</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="feature-grid">
+            <div class="glass">
+                <h4 style="margin-top:0; color:var(--gold);">🎨 Редактор</h4>
+                <input type="hidden" id="workshop-edit-id">
+                <label class="settings-label" for="workshop-type">ТИП РОБОТИ</label>
+                <select id="workshop-type" onchange="renderWorkshopPreview()">
+                    <option value="frame">Власна рамка</option>
+                    <option value="background">Фон профілю</option>
+                    <option value="title">Титул</option>
+                </select>
+                <label class="settings-label" for="workshop-name">НАЗВА</label>
+                <input type="text" id="workshop-name" maxlength="32" placeholder="Наприклад: Неонова корона" oninput="renderWorkshopPreview()">
+                <label class="settings-label" for="workshop-description">ОПИС</label>
+                <textarea id="workshop-description" placeholder="Короткий опис вашої роботи" style="width:100%; min-height:90px; margin:8px 0; background:#000; border:1px solid #333; color:#fff; border-radius:8px; padding:10px; resize:vertical;" oninput="renderWorkshopPreview()"></textarea>
+                <label class="settings-label" for="workshop-price">ЦІНА ПРОДАЖУ (BB)</label>
+                <input type="number" id="workshop-price" min="0.1" step="0.1" placeholder="5" oninput="renderWorkshopPreview()">
+
+                <div id="workshop-frame-fields">
+                    <label class="settings-label" for="workshop-frame-color">КОЛІР РАМКИ</label>
+                    <input type="color" id="workshop-frame-color" value="#07ffff" oninput="renderWorkshopPreview()">
+                    <label class="settings-label" for="workshop-frame-glow">КОЛІР СЯЙВА</label>
+                    <input type="color" id="workshop-frame-glow" value="#ffcc00" oninput="renderWorkshopPreview()">
+                    <label class="settings-label" for="workshop-frame-intensity">ІНТЕНСИВНІСТЬ СЯЙВА</label>
+                    <input type="range" id="workshop-frame-intensity" min="4" max="18" value="10" oninput="renderWorkshopPreview()">
+                </div>
+
+                <div id="workshop-background-fields" style="display:none;">
+                    <label class="settings-label" for="workshop-bg-start">ПОЧАТКОВИЙ КОЛІР</label>
+                    <input type="color" id="workshop-bg-start" value="#0a0015" oninput="renderWorkshopPreview()">
+                    <label class="settings-label" for="workshop-bg-end">КІНЦЕВИЙ КОЛІР</label>
+                    <input type="color" id="workshop-bg-end" value="#1a0030" oninput="renderWorkshopPreview()">
+                    <label class="settings-label" for="workshop-bg-angle">КУТ ГРАДІЄНТА</label>
+                    <input type="range" id="workshop-bg-angle" min="0" max="360" value="135" oninput="renderWorkshopPreview()">
+                </div>
+
+                <div id="workshop-title-fields" style="display:none;">
+                    <label class="settings-label" for="workshop-title-icon">ІКОНКА</label>
+                    <input type="text" id="workshop-title-icon" maxlength="4" placeholder="👑" oninput="renderWorkshopPreview()">
+                    <label class="settings-label" for="workshop-title-color">КОЛІР ТИТУЛУ</label>
+                    <input type="color" id="workshop-title-color" value="#ffcc00" oninput="renderWorkshopPreview()">
+                    <label class="settings-label" for="workshop-title-accent">КОЛІР КОНТУРУ</label>
+                    <input type="color" id="workshop-title-accent" value="#07ffff" oninput="renderWorkshopPreview()">
+                    <label style="display:flex; gap:8px; align-items:flex-start; font-size:10px; color:#aaa; margin-top:10px;">
+                        <input type="checkbox" id="workshop-title-rules" style="width:auto; margin:0;" onchange="renderWorkshopPreview()">
+                        Підтверджую, що титул відповідає правилам сервера і може бути виставлений на перевірку.
+                    </label>
+                </div>
+
+                <div class="feature-actions">
+                    <button class="btn" onclick="saveWorkshopCreation()">ЗБЕРЕГТИ У FIREBASE</button>
+                    <button class="btn secondary-btn" onclick="resetWorkshopEditor()">НОВА РОБОТА</button>
+                </div>
+            </div>
+
+            <div class="glass">
+                <h4 style="margin-top:0; color:var(--gold);">👀 Попередній перегляд</h4>
+                <div id="workshop-preview" class="workshop-preview"></div>
+                <div class="feature-note" style="margin-top:10px;">Роботи зберігаються у Firebase та можуть бути виставлені на продаж після перевірки адміністратором.</div>
+            </div>
+        </div>
+
+        <div class="glass">
+            <h4 style="margin-top:0; color:var(--gold);">🗂️ Мої роботи та колекція</h4>
+            <div id="workshop-owned-list" class="workshop-item-list"></div>
+        </div>
+
+        <div class="glass">
+            <h4 style="margin-top:0; color:var(--gold);">🛍️ Внутрішній магазин майстерні</h4>
+            <div id="workshop-marketplace-list" class="workshop-item-list"></div>
+        </div>
+
+        <div id="workshop-admin-panel" class="glass" style="display:none;">
+            <h4 style="margin-top:0; color:var(--gold);">🛡️ Перевірка адміністратора</h4>
+            <div id="workshop-admin-list" class="workshop-item-list"></div>
+        </div>
+    </div>
+
+    <!-- ВКЛ.9: НЕРУХОМІСТЬ -->
+    <div id="tab9" class="view">
+        <h3 style="margin-top:0;">🏠 НЕРУХОМІСТЬ</h3>
+        <div class="glass">
+            <div class="feature-stat-grid">
+                <div class="feature-stat">
+                    <div class="feature-stat-label">ОБ'ЄКТІВ</div>
+                    <div id="real-estate-owned-count" class="feature-stat-value">0</div>
+                </div>
+                <div class="feature-stat">
+                    <div class="feature-stat-label">РІВЕНЬ ПОРТФЕЛЯ</div>
+                    <div id="real-estate-level-total" class="feature-stat-value">0</div>
+                </div>
+                <div class="feature-stat">
+                    <div class="feature-stat-label">ПРИБУТОК / ГОД</div>
+                    <div id="real-estate-hourly-income" class="feature-stat-value">0.00</div>
+                </div>
+                <div class="feature-stat">
+                    <div class="feature-stat-label">НАКОПИЧЕНО</div>
+                    <div id="real-estate-pending-income" class="feature-stat-value">0.00</div>
+                </div>
+            </div>
+            <div class="feature-actions">
+                <button class="btn" onclick="collectAllRealEstateIncome()">ЗІБРАТИ ПРИБУТОК</button>
+            </div>
+        </div>
+        <div id="real-estate-list" class="feature-grid"></div>
+    </div>
+
+    <!-- ВКЛ.10: АВТОМОБІЛІ -->
+    <div id="tab10" class="view">
+        <h3 style="margin-top:0;">🚗 АВТОМОБІЛІ</h3>
+        <div class="glass">
+            <div class="feature-stat-grid">
+                <div class="feature-stat">
+                    <div class="feature-stat-label">КУПЛЕНО АВТО</div>
+                    <div id="cars-owned-count" class="feature-stat-value">0</div>
+                </div>
+                <div class="feature-stat">
+                    <div class="feature-stat-label">ЗАГАЛЬНИЙ ПРЕСТИЖ</div>
+                    <div id="cars-total-prestige" class="feature-stat-value">0</div>
+                </div>
+                <div class="feature-stat">
+                    <div class="feature-stat-label">АКТИВНИЙ АВТО</div>
+                    <div id="cars-active-name" class="feature-stat-value">—</div>
+                </div>
+                <div class="feature-stat">
+                    <div class="feature-stat-label">МАЙБУТНІ ПОДІЇ</div>
+                    <div id="cars-event-ready" class="feature-stat-value">Готовність 0%</div>
+                </div>
+            </div>
+        </div>
+        <div id="cars-list" class="feature-grid"></div>
+    </div>
+
     <!-- НАВІГАЦІЯ -->
     <nav>
         <div class="tab active" onclick="switchTab(1)">⛏️<span>Mining</span></div>
@@ -622,6 +817,9 @@
         <div class="tab" onclick="switchTab(5)">⚙️<span>Other</span></div>
         <div class="tab" onclick="switchTab(6)">🛍️<span>Shop</span></div>
         <div class="tab" onclick="switchTab(7)">📰<span>News</span></div>
+        <div class="tab" onclick="switchTab(8)">🔨<span>Workshop</span></div>
+        <div class="tab" onclick="switchTab(9)">🏠<span>Estate</span></div>
+        <div class="tab" onclick="switchTab(10)">🚗<span>Cars</span></div>
     </nav>
 </div>
 
@@ -705,8 +903,73 @@
         rouletteRotation: 0,
         rouletteSpinning: false,
         unreadCounts: {},
-        friendsOnline: {}
+        friendsOnline: {},
+        prestige: 0,
+        activeTitle: null
     };
+
+    function createDefaultWorkshopState() {
+        return {
+            createdItems: {},
+            ownedItemIds: {},
+            equipped: {
+                frameId: null,
+                backgroundId: null,
+                titleId: null
+            }
+        };
+    }
+
+    function createDefaultRealEstateState() {
+        return {
+            properties: {}
+        };
+    }
+
+    function createDefaultCarsState() {
+        return {
+            ownedCars: {},
+            activeCarId: null,
+            prestige: 0
+        };
+    }
+
+    let workshopStateEx = createDefaultWorkshopState();
+    let workshopMarketState = { listings: {}, pending: {} };
+    let realEstateState = createDefaultRealEstateState();
+    let carsState = createDefaultCarsState();
+    let extendedFeaturesLoaded = false;
+    let workshopAdminMode = false;
+
+    const workshopTypeLabels = {
+        frame: 'Рамка',
+        background: 'Фон',
+        title: 'Титул'
+    };
+
+    const realEstateCatalog = [
+        { id: 'apartment', name: 'Квартира', icon: '🏢', price: 18, baseProfit: 1.2, upgradeBase: 9, sellRatio: 0.72 },
+        { id: 'house', name: 'Будинок', icon: '🏠', price: 35, baseProfit: 2.5, upgradeBase: 15, sellRatio: 0.74 },
+        { id: 'office', name: 'Офіс', icon: '🏬', price: 80, baseProfit: 5.8, upgradeBase: 34, sellRatio: 0.76 },
+        { id: 'factory', name: 'Завод', icon: '🏭', price: 160, baseProfit: 11.5, upgradeBase: 70, sellRatio: 0.78 },
+        { id: 'farm', name: 'Ферма', icon: '🚜', price: 95, baseProfit: 7.1, upgradeBase: 38, sellRatio: 0.75 },
+        { id: 'mine', name: 'Шахта', icon: '⛏️', price: 210, baseProfit: 15.8, upgradeBase: 88, sellRatio: 0.8 }
+    ];
+
+    const carsCatalog = [
+        { id: 'city', name: 'City Pulse', icon: '🚗', price: 24, basePrestige: 12, upgradeBase: 11, resaleRatio: 0.68 },
+        { id: 'suv', name: 'Iron SUV', icon: '🚙', price: 58, basePrestige: 28, upgradeBase: 22, resaleRatio: 0.7 },
+        { id: 'sport', name: 'Crimson GT', icon: '🏎️', price: 120, basePrestige: 64, upgradeBase: 46, resaleRatio: 0.72 },
+        { id: 'lux', name: 'Royal Phantom', icon: '🚘', price: 220, basePrestige: 110, upgradeBase: 82, resaleRatio: 0.74 },
+        { id: 'hyper', name: 'Nova Hyper', icon: '🚀', price: 420, basePrestige: 210, upgradeBase: 150, resaleRatio: 0.76 }
+    ];
+
+    // Profit multiplier applied for every real-estate level after the first.
+    const REAL_ESTATE_PROFIT_SCALE = 1.32;
+    // Additional prestige gained per extra car level.
+    const CAR_PRESTIGE_GROWTH_RATE = 0.55;
+    // Prestige target that marks the garage as fully ready for future events.
+    const EVENT_READINESS_PRESTIGE_THRESHOLD = 500;
 
     // ===== ІНІЦІАЛІЗАЦІЯ =====
     document.addEventListener('DOMContentLoaded', () => {
@@ -716,6 +979,26 @@
         document.getElementById('avatar-file-input').addEventListener('change', handleAvatarFileChange);
         // Ініціалізувати КНП гру
         rpsInit();
+        resetWorkshopEditor();
+        document.querySelectorAll('nav .tab').forEach((tab, index, tabs) => {
+            tab.setAttribute('role', 'button');
+            tab.setAttribute('tabindex', '0');
+            tab.setAttribute('aria-label', tab.textContent.trim());
+            tab.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    tab.click();
+                    return;
+                }
+                if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+                    event.preventDefault();
+                    const direction = event.key === 'ArrowRight' ? 1 : -1;
+                    const nextIndex = (index + direction + tabs.length) % tabs.length;
+                    tabs[nextIndex].focus();
+                    tabs[nextIndex].scrollIntoView({ inline: 'center', block: 'nearest' });
+                }
+            });
+        });
     });
 
     function escapeHtml(value) {
@@ -725,6 +1008,49 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
+    }
+
+    function num(value, fallback = 0) {
+        return Number.isFinite(Number(value)) ? Number(value) : fallback;
+    }
+
+    function clamp(value, min, max) {
+        return Math.min(max, Math.max(min, value));
+    }
+
+    function sanitizeHexColor(value, fallback) {
+        const normalized = String(value || '').trim();
+        return /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(normalized) ? normalized.toLowerCase() : fallback;
+    }
+
+    function sanitizeShortText(value, maxLength = 32) {
+        return String(value ?? '')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, maxLength);
+    }
+
+    function sanitizeDescription(value, maxLength = 180) {
+        return String(value ?? '')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, maxLength);
+    }
+
+    function sanitizeWorkshopIcon(value) {
+        return sanitizeShortText(value || '✨', 4) || '✨';
+    }
+
+    function workshopStatusLabel(status) {
+        const normalized = status || 'draft';
+        if (normalized === 'approved') return 'Перевірено';
+        if (normalized === 'pending') return 'На перевірці';
+        if (normalized === 'rejected') return 'Повернено';
+        return 'Чернетка';
+    }
+
+    function formatFeatureTime(timestamp) {
+        return timestamp ? new Date(timestamp).toLocaleString('uk-UA') : '—';
     }
 
     function normalizeAngle(angle) {
@@ -948,6 +1274,1005 @@
         document.getElementById('settings-avatar-preview').src = gameState.avatar || avatarGallery[0];
     }
 
+    function normalizeWorkshopState(raw) {
+        const base = createDefaultWorkshopState();
+        if (!raw || typeof raw !== 'object') return base;
+        base.createdItems = raw.createdItems && typeof raw.createdItems === 'object' ? raw.createdItems : {};
+        base.ownedItemIds = raw.ownedItemIds && typeof raw.ownedItemIds === 'object' ? raw.ownedItemIds : {};
+        base.equipped = {
+            frameId: raw?.equipped?.frameId || null,
+            backgroundId: raw?.equipped?.backgroundId || null,
+            titleId: raw?.equipped?.titleId || null
+        };
+        return base;
+    }
+
+    function normalizeRealEstateState(raw) {
+        const base = createDefaultRealEstateState();
+        if (!raw || typeof raw !== 'object') return base;
+        base.properties = raw.properties && typeof raw.properties === 'object' ? raw.properties : {};
+        return base;
+    }
+
+    function normalizeCarsState(raw) {
+        const base = createDefaultCarsState();
+        if (!raw || typeof raw !== 'object') return base;
+        base.ownedCars = raw.ownedCars && typeof raw.ownedCars === 'object' ? raw.ownedCars : {};
+        base.activeCarId = raw.activeCarId || null;
+        base.prestige = num(raw.prestige, 0);
+        return base;
+    }
+
+    function renderWorkshopTypeFields() {
+        const type = document.getElementById('workshop-type')?.value || 'frame';
+        document.getElementById('workshop-frame-fields').style.display = type === 'frame' ? 'block' : 'none';
+        document.getElementById('workshop-background-fields').style.display = type === 'background' ? 'block' : 'none';
+        document.getElementById('workshop-title-fields').style.display = type === 'title' ? 'block' : 'none';
+    }
+
+    function buildWorkshopDraftFromForm() {
+        const type = document.getElementById('workshop-type').value;
+        const name = sanitizeShortText(document.getElementById('workshop-name').value, 32);
+        const description = sanitizeDescription(document.getElementById('workshop-description').value, 180);
+        const requestedPrice = clamp(num(document.getElementById('workshop-price').value, 0), 0, 999999);
+
+        if (!name) {
+            alert('Вкажіть назву роботи.');
+            return null;
+        }
+
+        const baseDraft = {
+            type,
+            name,
+            description,
+            requestedPrice: Number(requestedPrice.toFixed(2))
+        };
+
+        if (type === 'frame') {
+            const borderColor = sanitizeHexColor(document.getElementById('workshop-frame-color').value, '#07ffff');
+            const glowColor = sanitizeHexColor(document.getElementById('workshop-frame-glow').value, '#ffcc00');
+            const intensity = clamp(num(document.getElementById('workshop-frame-intensity').value, 10), 4, 18);
+            return {
+                ...baseDraft,
+                previewLabel: 'Рамка профілю',
+                style: {
+                    borderColor,
+                    glowColor,
+                    intensity,
+                    shadow: `0 0 0 3px ${borderColor}, 0 0 ${intensity}px ${glowColor}`
+                }
+            };
+        }
+
+        if (type === 'background') {
+            const startColor = sanitizeHexColor(document.getElementById('workshop-bg-start').value, '#0a0015');
+            const endColor = sanitizeHexColor(document.getElementById('workshop-bg-end').value, '#1a0030');
+            const angle = clamp(num(document.getElementById('workshop-bg-angle').value, 135), 0, 360);
+            return {
+                ...baseDraft,
+                previewLabel: 'Фон профілю',
+                style: {
+                    startColor,
+                    endColor,
+                    angle,
+                    background: `linear-gradient(${angle}deg, ${startColor} 0%, ${endColor} 100%)`
+                }
+            };
+        }
+
+        const titleAllowed = document.getElementById('workshop-title-rules').checked;
+        if (!titleAllowed) {
+            alert('Підтвердіть, що титул відповідає правилам.');
+            return null;
+        }
+
+        const color = sanitizeHexColor(document.getElementById('workshop-title-color').value, '#ffcc00');
+        const accent = sanitizeHexColor(document.getElementById('workshop-title-accent').value, '#07ffff');
+        const icon = sanitizeWorkshopIcon(document.getElementById('workshop-title-icon').value);
+
+        return {
+            ...baseDraft,
+            previewLabel: 'Титул',
+            style: {
+                color,
+                accent,
+                icon,
+                approvedByRules: true
+            }
+        };
+    }
+
+    function getWorkshopItemById(itemId) {
+        return workshopStateEx.createdItems[itemId] || workshopMarketState.listings[itemId] || workshopMarketState.pending[itemId] || null;
+    }
+
+    function getWorkshopItemStatusClass(status) {
+        return ['approved', 'pending', 'rejected'].includes(status) ? status : 'draft';
+    }
+
+    function renderWorkshopItemPreview(item, compact = false) {
+        if (!item) return '<div class="feature-note">Робота недоступна.</div>';
+        if (item.type === 'frame') {
+            return `
+                <div class="workshop-mini-preview">
+                    <img class="workshop-preview-avatar" src="${escapeHtml(gameState.avatar || avatarGallery[0])}" alt="preview" style="box-shadow:${escapeHtml(item?.style?.shadow || '')};">
+                </div>
+            `;
+        }
+        if (item.type === 'background') {
+            return `
+                <div class="workshop-mini-preview" style="background:${escapeHtml(item?.style?.background || '#070707')};">
+                    <span class="feature-pill">${compact ? 'BG' : 'Профільний фон'}</span>
+                </div>
+            `;
+        }
+        return `
+            <div class="workshop-mini-preview">
+                <span class="workshop-title-preview" style="color:${escapeHtml(item?.style?.color || '#ffcc00')}; border-color:${escapeHtml(item?.style?.accent || '#07ffff')}; box-shadow:0 0 12px ${escapeHtml(item?.style?.accent || '#07ffff')}33;">
+                    <span>${escapeHtml(item?.style?.icon || '✨')}</span>
+                    <span>${escapeHtml(item?.name || 'Title')}</span>
+                </span>
+            </div>
+        `;
+    }
+
+    function renderWorkshopPreview() {
+        renderWorkshopTypeFields();
+        const previewRoot = document.getElementById('workshop-preview');
+        if (!previewRoot) return;
+
+        const type = document.getElementById('workshop-type').value;
+        const name = sanitizeShortText(document.getElementById('workshop-name').value || workshopTypeLabels[type], 32) || workshopTypeLabels[type];
+        const description = sanitizeDescription(document.getElementById('workshop-description').value || 'Попередній перегляд вашої роботи', 180);
+        let previewItem = null;
+
+        if (type === 'frame') {
+            previewItem = {
+                type,
+                name,
+                style: {
+                    shadow: `0 0 0 3px ${sanitizeHexColor(document.getElementById('workshop-frame-color').value, '#07ffff')}, 0 0 ${clamp(num(document.getElementById('workshop-frame-intensity').value, 10), 4, 18)}px ${sanitizeHexColor(document.getElementById('workshop-frame-glow').value, '#ffcc00')}`
+                }
+            };
+            previewRoot.innerHTML = `
+                <img class="workshop-preview-avatar" src="${escapeHtml(gameState.avatar || avatarGallery[0])}" alt="preview avatar" style="box-shadow:${escapeHtml(previewItem.style.shadow)};">
+                <div><b>${escapeHtml(name)}</b><div class="feature-note">${escapeHtml(description)}</div></div>
+            `;
+            return;
+        }
+
+        if (type === 'background') {
+            previewItem = {
+                type,
+                name,
+                style: {
+                    background: `linear-gradient(${clamp(num(document.getElementById('workshop-bg-angle').value, 135), 0, 360)}deg, ${sanitizeHexColor(document.getElementById('workshop-bg-start').value, '#0a0015')} 0%, ${sanitizeHexColor(document.getElementById('workshop-bg-end').value, '#1a0030')} 100%)`
+                }
+            };
+            previewRoot.innerHTML = `
+                <div class="workshop-preview-bg" style="background:${escapeHtml(previewItem.style.background)};">
+                    <div>
+                        <b>${escapeHtml(name)}</b>
+                        <div class="feature-note" style="color:#fff;">${escapeHtml(description)}</div>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        const titleReady = document.getElementById('workshop-title-rules').checked;
+        previewRoot.innerHTML = `
+            <span class="workshop-title-preview" style="color:${escapeHtml(sanitizeHexColor(document.getElementById('workshop-title-color').value, '#ffcc00'))}; border-color:${escapeHtml(sanitizeHexColor(document.getElementById('workshop-title-accent').value, '#07ffff'))}; box-shadow:0 0 12px ${escapeHtml(sanitizeHexColor(document.getElementById('workshop-title-accent').value, '#07ffff'))}44;">
+                <span>${escapeHtml(sanitizeWorkshopIcon(document.getElementById('workshop-title-icon').value || '✨'))}</span>
+                <span>${escapeHtml(name)}</span>
+            </span>
+            <div class="feature-note">${escapeHtml(description)}</div>
+            <div class="feature-note" style="color:${titleReady ? 'var(--g)' : 'var(--r)'};">${titleReady ? 'Титул можна відправити на модерацію.' : 'Для титулу потрібно підтвердити відповідність правилам.'}</div>
+        `;
+    }
+
+    function getWorkshopOwnedCollection() {
+        const merged = {};
+        Object.values(workshopStateEx.createdItems || {}).forEach((item) => {
+            merged[item.id] = item;
+        });
+        Object.keys(workshopStateEx.ownedItemIds || {}).forEach((itemId) => {
+            if (merged[itemId]) return;
+            const listing = workshopMarketState.listings[itemId];
+            if (listing) merged[itemId] = listing;
+        });
+        return Object.values(merged).sort((a, b) => num(b.updatedAt || b.createdAt, 0) - num(a.updatedAt || a.createdAt, 0));
+    }
+
+    function applyWorkshopAppearance() {
+        const avatarEl = document.getElementById('h-a');
+        const mainScreenEl = document.getElementById('main-scr');
+        const titleEl = document.getElementById('h-title');
+        const frameItem = getWorkshopItemById(workshopStateEx?.equipped?.frameId);
+        const backgroundItem = getWorkshopItemById(workshopStateEx?.equipped?.backgroundId);
+        const titleItem = getWorkshopItemById(workshopStateEx?.equipped?.titleId);
+        const fallbackFrameItem = shopState.equippedFrame
+            ? shopCatalog.find(i => i.id === shopState.equippedFrame)
+            : null;
+        const fallbackBackgroundItem = shopState.equippedWallpaper
+            ? shopCatalog.find(i => i.id === shopState.equippedWallpaper)
+            : null;
+
+        if (avatarEl) {
+            avatarEl.style.boxShadow = frameItem?.style?.shadow || fallbackFrameItem?.shadow || '';
+        }
+
+        if (mainScreenEl) {
+            mainScreenEl.style.background = backgroundItem?.style?.background || fallbackBackgroundItem?.bg || '';
+        }
+
+        if (titleEl && titleItem?.type === 'title') {
+            titleEl.className = 'profile-title-chip';
+            titleEl.style.display = 'inline-flex';
+            titleEl.style.color = titleItem.style.color || 'var(--gold)';
+            titleEl.style.borderColor = titleItem.style.accent || 'rgba(255,204,0,0.35)';
+            titleEl.style.boxShadow = `0 0 10px ${(titleItem.style.accent || '#07ffff')}33`;
+            titleEl.innerHTML = `<span>${escapeHtml(titleItem.style.icon || '✨')}</span><span>${escapeHtml(titleItem.name)}</span>`;
+            gameState.activeTitle = titleItem.name;
+        } else if (titleEl) {
+            titleEl.style.display = 'none';
+            titleEl.innerHTML = '';
+            titleEl.className = '';
+            gameState.activeTitle = null;
+        }
+    }
+
+    async function saveWorkshopStateEx() {
+        if (!gameState.user) return false;
+        return saveUserFeatureStateFirebase(gameState.user, 'workshop', workshopStateEx);
+    }
+
+    async function refreshWorkshopMarketplaceState() {
+        if (typeof firebase === 'undefined') return;
+        const db = firebase.database();
+        const [listingsSnap, pendingSnap] = await Promise.all([
+            db.ref('workshopMarketplace/listings').once('value'),
+            db.ref('workshopMarketplace/pending').once('value')
+        ]);
+        workshopMarketState.listings = listingsSnap.val() || {};
+        workshopMarketState.pending = pendingSnap.val() || {};
+    }
+
+    async function saveWorkshopCreation() {
+        if (!gameState.user) {
+            alert('Спочатку увійдіть в акаунт.');
+            return;
+        }
+
+        const draft = buildWorkshopDraftFromForm();
+        if (!draft) return;
+
+        const editingId = document.getElementById('workshop-edit-id').value.trim();
+        const existingItem = editingId ? workshopStateEx.createdItems[editingId] : null;
+        if (existingItem?.status === 'approved') {
+            alert('Схвалену роботу не можна редагувати. Створіть нову версію.');
+            return;
+        }
+        if (existingItem?.status === 'pending') {
+            alert('Спочатку дочекайтеся перевірки або поверніть роботу з модерації.');
+            return;
+        }
+
+        const generatedItemId = firebase.database().ref('workshopIds').push().key;
+        if (!editingId && !generatedItemId) {
+            alert('Не вдалося створити ідентифікатор роботи. Спробуйте ще раз.');
+            return;
+        }
+        const itemId = editingId || generatedItemId;
+        const nextItem = {
+            ...(existingItem || {}),
+            ...draft,
+            id: itemId,
+            createdBy: gameState.user,
+            creatorDisplayName: gameState.displayName || gameState.user,
+            status: existingItem?.status === 'rejected' ? 'rejected' : 'draft',
+            createdAt: existingItem?.createdAt || Date.now(),
+            updatedAt: Date.now()
+        };
+
+        workshopStateEx.createdItems[itemId] = nextItem;
+        workshopStateEx.ownedItemIds[itemId] = true;
+        const success = await saveWorkshopStateEx();
+        if (!success) {
+            alert('Не вдалося зберегти роботу у Firebase.');
+            return;
+        }
+
+        showGameNotification(`🛠️ Роботу "${nextItem.name}" збережено у Firebase`);
+        resetWorkshopEditor();
+        renderWorkshopTab();
+    }
+
+    function resetWorkshopEditor() {
+        document.getElementById('workshop-edit-id').value = '';
+        document.getElementById('workshop-type').value = 'frame';
+        document.getElementById('workshop-name').value = '';
+        document.getElementById('workshop-description').value = '';
+        document.getElementById('workshop-price').value = '';
+        document.getElementById('workshop-frame-color').value = '#07ffff';
+        document.getElementById('workshop-frame-glow').value = '#ffcc00';
+        document.getElementById('workshop-frame-intensity').value = '10';
+        document.getElementById('workshop-bg-start').value = '#0a0015';
+        document.getElementById('workshop-bg-end').value = '#1a0030';
+        document.getElementById('workshop-bg-angle').value = '135';
+        document.getElementById('workshop-title-icon').value = '✨';
+        document.getElementById('workshop-title-color').value = '#ffcc00';
+        document.getElementById('workshop-title-accent').value = '#07ffff';
+        document.getElementById('workshop-title-rules').checked = false;
+        renderWorkshopPreview();
+    }
+
+    function editWorkshopCreation(itemId) {
+        const item = workshopStateEx.createdItems[itemId];
+        if (!item) return;
+        if (item.status === 'approved') {
+            alert('Схвалену роботу можна лише екіпірувати або продавати.');
+            return;
+        }
+        document.getElementById('workshop-edit-id').value = item.id;
+        document.getElementById('workshop-type').value = item.type;
+        document.getElementById('workshop-name').value = item.name || '';
+        document.getElementById('workshop-description').value = item.description || '';
+        document.getElementById('workshop-price').value = item.requestedPrice || '';
+        document.getElementById('workshop-frame-color').value = item?.style?.borderColor || '#07ffff';
+        document.getElementById('workshop-frame-glow').value = item?.style?.glowColor || '#ffcc00';
+        document.getElementById('workshop-frame-intensity').value = item?.style?.intensity || 10;
+        document.getElementById('workshop-bg-start').value = item?.style?.startColor || '#0a0015';
+        document.getElementById('workshop-bg-end').value = item?.style?.endColor || '#1a0030';
+        document.getElementById('workshop-bg-angle').value = item?.style?.angle || 135;
+        document.getElementById('workshop-title-icon').value = item?.style?.icon || '✨';
+        document.getElementById('workshop-title-color').value = item?.style?.color || '#ffcc00';
+        document.getElementById('workshop-title-accent').value = item?.style?.accent || '#07ffff';
+        document.getElementById('workshop-title-rules').checked = item?.style?.approvedByRules === true;
+        renderWorkshopPreview();
+        showGameNotification(`✏️ Редагування: ${item.name}`);
+    }
+
+    async function submitWorkshopForReview(itemId) {
+        const item = workshopStateEx.createdItems[itemId];
+        if (!item) return;
+        if (item.status === 'pending') {
+            alert('Робота вже чекає перевірки.');
+            return;
+        }
+        if (num(item.requestedPrice, 0) <= 0) {
+            alert('Вкажіть ціну продажу більше 0 BB.');
+            return;
+        }
+        if (item.type === 'title' && item?.style?.approvedByRules !== true) {
+            alert('Титул має бути підтверджений правилами перед відправкою.');
+            return;
+        }
+
+        const nextItem = {
+            ...item,
+            status: 'pending',
+            updatedAt: Date.now()
+        };
+        workshopStateEx.createdItems[itemId] = nextItem;
+
+        const db = firebase.database();
+        await Promise.all([
+            saveWorkshopStateEx(),
+            db.ref(`workshopMarketplace/pending/${itemId}`).set({
+                ...nextItem,
+                submittedAt: Date.now()
+            }),
+            db.ref(`workshopMarketplace/listings/${itemId}`).remove()
+        ]);
+
+        delete workshopMarketState.listings[itemId];
+        workshopMarketState.pending[itemId] = {
+            ...nextItem,
+            submittedAt: Date.now()
+        };
+        showGameNotification('📤 Роботу відправлено на перевірку адміністратору');
+        renderWorkshopTab();
+    }
+
+    async function approveWorkshopItem(itemId) {
+        if (!workshopAdminMode) return;
+        const pendingItem = workshopMarketState.pending[itemId];
+        if (!pendingItem) return;
+
+        const approvedItem = {
+            ...pendingItem,
+            status: 'approved',
+            reviewedAt: Date.now(),
+            reviewedBy: gameState.user
+        };
+
+        const db = firebase.database();
+        await db.ref().update({
+            [`workshopMarketplace/pending/${itemId}`]: null,
+            [`workshopMarketplace/listings/${itemId}`]: approvedItem,
+            [`users/${pendingItem.createdBy}/workshop/createdItems/${itemId}/status`]: 'approved',
+            [`users/${pendingItem.createdBy}/workshop/createdItems/${itemId}/reviewedAt`]: Date.now(),
+            [`users/${pendingItem.createdBy}/workshop/createdItems/${itemId}/reviewedBy`]: gameState.user
+        });
+
+        delete workshopMarketState.pending[itemId];
+        workshopMarketState.listings[itemId] = approvedItem;
+        if (pendingItem.createdBy === gameState.user && workshopStateEx.createdItems[itemId]) {
+            workshopStateEx.createdItems[itemId].status = 'approved';
+        }
+        showGameNotification(`✅ Лот "${pendingItem.name}" схвалено`);
+        renderWorkshopTab();
+    }
+
+    async function rejectWorkshopItem(itemId) {
+        if (!workshopAdminMode) return;
+        const pendingItem = workshopMarketState.pending[itemId];
+        if (!pendingItem) return;
+        const reason = sanitizeDescription(prompt('Причина повернення (необовʼязково):') || '', 100);
+
+        const db = firebase.database();
+        await db.ref().update({
+            [`workshopMarketplace/pending/${itemId}`]: null,
+            [`users/${pendingItem.createdBy}/workshop/createdItems/${itemId}/status`]: 'rejected',
+            [`users/${pendingItem.createdBy}/workshop/createdItems/${itemId}/reviewNote`]: reason,
+            [`users/${pendingItem.createdBy}/workshop/createdItems/${itemId}/reviewedAt`]: Date.now(),
+            [`users/${pendingItem.createdBy}/workshop/createdItems/${itemId}/reviewedBy`]: gameState.user
+        });
+
+        delete workshopMarketState.pending[itemId];
+        if (pendingItem.createdBy === gameState.user && workshopStateEx.createdItems[itemId]) {
+            workshopStateEx.createdItems[itemId].status = 'rejected';
+            workshopStateEx.createdItems[itemId].reviewNote = reason;
+        }
+        showGameNotification('↩️ Роботу повернуто на доопрацювання');
+        renderWorkshopTab();
+    }
+
+    async function toggleWorkshopEquip(itemId) {
+        const item = getWorkshopItemById(itemId);
+        if (!item) return;
+        if (!workshopStateEx.ownedItemIds[itemId] && item.createdBy !== gameState.user) {
+            alert('Спочатку придбайте або створіть цю роботу.');
+            return;
+        }
+        const equipKey = `${item.type}Id`;
+        workshopStateEx.equipped[equipKey] = workshopStateEx.equipped[equipKey] === itemId ? null : itemId;
+        const success = await saveWorkshopStateEx();
+        if (!success) {
+            alert('Не вдалося застосувати роботу.');
+            return;
+        }
+        applyWorkshopAppearance();
+        updateHeader();
+        renderWorkshopTab();
+    }
+
+    async function purchaseWorkshopItem(itemId) {
+        if (!gameState.user) {
+            alert('Спочатку увійдіть в акаунт.');
+            return;
+        }
+        const item = workshopMarketState.listings[itemId];
+        if (!item) return;
+        if (item.createdBy === gameState.user) {
+            alert('Власну роботу купувати не потрібно.');
+            return;
+        }
+        if (workshopStateEx.ownedItemIds[itemId]) {
+            await toggleWorkshopEquip(itemId);
+            return;
+        }
+
+        const price = num(item.requestedPrice, 0);
+        const purchaseResult = await adjustUserBalanceFirebase(gameState.user, -price);
+        if (!purchaseResult.success) {
+            alert('Недостатньо BB для покупки.');
+            return;
+        }
+
+        workshopStateEx.ownedItemIds[itemId] = true;
+        await adjustUserBalanceFirebase(item.createdBy, price);
+        const saveSuccess = await saveWorkshopStateEx();
+        if (!saveSuccess) {
+            alert('Покупку виконано, але не вдалося оновити вашу колекцію.');
+            return;
+        }
+
+        gameState.balance = purchaseResult.balance;
+        updateCachedUser(gameState.user, { balance: purchaseResult.balance });
+        updateHeader();
+        showGameNotification(`🛍️ Ви придбали "${item.name}"`);
+        renderWorkshopTab();
+    }
+
+    function renderWorkshopOwnedList() {
+        const root = document.getElementById('workshop-owned-list');
+        if (!root) return;
+        const items = getWorkshopOwnedCollection();
+        if (!items.length) {
+            root.innerHTML = '<div class="feature-note">Тут зʼявляться ваші роботи та покупки з майстерні.</div>';
+            return;
+        }
+
+        root.innerHTML = items.map((item) => {
+            const isCreator = item.createdBy === gameState.user;
+            const isOwned = !!workshopStateEx.ownedItemIds[item.id];
+            const isEquipped = workshopStateEx.equipped[`${item.type}Id`] === item.id;
+            const canEdit = isCreator && item.status !== 'approved' && item.status !== 'pending';
+            return `
+                <div class="workshop-item-card">
+                    <div class="workshop-item-head">
+                        <div>
+                            <div style="font-size:12px; font-weight:900; color:var(--p);">${escapeHtml(item.name)}</div>
+                            <div class="workshop-item-meta">
+                                <span>${escapeHtml(workshopTypeLabels[item.type] || item.type)}</span>
+                                <span>${escapeHtml(item.creatorDisplayName || item.createdBy || 'Автор')}</span>
+                                <span>${escapeHtml(formatFeatureTime(item.updatedAt || item.createdAt))}</span>
+                            </div>
+                        </div>
+                        <span class="workshop-badge ${getWorkshopItemStatusClass(item.status)}">${workshopStatusLabel(item.status)}</span>
+                    </div>
+                    ${renderWorkshopItemPreview(item, true)}
+                    <div class="feature-note">${escapeHtml(item.description || 'Без опису')}</div>
+                    ${item.reviewNote ? `<div class="feature-note" style="margin-top:6px; color:var(--gold);">Причина: ${escapeHtml(item.reviewNote)}</div>` : ''}
+                    <div class="feature-actions">
+                        ${isOwned ? `<button class="shop-item-btn ${isEquipped ? 'equipped-btn' : 'equip-btn'}" onclick="toggleWorkshopEquip('${item.id}')">${isEquipped ? 'ЗНЯТИ' : 'ЕКІПІРУВАТИ'}</button>` : ''}
+                        ${canEdit ? `<button class="shop-item-btn equip-btn" onclick="editWorkshopCreation('${item.id}')">РЕДАГУВАТИ</button>` : ''}
+                        ${isCreator && item.status !== 'pending' ? `<button class="shop-item-btn" onclick="submitWorkshopForReview('${item.id}')">НА ПЕРЕВІРКУ</button>` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function renderWorkshopMarketplace() {
+        const root = document.getElementById('workshop-marketplace-list');
+        if (!root) return;
+        const listings = Object.values(workshopMarketState.listings || {})
+            .filter(item => item.status === 'approved')
+            .sort((a, b) => num(b.reviewedAt || b.createdAt, 0) - num(a.reviewedAt || a.createdAt, 0));
+
+        if (!listings.length) {
+            root.innerHTML = '<div class="feature-note">Після перевірки адміністратором тут зʼявляться користувацькі рамки, фони та титули.</div>';
+            return;
+        }
+
+        root.innerHTML = listings.map((item) => {
+            const alreadyOwned = !!workshopStateEx.ownedItemIds[item.id] || item.createdBy === gameState.user;
+            const isEquipped = workshopStateEx.equipped[`${item.type}Id`] === item.id;
+            return `
+                <div class="workshop-item-card">
+                    <div class="workshop-item-head">
+                        <div>
+                            <div style="font-size:12px; font-weight:900; color:var(--gold);">${escapeHtml(item.name)}</div>
+                            <div class="workshop-item-meta">
+                                <span>${escapeHtml(workshopTypeLabels[item.type] || item.type)}</span>
+                                <span>Автор: ${escapeHtml(item.creatorDisplayName || item.createdBy || '—')}</span>
+                                <span>Ціна: ${num(item.requestedPrice, 0).toFixed(2)} BB</span>
+                            </div>
+                        </div>
+                        <span class="workshop-badge approved">На вітрині</span>
+                    </div>
+                    ${renderWorkshopItemPreview(item, true)}
+                    <div class="feature-note">${escapeHtml(item.description || 'Без опису')}</div>
+                    <div class="feature-actions">
+                        <button class="shop-item-btn ${alreadyOwned ? (isEquipped ? 'equipped-btn' : 'equip-btn') : ''}" onclick="${alreadyOwned ? `toggleWorkshopEquip('${item.id}')` : `purchaseWorkshopItem('${item.id}')`}">
+                            ${alreadyOwned ? (isEquipped ? 'ЗНЯТИ' : 'ЕКІПІРУВАТИ') : `КУПИТИ ${num(item.requestedPrice, 0).toFixed(2)} BB`}
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function renderWorkshopAdminList() {
+        const panel = document.getElementById('workshop-admin-panel');
+        const root = document.getElementById('workshop-admin-list');
+        if (!panel || !root) return;
+        panel.style.display = workshopAdminMode ? 'block' : 'none';
+        if (!workshopAdminMode) return;
+        const pendingItems = Object.values(workshopMarketState.pending || {})
+            .sort((a, b) => num(b.submittedAt || b.updatedAt, 0) - num(a.submittedAt || a.updatedAt, 0));
+        if (!pendingItems.length) {
+            root.innerHTML = '<div class="feature-note">Черга модерації порожня.</div>';
+            return;
+        }
+        root.innerHTML = pendingItems.map(item => `
+            <div class="workshop-item-card">
+                <div class="workshop-item-head">
+                    <div>
+                        <div style="font-size:12px; font-weight:900; color:var(--p);">${escapeHtml(item.name)}</div>
+                        <div class="workshop-item-meta">
+                            <span>${escapeHtml(workshopTypeLabels[item.type] || item.type)}</span>
+                            <span>${escapeHtml(item.creatorDisplayName || item.createdBy || '—')}</span>
+                            <span>${num(item.requestedPrice, 0).toFixed(2)} BB</span>
+                        </div>
+                    </div>
+                    <span class="workshop-badge pending">Очікує</span>
+                </div>
+                ${renderWorkshopItemPreview(item, true)}
+                <div class="feature-note">${escapeHtml(item.description || 'Без опису')}</div>
+                <div class="feature-actions">
+                    <button class="shop-item-btn" onclick="approveWorkshopItem('${item.id}')">СХВАЛИТИ</button>
+                    <button class="shop-item-btn equip-btn" onclick="rejectWorkshopItem('${item.id}')">ПОВЕРНУТИ</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function renderWorkshopStats() {
+        const createdItems = Object.values(workshopStateEx.createdItems || {});
+        const activeListings = Object.values(workshopMarketState.listings || {}).filter(item => item.createdBy === gameState.user).length;
+        const reviewCount = workshopAdminMode
+            ? Object.keys(workshopMarketState.pending || {}).length
+            : createdItems.filter(item => item.status === 'pending').length;
+        document.getElementById('workshop-created-count').textContent = String(createdItems.length);
+        document.getElementById('workshop-owned-count').textContent = String(Object.keys(workshopStateEx.ownedItemIds || {}).length);
+        document.getElementById('workshop-market-count').textContent = String(activeListings);
+        document.getElementById('workshop-review-count').textContent = String(reviewCount);
+    }
+
+    function renderWorkshopTab() {
+        renderWorkshopPreview();
+        renderWorkshopStats();
+        renderWorkshopOwnedList();
+        renderWorkshopMarketplace();
+        renderWorkshopAdminList();
+        applyWorkshopAppearance();
+    }
+
+    function getRealEstateDefinition(propertyId) {
+        return realEstateCatalog.find(item => item.id === propertyId) || null;
+    }
+
+    function getRealEstateLevel(propertyId) {
+        return clamp(num(realEstateState.properties?.[propertyId]?.level, 1), 1, 999);
+    }
+
+    function getRealEstateHourlyProfit(definition, level) {
+        return num(definition?.baseProfit, 0) * Math.pow(REAL_ESTATE_PROFIT_SCALE, Math.max(0, level - 1));
+    }
+
+    function getRealEstateUpgradeCost(definition, level) {
+        return num(definition?.upgradeBase, 0) * (level + 1);
+    }
+
+    function getRealEstateSellValue(definition, level) {
+        return (num(definition?.price, 0) + num(definition?.upgradeBase, 0) * Math.max(0, level - 1)) * num(definition?.sellRatio, 0.72);
+    }
+
+    function getRealEstatePendingIncome(propertyId, now = Date.now()) {
+        const definition = getRealEstateDefinition(propertyId);
+        const entry = realEstateState.properties?.[propertyId];
+        if (!definition || !entry) return 0;
+        const elapsedHours = Math.max(0, now - num(entry.lastCollectedAt, now)) / 3600000;
+        return getRealEstateHourlyProfit(definition, getRealEstateLevel(propertyId)) * elapsedHours;
+    }
+
+    async function saveRealEstateState() {
+        if (!gameState.user) return false;
+        return saveUserFeatureStateFirebase(gameState.user, 'realEstate', realEstateState);
+    }
+
+    async function buyRealEstate(propertyId) {
+        const definition = getRealEstateDefinition(propertyId);
+        if (!definition) return;
+        if (realEstateState.properties[propertyId]) {
+            alert('Цей обʼєкт уже куплено.');
+            return;
+        }
+        const balanceResult = await adjustUserBalanceFirebase(gameState.user, -definition.price);
+        if (!balanceResult.success) {
+            alert('Недостатньо BB для купівлі нерухомості.');
+            return;
+        }
+        realEstateState.properties[propertyId] = {
+            level: 1,
+            purchasedAt: Date.now(),
+            lastCollectedAt: Date.now()
+        };
+        await saveRealEstateState();
+        gameState.balance = balanceResult.balance;
+        updateCachedUser(gameState.user, { balance: balanceResult.balance });
+        updateHeader();
+        renderRealEstateTab();
+        showGameNotification(`🏠 Куплено: ${definition.name}`);
+    }
+
+    async function collectRealEstateIncome(propertyId, silent = false) {
+        const definition = getRealEstateDefinition(propertyId);
+        const entry = realEstateState.properties[propertyId];
+        if (!definition || !entry) return 0;
+        const pendingIncome = Number(getRealEstatePendingIncome(propertyId).toFixed(4));
+        if (pendingIncome <= 0) {
+            if (!silent) showGameNotification('⌛ Прибуток ще не накопичився.');
+            return 0;
+        }
+        const balanceResult = await adjustUserBalanceFirebase(gameState.user, pendingIncome);
+        if (!balanceResult.success) {
+            if (!silent) alert('Не вдалося зарахувати прибуток.');
+            return 0;
+        }
+        realEstateState.properties[propertyId].lastCollectedAt = Date.now();
+        await saveRealEstateState();
+        gameState.balance = balanceResult.balance;
+        updateCachedUser(gameState.user, { balance: balanceResult.balance });
+        updateHeader();
+        renderRealEstateTab();
+        if (!silent) showGameNotification(`💰 Отримано ${pendingIncome.toFixed(4)} BB з обʼєкта ${definition.name}`);
+        return pendingIncome;
+    }
+
+    async function collectAllRealEstateIncome() {
+        const propertyIds = Object.keys(realEstateState.properties || {});
+        let totalCollected = 0;
+        for (const propertyId of propertyIds) {
+            totalCollected += await collectRealEstateIncome(propertyId, true);
+        }
+        renderRealEstateTab();
+        if (totalCollected > 0) {
+            showGameNotification(`🏦 Загальний прибуток: ${totalCollected.toFixed(4)} BB`);
+        } else {
+            showGameNotification('⌛ Поки що немає прибутку для збору.');
+        }
+    }
+
+    async function upgradeRealEstate(propertyId) {
+        const definition = getRealEstateDefinition(propertyId);
+        const entry = realEstateState.properties[propertyId];
+        if (!definition || !entry) return;
+        const level = getRealEstateLevel(propertyId);
+        const upgradeCost = getRealEstateUpgradeCost(definition, level);
+        const balanceResult = await adjustUserBalanceFirebase(gameState.user, -upgradeCost);
+        if (!balanceResult.success) {
+            alert('Недостатньо BB для покращення.');
+            return;
+        }
+        entry.level = level + 1;
+        await saveRealEstateState();
+        gameState.balance = balanceResult.balance;
+        updateCachedUser(gameState.user, { balance: balanceResult.balance });
+        updateHeader();
+        renderRealEstateTab();
+        showGameNotification(`⬆️ ${definition.name} покращено до рівня ${entry.level}`);
+    }
+
+    async function sellRealEstate(propertyId) {
+        const definition = getRealEstateDefinition(propertyId);
+        const entry = realEstateState.properties[propertyId];
+        if (!definition || !entry) return;
+        const pendingIncome = Number(getRealEstatePendingIncome(propertyId).toFixed(4));
+        const saleValue = Number(getRealEstateSellValue(definition, getRealEstateLevel(propertyId)).toFixed(4));
+        const totalPayout = pendingIncome + saleValue;
+        const balanceResult = await adjustUserBalanceFirebase(gameState.user, totalPayout);
+        if (!balanceResult.success) {
+            alert('Не вдалося продати обʼєкт.');
+            return;
+        }
+        delete realEstateState.properties[propertyId];
+        await saveRealEstateState();
+        gameState.balance = balanceResult.balance;
+        updateCachedUser(gameState.user, { balance: balanceResult.balance });
+        updateHeader();
+        renderRealEstateTab();
+        showGameNotification(`💼 ${definition.name} продано за ${totalPayout.toFixed(4)} BB`);
+    }
+
+    function renderRealEstateTab() {
+        const root = document.getElementById('real-estate-list');
+        if (!root) return;
+        const ownedCount = Object.keys(realEstateState.properties || {}).length;
+        const totalLevel = Object.keys(realEstateState.properties || {}).reduce((sum, propertyId) => sum + getRealEstateLevel(propertyId), 0);
+        const totalHourly = realEstateCatalog.reduce((sum, definition) => {
+            if (!realEstateState.properties[definition.id]) return sum;
+            return sum + getRealEstateHourlyProfit(definition, getRealEstateLevel(definition.id));
+        }, 0);
+        const pendingIncome = realEstateCatalog.reduce((sum, definition) => sum + getRealEstatePendingIncome(definition.id), 0);
+
+        document.getElementById('real-estate-owned-count').textContent = String(ownedCount);
+        document.getElementById('real-estate-level-total').textContent = String(totalLevel);
+        document.getElementById('real-estate-hourly-income').textContent = totalHourly.toFixed(2);
+        document.getElementById('real-estate-pending-income').textContent = pendingIncome.toFixed(2);
+
+        root.innerHTML = realEstateCatalog.map((definition) => {
+            const owned = realEstateState.properties[definition.id];
+            const level = owned ? getRealEstateLevel(definition.id) : 0;
+            const hourlyProfit = owned ? getRealEstateHourlyProfit(definition, level) : definition.baseProfit;
+            const upgradeCost = getRealEstateUpgradeCost(definition, Math.max(level, 1));
+            const pending = owned ? getRealEstatePendingIncome(definition.id) : 0;
+            const sellValue = owned ? getRealEstateSellValue(definition, level) : 0;
+            return `
+                <div class="feature-card">
+                    <h4>${escapeHtml(definition.icon)} ${escapeHtml(definition.name)}</h4>
+                    <p>${owned ? `Рівень ${level}. Прибуток ${hourlyProfit.toFixed(2)} BB/год.` : `Ціна: ${definition.price.toFixed(2)} BB. Базовий прибуток: ${definition.baseProfit.toFixed(2)} BB/год.`}</p>
+                    <div class="feature-actions">
+                        ${owned
+                            ? `
+                                <button class="shop-item-btn" onclick="collectRealEstateIncome('${definition.id}')">ЗІБРАТИ ${pending.toFixed(2)} BB</button>
+                                <button class="shop-item-btn equip-btn" onclick="upgradeRealEstate('${definition.id}')">UPGRADE ${upgradeCost.toFixed(2)}</button>
+                                <button class="shop-item-btn owned-misc-btn" onclick="sellRealEstate('${definition.id}')">ПРОДАТИ ${sellValue.toFixed(2)}</button>
+                            `
+                            : `<button class="shop-item-btn" onclick="buyRealEstate('${definition.id}')">КУПИТИ ${definition.price.toFixed(2)} BB</button>`
+                        }
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function getCarDefinition(carId) {
+        return carsCatalog.find(item => item.id === carId) || null;
+    }
+
+    function getCarLevel(carId) {
+        return clamp(num(carsState.ownedCars?.[carId]?.level, 1), 1, 999);
+    }
+
+    function getCarUpgradeCost(definition, level) {
+        return num(definition?.upgradeBase, 0) * (level + 1);
+    }
+
+    function getCarPrestigeValue(definition, level) {
+        return Math.round(num(definition?.basePrestige, 0) * (1 + (level - 1) * CAR_PRESTIGE_GROWTH_RATE));
+    }
+
+    function getCarSaleValue(definition, level) {
+        return (num(definition?.price, 0) + num(definition?.upgradeBase, 0) * Math.max(0, level - 1)) * num(definition?.resaleRatio, 0.7);
+    }
+
+    function syncCarsPrestige() {
+        const totalPrestige = carsCatalog.reduce((sum, definition) => {
+            if (!carsState.ownedCars[definition.id]) return sum;
+            return sum + getCarPrestigeValue(definition, getCarLevel(definition.id));
+        }, 0);
+        carsState.prestige = totalPrestige;
+        gameState.prestige = totalPrestige;
+    }
+
+    async function saveCarsState() {
+        if (!gameState.user) return false;
+        syncCarsPrestige();
+        return saveUserFeatureStateFirebase(gameState.user, 'carsData', carsState);
+    }
+
+    async function buyCar(carId) {
+        const definition = getCarDefinition(carId);
+        if (!definition) return;
+        if (carsState.ownedCars[carId]) {
+            alert('Цей автомобіль уже у вашому гаражі.');
+            return;
+        }
+        const balanceResult = await adjustUserBalanceFirebase(gameState.user, -definition.price);
+        if (!balanceResult.success) {
+            alert('Недостатньо BB для купівлі авто.');
+            return;
+        }
+        carsState.ownedCars[carId] = {
+            level: 1,
+            purchasedAt: Date.now()
+        };
+        if (!carsState.activeCarId) carsState.activeCarId = carId;
+        await saveCarsState();
+        gameState.balance = balanceResult.balance;
+        updateCachedUser(gameState.user, { balance: balanceResult.balance });
+        updateHeader();
+        renderCarsTab();
+        showGameNotification(`🚗 Куплено: ${definition.name}`);
+    }
+
+    async function upgradeCar(carId) {
+        const definition = getCarDefinition(carId);
+        const entry = carsState.ownedCars[carId];
+        if (!definition || !entry) return;
+        const level = getCarLevel(carId);
+        const upgradeCost = getCarUpgradeCost(definition, level);
+        const balanceResult = await adjustUserBalanceFirebase(gameState.user, -upgradeCost);
+        if (!balanceResult.success) {
+            alert('Недостатньо BB для апгрейду авто.');
+            return;
+        }
+        entry.level = level + 1;
+        await saveCarsState();
+        gameState.balance = balanceResult.balance;
+        updateCachedUser(gameState.user, { balance: balanceResult.balance });
+        updateHeader();
+        renderCarsTab();
+        showGameNotification(`🔧 ${definition.name} покращено до рівня ${entry.level}`);
+    }
+
+    async function sellCar(carId) {
+        const definition = getCarDefinition(carId);
+        const entry = carsState.ownedCars[carId];
+        if (!definition || !entry) return;
+        const saleValue = Number(getCarSaleValue(definition, getCarLevel(carId)).toFixed(4));
+        const balanceResult = await adjustUserBalanceFirebase(gameState.user, saleValue);
+        if (!balanceResult.success) {
+            alert('Не вдалося продати авто.');
+            return;
+        }
+        delete carsState.ownedCars[carId];
+        if (carsState.activeCarId === carId) {
+            carsState.activeCarId = Object.keys(carsState.ownedCars)[0] || null;
+        }
+        await saveCarsState();
+        gameState.balance = balanceResult.balance;
+        updateCachedUser(gameState.user, { balance: balanceResult.balance });
+        updateHeader();
+        renderCarsTab();
+        showGameNotification(`💸 Авто ${definition.name} продано`);
+    }
+
+    async function setActiveCar(carId) {
+        if (!carsState.ownedCars[carId]) return;
+        carsState.activeCarId = carId;
+        await saveCarsState();
+        updateHeader();
+        renderCarsTab();
+        showGameNotification('🏁 Активний автомобіль оновлено');
+    }
+
+    function renderCarsTab() {
+        const root = document.getElementById('cars-list');
+        if (!root) return;
+        syncCarsPrestige();
+        const ownedCount = Object.keys(carsState.ownedCars || {}).length;
+        const activeCar = getCarDefinition(carsState.activeCarId);
+        const readiness = clamp(Math.round((gameState.prestige / EVENT_READINESS_PRESTIGE_THRESHOLD) * 100), 0, 100);
+
+        document.getElementById('cars-owned-count').textContent = String(ownedCount);
+        document.getElementById('cars-total-prestige').textContent = String(gameState.prestige || 0);
+        document.getElementById('cars-active-name').textContent = activeCar ? activeCar.name : '—';
+        document.getElementById('cars-event-ready').textContent = `Готовність ${readiness}%`;
+
+        root.innerHTML = carsCatalog.map((definition) => {
+            const owned = carsState.ownedCars[definition.id];
+            const level = owned ? getCarLevel(definition.id) : 0;
+            const prestige = owned ? getCarPrestigeValue(definition, level) : definition.basePrestige;
+            const upgradeCost = getCarUpgradeCost(definition, Math.max(level, 1));
+            const saleValue = owned ? getCarSaleValue(definition, level) : 0;
+            const isActive = carsState.activeCarId === definition.id;
+            return `
+                <div class="feature-card">
+                    <h4>${escapeHtml(definition.icon)} ${escapeHtml(definition.name)}</h4>
+                    <p>${owned ? `Рівень ${level}. Престиж +${prestige}. Авто готове до майбутніх подій.` : `Ціна: ${definition.price.toFixed(2)} BB. Базовий престиж: +${definition.basePrestige}.`}</p>
+                    <div class="feature-actions">
+                        ${owned
+                            ? `
+                                <button class="shop-item-btn ${isActive ? 'equipped-btn' : 'equip-btn'}" onclick="setActiveCar('${definition.id}')">${isActive ? 'АКТИВНЕ' : 'ОБРАТИ'}</button>
+                                <button class="shop-item-btn" onclick="upgradeCar('${definition.id}')">UPGRADE ${upgradeCost.toFixed(2)}</button>
+                                <button class="shop-item-btn owned-misc-btn" onclick="sellCar('${definition.id}')">ПРОДАТИ ${saleValue.toFixed(2)}</button>
+                            `
+                            : `<button class="shop-item-btn" onclick="buyCar('${definition.id}')">КУПИТИ ${definition.price.toFixed(2)} BB</button>`
+                        }
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    async function loadExtendedFeatures() {
+        if (!gameState.user) return;
+        const [workshopRaw, realEstateRaw, carsRaw, isAdmin] = await Promise.all([
+            loadUserFeatureStateFirebase(gameState.user, 'workshop'),
+            loadUserFeatureStateFirebase(gameState.user, 'realEstate'),
+            loadUserFeatureStateFirebase(gameState.user, 'carsData'),
+            isAdminUserFirebase(gameState.user)
+        ]);
+        workshopStateEx = normalizeWorkshopState(workshopRaw);
+        realEstateState = normalizeRealEstateState(realEstateRaw);
+        carsState = normalizeCarsState(carsRaw);
+        workshopAdminMode = isAdmin;
+        await refreshWorkshopMarketplaceState();
+        syncCarsPrestige();
+        updateCachedUser(gameState.user, { prestige: gameState.prestige });
+        extendedFeaturesLoaded = true;
+        updateHeader();
+        renderWorkshopTab();
+        renderRealEstateTab();
+        renderCarsTab();
+    }
+
     window.__stickAppDebug = {
         getRouletteSegments: () => rouletteSegments.map(segment => ({ ...segment })),
         normalizeAngle,
@@ -1068,6 +2393,12 @@
 
         // Завантажити дані магазину
         shopLoad();
+        try {
+            await loadExtendedFeatures();
+        } catch (error) {
+            console.error('❌ Помилка завантаження нових вкладок:', error);
+            showGameNotification('⚠️ Нові вкладки завантажено частково');
+        }
     }
 
     function updateHeader() {
@@ -1076,6 +2407,8 @@
         document.getElementById('v-bal').textContent = gameState.balance.toFixed(4);
         document.getElementById('h-a').src = gameState.avatar || avatarGallery[0];
         document.getElementById('settings-avatar-preview').src = gameState.avatar || avatarGallery[0];
+        document.getElementById('h-p').textContent = `🏆 Престиж: ${Math.round(num(gameState.prestige, 0))}`;
+        applyWorkshopAppearance();
     }
 
     function updateSyncIndicator(isSynced) {
@@ -1123,7 +2456,7 @@
         document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
         document.querySelectorAll('nav .tab').forEach(t => t.classList.remove('active'));
         
-        const tabMap = {1: 'tab1', 2: 'tab2', 3: 'tab3', 4: 'tab4', 5: 'tab5', 6: 'tab6'};
+        const tabMap = {1: 'tab1', 2: 'tab2', 3: 'tab3', 4: 'tab4', 5: 'tab5', 6: 'tab6', 7: 'tab7', 8: 'tab8', 9: 'tab9', 10: 'tab10'};
         document.getElementById(tabMap[tabNum]).style.display = 'block';
         document.querySelectorAll('nav .tab')[tabNum - 1].classList.add('active');
         if (tabNum === 4) {
@@ -1135,6 +2468,15 @@
         }
         if (tabNum === 6) {
             shopRender();
+        }
+        if (tabNum === 8) {
+            renderWorkshopTab();
+        }
+        if (tabNum === 9) {
+            renderRealEstateTab();
+        }
+        if (tabNum === 10) {
+            renderCarsTab();
         }
     }
 
@@ -2463,6 +3805,7 @@
                 : null;
             mainEl.style.background = bgItem ? bgItem.bg : '';
         }
+        applyWorkshopAppearance();
     }
 
     function shopSwitchCat(cat) {
@@ -2578,8 +3921,16 @@
         gameState.expandedFriendRequest = null;
         gameState.unreadCounts = {};
         gameState.friendsOnline = {};
+        gameState.prestige = 0;
+        gameState.activeTitle = null;
         allUsers = {};
         pendingGameRequest = null;
+        workshopStateEx = createDefaultWorkshopState();
+        workshopMarketState = { listings: {}, pending: {} };
+        realEstateState = createDefaultRealEstateState();
+        carsState = createDefaultCarsState();
+        workshopAdminMode = false;
+        extendedFeaturesLoaded = false;
         // Скинути RPS Online стан
         rpsOnlineState.matchId = null;
         rpsOnlineState.playerNum = null;
@@ -2591,6 +3942,10 @@
         shopState.owned = [];
         shopState.equippedFrame = null;
         shopState.equippedWallpaper = null;
+        document.getElementById('h-title').style.display = 'none';
+        document.getElementById('h-title').innerHTML = '';
+        document.getElementById('h-p').textContent = '🏆 Престиж: 0';
+        resetWorkshopEditor();
         shopApplyEquipped();
         document.getElementById('main-scr').style.display = 'none';
         document.getElementById('auth-scr').style.display = 'flex';
