@@ -47,7 +47,7 @@
         .c { aspect-ratio: 1; background: #000; border: 2px solid #333; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 900; border-radius: 8px; cursor: pointer; }
         .c:hover { border-color: var(--p); transform: scale(1.05); box-shadow: 0 0 10px rgba(7, 255, 255, 0.3); }
 
-        nav { position: fixed; bottom: 0; width: 100%; display: grid; grid-template-columns: repeat(10, minmax(72px, 1fr)); background: #000; border-top: 1px solid #111; padding: 10px 0 var(--app-nav-safe-bottom); z-index: 50; box-shadow: 0 -8px 20px rgba(0, 0, 0, 0.6); overflow-x: auto; }
+        nav { position: fixed; bottom: 0; width: 100%; display: grid; grid-template-columns: repeat(15, minmax(76px, 1fr)); background: #000; border-top: 1px solid #111; padding: 10px 0 var(--app-nav-safe-bottom); z-index: 50; box-shadow: 0 -8px 20px rgba(0, 0, 0, 0.6); overflow-x: auto; }
         .tab { text-align: center; color: #444; font-size: 18px; cursor: pointer; transition: all 0.3s; min-width: 72px; }
         .tab.active { color: var(--p); animation: tabPulse 0.5s ease; }
         @keyframes tabPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.2); } }
@@ -179,7 +179,7 @@
         .shop-item-btn.owned-misc-btn { background:#1a1a1a; color:var(--g); border:1px solid var(--g); cursor:default; }
         .shop-item-btn:disabled { opacity:0.4; cursor:not-allowed; }
 
-        /* 📰 Новини / Ринок */
+        /* 📰 Новини / Центр акаунта */
         .news-grid { display:grid; grid-template-columns:1fr; gap:12px; }
         .news-card { background:#000; border:1px solid #222; border-radius:12px; padding:12px; }
         .news-card.pinned { border-color:var(--gold); box-shadow:0 0 12px rgba(255,204,0,0.18); }
@@ -202,6 +202,44 @@
         @media (max-width: 360px) {
             .market-stats { grid-template-columns:1fr; }
         }
+        .hub-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; }
+        .hub-card { background:#000; border:1px solid #222; border-radius:14px; padding:14px; }
+        .hub-card h4 { margin:0 0 10px; color:var(--gold); font-size:12px; }
+        .hub-note { font-size:10px; color:#888; line-height:1.45; }
+        .exchange-form-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; }
+        .exchange-toolbar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:10px; }
+        .exchange-toolbar .btn { width:auto; min-width:120px; margin:0; }
+        .order-book-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:12px; }
+        .order-card, .activity-card, .transaction-item, .notification-item, .achievement-card { background:#050505; border:1px solid #1f1f1f; border-radius:12px; padding:12px; }
+        .order-card + .order-card, .transaction-item + .transaction-item, .notification-item + .notification-item, .achievement-card + .achievement-card { margin-top:8px; }
+        .order-head, .transaction-head, .notification-head { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:6px; }
+        .order-meta, .transaction-meta, .notification-meta { display:flex; flex-wrap:wrap; gap:6px; font-size:9px; color:#888; margin-top:4px; }
+        .pill { display:inline-flex; align-items:center; gap:5px; padding:4px 8px; border-radius:999px; border:1px solid #333; font-size:9px; text-transform:uppercase; letter-spacing:0.5px; }
+        .pill.buy, .pill.income, .pill.success { color:var(--g); border-color:rgba(0,255,136,0.35); background:rgba(0,255,136,0.08); }
+        .pill.sell, .pill.expense, .pill.warning { color:var(--r); border-color:rgba(255,51,102,0.35); background:rgba(255,51,102,0.08); }
+        .pill.info { color:var(--p); border-color:rgba(7,255,255,0.35); background:rgba(7,255,255,0.08); }
+        .pill.gold { color:var(--gold); border-color:rgba(255,204,0,0.35); background:rgba(255,204,0,0.08); }
+        .transaction-toolbar { display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:8px; margin-bottom:12px; }
+        .transaction-amount { font-size:13px; font-weight:900; }
+        .transaction-amount.income { color:var(--g); }
+        .transaction-amount.expense { color:var(--r); }
+        .list-stack { display:flex; flex-direction:column; gap:8px; }
+        .achievement-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:10px; }
+        .achievement-card.locked { opacity:0.7; border-style:dashed; }
+        .profile-hero { display:flex; flex-wrap:wrap; gap:14px; align-items:center; }
+        .profile-hero .profile-avatar { width:78px; height:78px; border-radius:50%; border:2px solid var(--p); object-fit:cover; background:#000; }
+        .profile-stat-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:8px; }
+        .profile-stat-card { background:#050505; border:1px solid #202020; border-radius:12px; padding:10px; }
+        .profile-stat-card b { display:block; color:var(--p); font-size:14px; margin-top:4px; }
+        .notification-item.unread { border-color:rgba(7,255,255,0.45); box-shadow:0 0 12px rgba(7,255,255,0.12); }
+        .workshop-canvas-wrap { background:#020202; border:1px solid #222; border-radius:12px; padding:10px; margin-top:10px; }
+        .workshop-canvas-tools { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:8px; }
+        .workshop-canvas-tools .btn, .workshop-canvas-tools .shop-item-btn { width:auto; margin:0; min-width:110px; }
+        .workshop-draw-canvas { width:100%; min-height:180px; background:#0b0b0b; border:1px solid #333; border-radius:12px; touch-action:none; display:block; }
+        .color-palette-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(36px, 1fr)); gap:6px; margin-top:8px; }
+        .color-palette-swatch { width:100%; aspect-ratio:1; border-radius:10px; border:2px solid #222; cursor:pointer; }
+        .color-palette-swatch.active { border-color:#fff; box-shadow:0 0 0 2px rgba(7,255,255,0.25); }
+        .candle-tooltip { font-size:10px; color:#aaa; margin-top:8px; }
 
         /* 🛠️ Майстерня / 🏠 Нерухомість / 🚗 Авто */
         .feature-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; }
@@ -580,7 +618,10 @@
         <div class="shop-cat-bar">
             <button class="shop-cat-btn active" data-cat="frames" onclick="shopSwitchCat('frames')">🖼️ Рамки</button>
             <button class="shop-cat-btn" data-cat="wallpapers" onclick="shopSwitchCat('wallpapers')">🌌 Шпалери</button>
-            <button class="shop-cat-btn" data-cat="misc" onclick="shopSwitchCat('misc')">🎁 Інше</button>
+            <button class="shop-cat-btn" data-cat="titles" onclick="shopSwitchCat('titles')">🏷️ Титули</button>
+            <button class="shop-cat-btn" data-cat="exclusive" onclick="shopSwitchCat('exclusive')">💎 Ексклюзив</button>
+            <button class="shop-cat-btn" data-cat="seasonal" onclick="shopSwitchCat('seasonal')">🎄 Сезонне</button>
+            <button class="shop-cat-btn" data-cat="creator" onclick="shopSwitchCat('creator')">🎨 Авторське</button>
         </div>
         <div id="shop-grid" class="shop-grid"></div>
     </div>
@@ -588,7 +629,6 @@
     <!-- ВКЛ.7: НОВИНИ -->
     <div id="tab7" class="view">
         <h3 style="margin-top:0;">📰 НОВИНИ</h3>
-
         <div class="glass">
             <h4 style="margin:0 0 10px; color:var(--gold);">📰 Новини адміністрації</h4>
             <div id="news-admin-form" style="display:none; margin-bottom:12px;">
@@ -602,52 +642,6 @@
                 <button class="btn" style="margin-top:10px;" onclick="bbFeatures.publishNews()">Опублікувати</button>
             </div>
             <div id="news-list" class="news-grid"></div>
-        </div>
-
-        <div class="glass">
-            <h4 style="margin:0 0 10px; color:var(--gold);">📊 Статистика BB Coin</h4>
-            <div class="market-actions-row" style="margin-bottom:12px;">
-                <input type="number" id="market-trade-amount" min="0.0001" step="0.0001" placeholder="Кількість BB">
-                <select id="market-trade-type">
-                    <option value="buy">Купити</option>
-                    <option value="sell">Продати</option>
-                </select>
-                <button class="btn" style="width:auto; padding:11px 12px;" onclick="bbFeatures.executeTrade()">OK</button>
-            </div>
-            <div id="market-stats" class="market-stats"></div>
-            <h4 style="margin:14px 0 8px; color:var(--p);">🏅 ТОП-10 Найбагатших</h4>
-            <div id="market-top10"></div>
-        </div>
-
-        <div class="glass">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; gap:8px;">
-                <h4 style="margin:0; color:var(--gold);">📈 Свічковий графік курсу</h4>
-                <div class="mini-tabs" id="chart-range-tabs">
-                    <button class="mini-tab active" data-range="24h" onclick="bbFeatures.changeChartRange('24h')">24г</button>
-                    <button class="mini-tab" data-range="7d" onclick="bbFeatures.changeChartRange('7d')">7д</button>
-                    <button class="mini-tab" data-range="30d" onclick="bbFeatures.changeChartRange('30d')">30д</button>
-                    <button class="mini-tab" data-range="all" onclick="bbFeatures.changeChartRange('all')">Весь час</button>
-                </div>
-            </div>
-            <svg id="market-candles" width="100%" height="220" viewBox="0 0 640 220" style="background:#050505; border:1px solid #222; border-radius:10px;"></svg>
-        </div>
-
-        <div class="glass">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; gap:8px;">
-                <h4 style="margin:0; color:var(--gold);">🏆 Турніри</h4>
-                <div class="mini-tabs" id="tournament-tabs">
-                    <button class="mini-tab active" data-period="daily" onclick="bbFeatures.changeTournamentPeriod('daily')">Щоденні</button>
-                    <button class="mini-tab" data-period="weekly" onclick="bbFeatures.changeTournamentPeriod('weekly')">Щотижневі</button>
-                    <button class="mini-tab" data-period="monthly" onclick="bbFeatures.changeTournamentPeriod('monthly')">Щомісячні</button>
-                </div>
-            </div>
-            <div id="tournament-winner" style="font-size:12px; margin-bottom:8px; color:var(--g);"></div>
-            <div id="tournament-leaderboard"></div>
-        </div>
-
-        <div class="glass">
-            <h4 style="margin:0 0 10px; color:var(--gold);">🎯 Квести</h4>
-            <div id="quests-list"></div>
         </div>
     </div>
 
@@ -670,7 +664,7 @@
                     <div id="workshop-market-count" class="feature-stat-value">0</div>
                 </div>
                 <div class="feature-stat">
-                    <div class="feature-stat-label">СТАТУС МОДЕРАЦІЇ</div>
+                    <div class="feature-stat-label">НА ВІТРИНІ</div>
                     <div id="workshop-review-count" class="feature-stat-value">0</div>
                 </div>
             </div>
@@ -703,12 +697,39 @@
                 </div>
 
                 <div id="workshop-background-fields" style="display:none;">
-                    <label class="settings-label" for="workshop-bg-start">ПОЧАТКОВИЙ КОЛІР</label>
-                    <input type="color" id="workshop-bg-start" value="#0a0015" oninput="renderWorkshopPreview()">
-                    <label class="settings-label" for="workshop-bg-end">КІНЦЕВИЙ КОЛІР</label>
-                    <input type="color" id="workshop-bg-end" value="#1a0030" oninput="renderWorkshopPreview()">
-                    <label class="settings-label" for="workshop-bg-angle">КУТ ГРАДІЄНТА</label>
-                    <input type="range" id="workshop-bg-angle" min="0" max="360" value="135" oninput="renderWorkshopPreview()">
+                    <label class="settings-label" for="workshop-bg-mode">РЕЖИМ ФОНУ</label>
+                    <select id="workshop-bg-mode" onchange="setWorkshopBackgroundMode(this.value)">
+                        <option value="gradient">Градієнт</option>
+                        <option value="draw">Малюнок</option>
+                        <option value="photo">Власне фото</option>
+                    </select>
+                    <div id="workshop-bg-gradient-fields">
+                        <label class="settings-label" for="workshop-bg-start">ПОЧАТКОВИЙ КОЛІР</label>
+                        <input type="color" id="workshop-bg-start" value="#0a0015" oninput="renderWorkshopPreview()">
+                        <label class="settings-label" for="workshop-bg-end">КІНЦЕВИЙ КОЛІР</label>
+                        <input type="color" id="workshop-bg-end" value="#1a0030" oninput="renderWorkshopPreview()">
+                        <label class="settings-label" for="workshop-bg-angle">КУТ ГРАДІЄНТА</label>
+                        <input type="range" id="workshop-bg-angle" min="0" max="360" value="135" oninput="renderWorkshopPreview()">
+                    </div>
+                    <div id="workshop-bg-draw-fields" class="workshop-canvas-wrap" style="display:none;">
+                        <div class="hub-note">Намалюйте фон вручну: велика палітра, кисть та збереження прямо на акаунт.</div>
+                        <canvas id="workshop-draw-canvas" class="workshop-draw-canvas" width="640" height="360"></canvas>
+                        <div class="color-palette-grid" id="workshop-color-palette"></div>
+                        <div class="workshop-canvas-tools">
+                            <input type="color" id="workshop-draw-color" value="#07ffff" oninput="setWorkshopBrushColor(this.value)">
+                            <input type="range" id="workshop-draw-size" min="2" max="40" value="10" oninput="setWorkshopBrushSize(this.value)">
+                            <button type="button" class="shop-item-btn equip-btn" onclick="clearWorkshopCanvas()">ОЧИСТИТИ</button>
+                        </div>
+                    </div>
+                    <div id="workshop-bg-photo-fields" class="workshop-canvas-wrap" style="display:none;">
+                        <div class="hub-note">Завантажте власне фото, щоб воно стало фоном профілю та предметом магазину.</div>
+                        <input type="hidden" id="workshop-bg-photo-data">
+                        <input id="workshop-bg-photo-input" class="hidden-file-input" type="file" accept="image/*">
+                        <div class="workshop-canvas-tools">
+                            <button type="button" class="btn secondary-btn" onclick="document.getElementById('workshop-bg-photo-input').click()">ОБРАТИ ФОТО</button>
+                            <button type="button" class="shop-item-btn equip-btn" onclick="clearWorkshopPhoto()">ПРИБРАТИ ФОТО</button>
+                        </div>
+                    </div>
                 </div>
 
                 <div id="workshop-title-fields" style="display:none;">
@@ -720,7 +741,7 @@
                     <input type="color" id="workshop-title-accent" value="#07ffff" oninput="renderWorkshopPreview()">
                     <label style="display:flex; gap:8px; align-items:flex-start; font-size:10px; color:#aaa; margin-top:10px;">
                         <input type="checkbox" id="workshop-title-rules" style="width:auto; margin:0;" onchange="renderWorkshopPreview()">
-                        Підтверджую, що титул відповідає правилам сервера і може бути виставлений на перевірку.
+                        Підтверджую, що титул коректний і готовий для збереження на акаунті.
                     </label>
                 </div>
 
@@ -733,7 +754,7 @@
             <div class="glass">
                 <h4 style="margin-top:0; color:var(--gold);">👀 Попередній перегляд</h4>
                 <div id="workshop-preview" class="workshop-preview"></div>
-                <div class="feature-note" style="margin-top:10px;">Роботи зберігаються у Firebase та можуть бути виставлені на продаж після перевірки адміністратором.</div>
+                <div class="feature-note" style="margin-top:10px;">Роботи зберігаються у Firebase, одразу закріплюються за акаунтом і можуть потрапити у магазин без модерації.</div>
             </div>
         </div>
 
@@ -743,13 +764,8 @@
         </div>
 
         <div class="glass">
-            <h4 style="margin-top:0; color:var(--gold);">🛍️ Внутрішній магазин майстерні</h4>
+            <h4 style="margin-top:0; color:var(--gold);">🛍️ Вітрина майстерні</h4>
             <div id="workshop-marketplace-list" class="workshop-item-list"></div>
-        </div>
-
-        <div id="workshop-admin-panel" class="glass" style="display:none;">
-            <h4 style="margin-top:0; color:var(--gold);">🛡️ Перевірка адміністратора</h4>
-            <div id="workshop-admin-list" class="workshop-item-list"></div>
         </div>
     </div>
 
@@ -808,6 +824,145 @@
         <div id="cars-list" class="feature-grid"></div>
     </div>
 
+    <!-- ВКЛ.11: БІРЖА -->
+    <div id="tab11" class="view">
+        <h3 style="margin-top:0;">💹 БІРЖА</h3>
+        <div class="hub-grid">
+            <div class="hub-card">
+                <h4>📝 Нова заявка</h4>
+                <div class="exchange-form-grid">
+                    <select id="exchange-order-side">
+                        <option value="buy">Хочу купити BB</option>
+                        <option value="sell">Хочу продати BB</option>
+                    </select>
+                    <select id="exchange-order-type">
+                        <option value="market">Ринковий ордер</option>
+                        <option value="limit">Лімітний ордер</option>
+                    </select>
+                    <input type="number" id="exchange-order-amount" min="0.0001" step="0.0001" placeholder="Кількість BB">
+                    <input type="number" id="exchange-order-price" min="0.0001" step="0.0001" placeholder="Ціна / умова">
+                    <input type="text" id="exchange-order-desired" maxlength="80" placeholder="Що хочете натомість: авто, квартира, інше">
+                    <input type="text" id="exchange-order-source" maxlength="48" placeholder="Джерело / примітка">
+                </div>
+                <div class="exchange-toolbar" style="margin-top:12px;">
+                    <button class="btn" onclick="bbFeatures.placeExchangeOrder()">Створити заявку</button>
+                    <button class="btn secondary-btn" onclick="bbFeatures.matchExchangeOrder()">Швидко знайти пропозиції</button>
+                </div>
+                <div class="hub-note">Угоди виконуються тільки між людьми: монети переходять від продавця до покупця, а курс змінюється лише після реальних угод.</div>
+            </div>
+            <div class="hub-card">
+                <h4>📊 Статистика біржі</h4>
+                <div id="exchange-stats" class="market-stats"></div>
+                <div class="candle-tooltip" id="exchange-candle-meta">Натисніть на свічку, щоб побачити час і ціну угоди.</div>
+            </div>
+        </div>
+        <div class="glass">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; gap:8px;">
+                <h4 style="margin:0; color:var(--gold);">📈 Свічковий графік</h4>
+                <div class="mini-tabs" id="chart-range-tabs">
+                    <button class="mini-tab active" data-range="24h" onclick="bbFeatures.changeChartRange('24h')">24г</button>
+                    <button class="mini-tab" data-range="7d" onclick="bbFeatures.changeChartRange('7d')">7д</button>
+                    <button class="mini-tab" data-range="30d" onclick="bbFeatures.changeChartRange('30d')">30д</button>
+                    <button class="mini-tab" data-range="all" onclick="bbFeatures.changeChartRange('all')">Весь час</button>
+                </div>
+            </div>
+            <svg id="exchange-candles" width="100%" height="220" viewBox="0 0 640 220" style="background:#050505; border:1px solid #222; border-radius:10px;"></svg>
+        </div>
+        <div class="glass">
+            <div class="exchange-toolbar">
+                <input type="text" id="exchange-order-search" placeholder="Швидкий пошук по людям, причині, джерелу або предмету">
+                <button class="btn secondary-btn" style="width:auto;" onclick="bbFeatures.refreshExchangeView()">ОНОВИТИ</button>
+            </div>
+            <div class="order-book-grid">
+                <div class="hub-card">
+                    <h4>📕 Книга продажів</h4>
+                    <div id="exchange-book-sell" class="list-stack"></div>
+                </div>
+                <div class="hub-card">
+                    <h4>📗 Книга покупок</h4>
+                    <div id="exchange-book-buy" class="list-stack"></div>
+                </div>
+            </div>
+        </div>
+        <div class="hub-grid">
+            <div class="hub-card">
+                <h4>🧾 Мої ордери</h4>
+                <div id="exchange-my-orders" class="list-stack"></div>
+            </div>
+            <div class="hub-card">
+                <h4>🤝 Історія угод</h4>
+                <div id="exchange-trades" class="list-stack"></div>
+            </div>
+            <div class="hub-card">
+                <h4>🚀 Найбільші угоди</h4>
+                <div id="exchange-largest-trades" class="list-stack"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ВКЛ.12: БАЛАНС -->
+    <div id="tab12" class="view">
+        <h3 style="margin-top:0;">💰 БАЛАНС</h3>
+        <div id="balance-ledger-summary" class="market-stats" style="margin-bottom:12px;"></div>
+        <div class="glass">
+            <div class="transaction-toolbar">
+                <input type="text" id="balance-search" placeholder="Швидкий пошук">
+                <select id="balance-source-filter" onchange="bbFeatures.renderBalanceHub()">
+                    <option value="all">Усі джерела</option>
+                </select>
+                <select id="balance-direction-filter" onchange="bbFeatures.renderBalanceHub()">
+                    <option value="all">Усі операції</option>
+                    <option value="income">Надходження</option>
+                    <option value="expense">Списання</option>
+                </select>
+                <input type="date" id="balance-date-filter" onchange="bbFeatures.renderBalanceHub()">
+            </div>
+            <div id="balance-list" class="list-stack"></div>
+        </div>
+    </div>
+
+    <!-- ВКЛ.13: ПРОФІЛЬ -->
+    <div id="tab13" class="view">
+        <h3 style="margin-top:0;">👤 ПРОФІЛЬ</h3>
+        <div class="glass">
+            <div id="profile-identity" class="profile-hero"></div>
+        </div>
+        <div id="profile-stats-grid" class="profile-stat-grid" style="margin-bottom:12px;"></div>
+        <div class="hub-grid">
+            <div class="hub-card">
+                <h4>🎒 Майно акаунта</h4>
+                <div id="profile-assets-list" class="list-stack"></div>
+            </div>
+            <div class="hub-card">
+                <h4>🕒 Останні події</h4>
+                <div id="profile-recent-activity" class="list-stack"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ВКЛ.14: ДОСЯГНЕННЯ -->
+    <div id="tab14" class="view">
+        <h3 style="margin-top:0;">🏅 ДОСЯГНЕННЯ</h3>
+        <div id="achievements-summary" class="market-stats" style="margin-bottom:12px;"></div>
+        <div id="achievements-list" class="achievement-grid" style="margin-bottom:15px;"></div>
+        <div class="glass">
+            <h4 style="margin:0 0 10px; color:var(--gold);">🎯 Квести</h4>
+            <div id="quests-list"></div>
+        </div>
+    </div>
+
+    <!-- ВКЛ.15: СПОВІЩЕННЯ -->
+    <div id="tab15" class="view">
+        <h3 style="margin-top:0;">🔔 СПОВІЩЕННЯ</h3>
+        <div class="glass">
+            <div class="exchange-toolbar">
+                <input type="text" id="notifications-search" placeholder="Пошук по новинах, квестах, подарунках, продажах">
+                <button class="btn secondary-btn" style="width:auto;" onclick="bbFeatures.renderNotificationCenter()">ОНОВИТИ</button>
+            </div>
+            <div id="notifications-list" class="list-stack"></div>
+        </div>
+    </div>
+
     <!-- НАВІГАЦІЯ -->
     <nav>
         <div class="tab active" onclick="switchTab(1)">⛏️<span>Mining</span></div>
@@ -820,6 +975,11 @@
         <div class="tab" onclick="switchTab(8)">🔨<span>Workshop</span></div>
         <div class="tab" onclick="switchTab(9)">🏠<span>Estate</span></div>
         <div class="tab" onclick="switchTab(10)">🚗<span>Cars</span></div>
+        <div class="tab" onclick="switchTab(11)">💹<span>Exchange</span></div>
+        <div class="tab" onclick="switchTab(12)">💰<span>Balance</span></div>
+        <div class="tab" onclick="switchTab(13)">👤<span>Profile</span></div>
+        <div class="tab" onclick="switchTab(14)">🏅<span>Awards</span></div>
+        <div class="tab" onclick="switchTab(15)">🔔<span>Alerts</span></div>
     </nav>
 </div>
 
@@ -837,7 +997,6 @@
         </div>
     </div>
 </div>
-
 <!-- FIREBASE SYNC MODULE -->
 <script src="firebase-sync.js"></script>
 
@@ -940,6 +1099,13 @@
     let carsState = createDefaultCarsState();
     let extendedFeaturesLoaded = false;
     let workshopAdminMode = false;
+    const workshopBackgroundPalette = ['#07ffff', '#00ff88', '#ff3366', '#ffcc00', '#9d4edd', '#3a86ff', '#ffffff', '#111111', '#ff7f50', '#7fffd4', '#ff69b4', '#c0ff00'];
+    const workshopBackgroundEditor = {
+        brushColor: '#07ffff',
+        brushSize: 10,
+        drawing: false,
+        lastPoint: null
+    };
 
     const workshopTypeLabels = {
         frame: 'Рамка',
@@ -977,9 +1143,12 @@
         initFirebaseSync();
         renderRouletteWheel();
         document.getElementById('avatar-file-input').addEventListener('change', handleAvatarFileChange);
+        document.getElementById('workshop-bg-photo-input')?.addEventListener('change', handleWorkshopBackgroundPhotoChange);
         // Ініціалізувати КНП гру
         rpsInit();
         resetWorkshopEditor();
+        initWorkshopCanvas();
+        renderWorkshopColorPalette();
         document.querySelectorAll('nav .tab').forEach((tab, index, tabs) => {
             tab.setAttribute('role', 'button');
             tab.setAttribute('tabindex', '0');
@@ -1303,11 +1472,167 @@
         return base;
     }
 
+    function getWorkshopCanvas() {
+        return document.getElementById('workshop-draw-canvas');
+    }
+
+    function getWorkshopCanvasContext() {
+        const canvas = getWorkshopCanvas();
+        return canvas ? canvas.getContext('2d') : null;
+    }
+
+    function setWorkshopBrushColor(color) {
+        workshopBackgroundEditor.brushColor = sanitizeHexColor(color, '#07ffff');
+        const colorInput = document.getElementById('workshop-draw-color');
+        if (colorInput && colorInput.value !== workshopBackgroundEditor.brushColor) {
+            colorInput.value = workshopBackgroundEditor.brushColor;
+        }
+        renderWorkshopColorPalette();
+    }
+
+    function setWorkshopBrushSize(size) {
+        workshopBackgroundEditor.brushSize = clamp(num(size, 10), 2, 40);
+    }
+
+    function renderWorkshopColorPalette() {
+        const root = document.getElementById('workshop-color-palette');
+        if (!root) return;
+        root.innerHTML = workshopBackgroundPalette.map(color => `
+            <button type="button" class="color-palette-swatch ${workshopBackgroundEditor.brushColor === color ? 'active' : ''}" style="background:${escapeHtml(color)};" onclick="setWorkshopBrushColor('${escapeHtml(color)}')" aria-label="Color ${escapeHtml(color)}"></button>
+        `).join('');
+    }
+
+    function fillWorkshopCanvasBackground(color = '#0b0b0b') {
+        const ctx = getWorkshopCanvasContext();
+        const canvas = getWorkshopCanvas();
+        if (!ctx || !canvas) return;
+        ctx.fillStyle = color;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function saveWorkshopCanvasToField() {
+        const canvas = getWorkshopCanvas();
+        const output = document.getElementById('workshop-bg-photo-data');
+        if (!canvas || !output) return;
+        output.value = canvas.toDataURL('image/png');
+    }
+
+    function clearWorkshopCanvas() {
+        fillWorkshopCanvasBackground();
+        saveWorkshopCanvasToField();
+        renderWorkshopPreview();
+    }
+
+    function drawWorkshopStroke(point) {
+        const ctx = getWorkshopCanvasContext();
+        if (!ctx) return;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = workshopBackgroundEditor.brushColor;
+        ctx.lineWidth = workshopBackgroundEditor.brushSize;
+        if (!workshopBackgroundEditor.lastPoint) {
+            workshopBackgroundEditor.lastPoint = point;
+        }
+        ctx.beginPath();
+        ctx.moveTo(workshopBackgroundEditor.lastPoint.x, workshopBackgroundEditor.lastPoint.y);
+        ctx.lineTo(point.x, point.y);
+        ctx.stroke();
+        workshopBackgroundEditor.lastPoint = point;
+    }
+
+    function getWorkshopCanvasPoint(event) {
+        const canvas = getWorkshopCanvas();
+        if (!canvas) return { x: 0, y: 0 };
+        const rect = canvas.getBoundingClientRect();
+        const source = event.touches?.[0] || event;
+        return {
+            x: ((source.clientX - rect.left) / rect.width) * canvas.width,
+            y: ((source.clientY - rect.top) / rect.height) * canvas.height
+        };
+    }
+
+    function initWorkshopCanvas() {
+        const canvas = getWorkshopCanvas();
+        if (!canvas || canvas.dataset.bound === '1') return;
+        canvas.dataset.bound = '1';
+        fillWorkshopCanvasBackground();
+        const start = (event) => {
+            workshopBackgroundEditor.drawing = true;
+            workshopBackgroundEditor.lastPoint = getWorkshopCanvasPoint(event);
+            drawWorkshopStroke(workshopBackgroundEditor.lastPoint);
+            event.preventDefault();
+        };
+        const move = (event) => {
+            if (!workshopBackgroundEditor.drawing) return;
+            drawWorkshopStroke(getWorkshopCanvasPoint(event));
+            saveWorkshopCanvasToField();
+            renderWorkshopPreview();
+            event.preventDefault();
+        };
+        const end = () => {
+            workshopBackgroundEditor.drawing = false;
+            workshopBackgroundEditor.lastPoint = null;
+            saveWorkshopCanvasToField();
+            renderWorkshopPreview();
+        };
+        canvas.addEventListener('mousedown', start);
+        canvas.addEventListener('mousemove', move);
+        canvas.addEventListener('mouseup', end);
+        canvas.addEventListener('mouseleave', end);
+        canvas.addEventListener('touchstart', start, { passive: false });
+        canvas.addEventListener('touchmove', move, { passive: false });
+        canvas.addEventListener('touchend', end);
+    }
+
+    function setWorkshopBackgroundMode(mode) {
+        const normalizedMode = ['gradient', 'draw', 'photo'].includes(mode) ? mode : 'gradient';
+        const modeInput = document.getElementById('workshop-bg-mode');
+        if (modeInput) modeInput.value = normalizedMode;
+        document.getElementById('workshop-bg-gradient-fields').style.display = normalizedMode === 'gradient' ? 'block' : 'none';
+        document.getElementById('workshop-bg-draw-fields').style.display = normalizedMode === 'draw' ? 'block' : 'none';
+        document.getElementById('workshop-bg-photo-fields').style.display = normalizedMode === 'photo' ? 'block' : 'none';
+        if (normalizedMode === 'draw' && !document.getElementById('workshop-bg-photo-data').value) {
+            saveWorkshopCanvasToField();
+        }
+        renderWorkshopPreview();
+    }
+
+    function clearWorkshopPhoto() {
+        const field = document.getElementById('workshop-bg-photo-data');
+        if (field) field.value = '';
+        const input = document.getElementById('workshop-bg-photo-input');
+        if (input) input.value = '';
+        renderWorkshopPreview();
+    }
+
+    function handleWorkshopBackgroundPhotoChange(event) {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+            const result = typeof reader.result === 'string' ? reader.result : '';
+            if (!result.startsWith('data:image/')) {
+                alert('Підтримуються лише зображення.');
+                return;
+            }
+            document.getElementById('workshop-bg-photo-data').value = result;
+            setWorkshopBackgroundMode('photo');
+            renderWorkshopPreview();
+        };
+        reader.readAsDataURL(file);
+    }
+
     function renderWorkshopTypeFields() {
         const type = document.getElementById('workshop-type')?.value || 'frame';
         document.getElementById('workshop-frame-fields').style.display = type === 'frame' ? 'block' : 'none';
         document.getElementById('workshop-background-fields').style.display = type === 'background' ? 'block' : 'none';
         document.getElementById('workshop-title-fields').style.display = type === 'title' ? 'block' : 'none';
+        if (type === 'background') {
+            const mode = document.getElementById('workshop-bg-mode')?.value || 'gradient';
+            document.getElementById('workshop-bg-gradient-fields').style.display = mode === 'gradient' ? 'block' : 'none';
+            document.getElementById('workshop-bg-draw-fields').style.display = mode === 'draw' ? 'block' : 'none';
+            document.getElementById('workshop-bg-photo-fields').style.display = mode === 'photo' ? 'block' : 'none';
+        }
     }
 
     function buildWorkshopDraftFromForm() {
@@ -1345,17 +1670,35 @@
         }
 
         if (type === 'background') {
+            const backgroundMode = document.getElementById('workshop-bg-mode').value || 'gradient';
             const startColor = sanitizeHexColor(document.getElementById('workshop-bg-start').value, '#0a0015');
             const endColor = sanitizeHexColor(document.getElementById('workshop-bg-end').value, '#1a0030');
             const angle = clamp(num(document.getElementById('workshop-bg-angle').value, 135), 0, 360);
+            const imageData = document.getElementById('workshop-bg-photo-data').value || '';
+            if (backgroundMode === 'photo' && !imageData.startsWith('data:image/')) {
+                alert('Оберіть власне фото для фону.');
+                return null;
+            }
+            if (backgroundMode === 'draw' && !imageData.startsWith('data:image/')) {
+                saveWorkshopCanvasToField();
+            }
+            const safeImageData = document.getElementById('workshop-bg-photo-data').value || '';
+            const imageStyle = safeImageData.startsWith('data:image/')
+                ? `url(${JSON.stringify(safeImageData)}) center/cover no-repeat`
+                : '';
             return {
                 ...baseDraft,
                 previewLabel: 'Фон профілю',
                 style: {
+                    mode: backgroundMode,
                     startColor,
                     endColor,
                     angle,
-                    background: `linear-gradient(${angle}deg, ${startColor} 0%, ${endColor} 100%)`
+                    background: backgroundMode === 'gradient'
+                        ? `linear-gradient(${angle}deg, ${startColor} 0%, ${endColor} 100%)`
+                        : '#050505',
+                    imageData: backgroundMode === 'gradient' ? '' : safeImageData,
+                    backgroundImage: backgroundMode === 'gradient' ? '' : imageStyle
                 }
             };
         }
@@ -1400,8 +1743,9 @@
             `;
         }
         if (item.type === 'background') {
+            const inlineBackgroundImage = item?.style?.imageData ? `background-image:url(${item.style.imageData}); background-size:cover; background-position:center;` : '';
             return `
-                <div class="workshop-mini-preview" style="background:${escapeHtml(item?.style?.background || '#070707')};">
+                <div class="workshop-mini-preview" style="background:${escapeHtml(item?.style?.background || '#070707')}; ${inlineBackgroundImage}">
                     <span class="feature-pill">${compact ? 'BG' : 'Профільний фон'}</span>
                 </div>
             `;
@@ -1442,15 +1786,23 @@
         }
 
         if (type === 'background') {
+            const backgroundMode = document.getElementById('workshop-bg-mode').value || 'gradient';
+            const backgroundValue = backgroundMode === 'gradient'
+                ? `linear-gradient(${clamp(num(document.getElementById('workshop-bg-angle').value, 135), 0, 360)}deg, ${sanitizeHexColor(document.getElementById('workshop-bg-start').value, '#0a0015')} 0%, ${sanitizeHexColor(document.getElementById('workshop-bg-end').value, '#1a0030')} 100%)`
+                : '#050505';
+            const imageData = document.getElementById('workshop-bg-photo-data').value || '';
             previewItem = {
                 type,
                 name,
                 style: {
-                    background: `linear-gradient(${clamp(num(document.getElementById('workshop-bg-angle').value, 135), 0, 360)}deg, ${sanitizeHexColor(document.getElementById('workshop-bg-start').value, '#0a0015')} 0%, ${sanitizeHexColor(document.getElementById('workshop-bg-end').value, '#1a0030')} 100%)`
+                    mode: backgroundMode,
+                    background: backgroundValue,
+                    imageData,
+                    backgroundImage: imageData.startsWith('data:image/') ? `url(${JSON.stringify(imageData)}) center/cover no-repeat` : ''
                 }
             };
             previewRoot.innerHTML = `
-                <div class="workshop-preview-bg" style="background:${escapeHtml(previewItem.style.background)};">
+                <div class="workshop-preview-bg" style="background:${escapeHtml(previewItem.style.background)}; ${previewItem.style.backgroundImage ? `background-image:${escapeHtml(`url(${imageData})`)}; background-size:cover; background-position:center;` : ''}">
                     <div>
                         <b>${escapeHtml(name)}</b>
                         <div class="feature-note" style="color:#fff;">${escapeHtml(description)}</div>
@@ -1467,7 +1819,7 @@
                 <span>${escapeHtml(name)}</span>
             </span>
             <div class="feature-note">${escapeHtml(description)}</div>
-            <div class="feature-note" style="color:${titleReady ? 'var(--g)' : 'var(--r)'};">${titleReady ? 'Титул можна відправити на модерацію.' : 'Для титулу потрібно підтвердити відповідність правилам.'}</div>
+            <div class="feature-note" style="color:${titleReady ? 'var(--g)' : 'var(--r)'};">${titleReady ? 'Титул буде доступний одразу після збереження.' : 'Для титулу потрібно підтвердити коректність назви.'}</div>
         `;
     }
 
@@ -1504,6 +1856,9 @@
 
         if (mainScreenEl) {
             mainScreenEl.style.background = backgroundItem?.style?.background || fallbackBackgroundItem?.bg || '';
+            mainScreenEl.style.backgroundImage = backgroundItem?.style?.imageData ? `url(${backgroundItem.style.imageData})` : '';
+            mainScreenEl.style.backgroundSize = backgroundItem?.style?.imageData ? 'cover' : '';
+            mainScreenEl.style.backgroundPosition = backgroundItem?.style?.imageData ? 'center' : '';
         }
 
         if (titleEl && titleItem?.type === 'title') {
@@ -1553,11 +1908,6 @@
             alert('Схвалену роботу не можна редагувати. Створіть нову версію.');
             return;
         }
-        if (existingItem?.status === 'pending') {
-            alert('Спочатку дочекайтеся перевірки або поверніть роботу з модерації.');
-            return;
-        }
-
         const generatedItemId = firebase.database().ref('workshopIds').push().key;
         if (!editingId && !generatedItemId) {
             alert('Не вдалося створити ідентифікатор роботи. Спробуйте ще раз.');
@@ -1600,6 +1950,14 @@
         document.getElementById('workshop-bg-start').value = '#0a0015';
         document.getElementById('workshop-bg-end').value = '#1a0030';
         document.getElementById('workshop-bg-angle').value = '135';
+        document.getElementById('workshop-bg-mode').value = 'gradient';
+        document.getElementById('workshop-bg-photo-data').value = '';
+        document.getElementById('workshop-bg-photo-input').value = '';
+        setWorkshopBrushColor('#07ffff');
+        setWorkshopBrushSize(10);
+        const brushSizeInput = document.getElementById('workshop-draw-size');
+        if (brushSizeInput) brushSizeInput.value = '10';
+        clearWorkshopCanvas();
         document.getElementById('workshop-title-icon').value = '✨';
         document.getElementById('workshop-title-color').value = '#ffcc00';
         document.getElementById('workshop-title-accent').value = '#07ffff';
@@ -1625,10 +1983,25 @@
         document.getElementById('workshop-bg-start').value = item?.style?.startColor || '#0a0015';
         document.getElementById('workshop-bg-end').value = item?.style?.endColor || '#1a0030';
         document.getElementById('workshop-bg-angle').value = item?.style?.angle || 135;
+        document.getElementById('workshop-bg-mode').value = item?.style?.mode || (item?.style?.imageData ? 'photo' : 'gradient');
+        document.getElementById('workshop-bg-photo-data').value = item?.style?.imageData || '';
         document.getElementById('workshop-title-icon').value = item?.style?.icon || '✨';
         document.getElementById('workshop-title-color').value = item?.style?.color || '#ffcc00';
         document.getElementById('workshop-title-accent').value = item?.style?.accent || '#07ffff';
         document.getElementById('workshop-title-rules').checked = item?.style?.approvedByRules === true;
+        if (item?.style?.mode === 'draw' && item?.style?.imageData) {
+            const image = new Image();
+            image.onload = () => {
+                fillWorkshopCanvasBackground();
+                const ctx = getWorkshopCanvasContext();
+                const canvas = getWorkshopCanvas();
+                if (!ctx || !canvas) return;
+                ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+                saveWorkshopCanvasToField();
+                renderWorkshopPreview();
+            };
+            image.src = item.style.imageData;
+        }
         renderWorkshopPreview();
         showGameNotification(`✏️ Редагування: ${item.name}`);
     }
@@ -1636,10 +2009,6 @@
     async function submitWorkshopForReview(itemId) {
         const item = workshopStateEx.createdItems[itemId];
         if (!item) return;
-        if (item.status === 'pending') {
-            alert('Робота вже чекає перевірки.');
-            return;
-        }
         if (num(item.requestedPrice, 0) <= 0) {
             alert('Вкажіть ціну продажу більше 0 BB.');
             return;
@@ -1651,7 +2020,7 @@
 
         const nextItem = {
             ...item,
-            status: 'pending',
+            status: 'approved',
             updatedAt: Date.now()
         };
         workshopStateEx.createdItems[itemId] = nextItem;
@@ -1659,73 +2028,38 @@
         const db = firebase.database();
         await Promise.all([
             saveWorkshopStateEx(),
-            db.ref(`workshopMarketplace/pending/${itemId}`).set({
+            db.ref(`workshopMarketplace/listings/${itemId}`).set({
                 ...nextItem,
-                submittedAt: Date.now()
+                listedAt: Date.now()
             }),
-            db.ref(`workshopMarketplace/listings/${itemId}`).remove()
+            db.ref(`workshopMarketplace/pending/${itemId}`).remove()
         ]);
 
-        delete workshopMarketState.listings[itemId];
-        workshopMarketState.pending[itemId] = {
+        workshopMarketState.listings[itemId] = {
             ...nextItem,
-            submittedAt: Date.now()
+            listedAt: Date.now()
         };
-        showGameNotification('📤 Роботу відправлено на перевірку адміністратору');
+        delete workshopMarketState.pending[itemId];
+        showGameNotification('🛍️ Роботу додано у вітрину магазину');
         renderWorkshopTab();
     }
 
     async function approveWorkshopItem(itemId) {
-        if (!workshopAdminMode) return;
-        const pendingItem = workshopMarketState.pending[itemId];
-        if (!pendingItem) return;
-
-        const approvedItem = {
-            ...pendingItem,
-            status: 'approved',
-            reviewedAt: Date.now(),
-            reviewedBy: gameState.user
-        };
-
-        const db = firebase.database();
-        await db.ref().update({
-            [`workshopMarketplace/pending/${itemId}`]: null,
-            [`workshopMarketplace/listings/${itemId}`]: approvedItem,
-            [`users/${pendingItem.createdBy}/workshop/createdItems/${itemId}/status`]: 'approved',
-            [`users/${pendingItem.createdBy}/workshop/createdItems/${itemId}/reviewedAt`]: Date.now(),
-            [`users/${pendingItem.createdBy}/workshop/createdItems/${itemId}/reviewedBy`]: gameState.user
-        });
-
-        delete workshopMarketState.pending[itemId];
-        workshopMarketState.listings[itemId] = approvedItem;
-        if (pendingItem.createdBy === gameState.user && workshopStateEx.createdItems[itemId]) {
-            workshopStateEx.createdItems[itemId].status = 'approved';
-        }
-        showGameNotification(`✅ Лот "${pendingItem.name}" схвалено`);
-        renderWorkshopTab();
+        return submitWorkshopForReview(itemId);
     }
 
     async function rejectWorkshopItem(itemId) {
-        if (!workshopAdminMode) return;
-        const pendingItem = workshopMarketState.pending[itemId];
-        if (!pendingItem) return;
-        const reason = sanitizeDescription(prompt('Причина повернення (необовʼязково):') || '', 100);
-
-        const db = firebase.database();
-        await db.ref().update({
-            [`workshopMarketplace/pending/${itemId}`]: null,
-            [`users/${pendingItem.createdBy}/workshop/createdItems/${itemId}/status`]: 'rejected',
-            [`users/${pendingItem.createdBy}/workshop/createdItems/${itemId}/reviewNote`]: reason,
-            [`users/${pendingItem.createdBy}/workshop/createdItems/${itemId}/reviewedAt`]: Date.now(),
-            [`users/${pendingItem.createdBy}/workshop/createdItems/${itemId}/reviewedBy`]: gameState.user
-        });
-
+        if (!workshopStateEx.createdItems[itemId]) return;
+        workshopStateEx.createdItems[itemId].status = 'draft';
+        delete workshopStateEx.createdItems[itemId].reviewNote;
+        await Promise.all([
+            saveWorkshopStateEx(),
+            firebase.database().ref(`workshopMarketplace/listings/${itemId}`).remove(),
+            firebase.database().ref(`workshopMarketplace/pending/${itemId}`).remove()
+        ]);
+        delete workshopMarketState.listings[itemId];
         delete workshopMarketState.pending[itemId];
-        if (pendingItem.createdBy === gameState.user && workshopStateEx.createdItems[itemId]) {
-            workshopStateEx.createdItems[itemId].status = 'rejected';
-            workshopStateEx.createdItems[itemId].reviewNote = reason;
-        }
-        showGameNotification('↩️ Роботу повернуто на доопрацювання');
+        showGameNotification('📦 Лот знято з вітрини');
         renderWorkshopTab();
     }
 
@@ -1799,7 +2133,7 @@
             const isCreator = item.createdBy === gameState.user;
             const isOwned = !!workshopStateEx.ownedItemIds[item.id];
             const isEquipped = workshopStateEx.equipped[`${item.type}Id`] === item.id;
-            const canEdit = isCreator && item.status !== 'approved' && item.status !== 'pending';
+            const canEdit = isCreator && item.status !== 'approved';
             return `
                 <div class="workshop-item-card">
                     <div class="workshop-item-head">
@@ -1819,7 +2153,7 @@
                     <div class="feature-actions">
                         ${isOwned ? `<button class="shop-item-btn ${isEquipped ? 'equipped-btn' : 'equip-btn'}" onclick="toggleWorkshopEquip('${item.id}')">${isEquipped ? 'ЗНЯТИ' : 'ЕКІПІРУВАТИ'}</button>` : ''}
                         ${canEdit ? `<button class="shop-item-btn equip-btn" onclick="editWorkshopCreation('${item.id}')">РЕДАГУВАТИ</button>` : ''}
-                        ${isCreator && item.status !== 'pending' ? `<button class="shop-item-btn" onclick="submitWorkshopForReview('${item.id}')">НА ПЕРЕВІРКУ</button>` : ''}
+                        ${isCreator ? `<button class="shop-item-btn" onclick="${item.status === 'approved' ? `rejectWorkshopItem('${item.id}')` : `submitWorkshopForReview('${item.id}')`}">${item.status === 'approved' ? 'ЗНЯТИ З ВІТРИНИ' : 'У МАГАЗИН'}</button>` : ''}
                     </div>
                 </div>
             `;
@@ -1834,7 +2168,7 @@
             .sort((a, b) => num(b.reviewedAt || b.createdAt, 0) - num(a.reviewedAt || a.createdAt, 0));
 
         if (!listings.length) {
-            root.innerHTML = '<div class="feature-note">Після перевірки адміністратором тут зʼявляться користувацькі рамки, фони та титули.</div>';
+            root.innerHTML = '<div class="feature-note">Тут автоматично зʼявляються користувацькі рамки, фони та титули без модерації.</div>';
             return;
         }
 
@@ -1867,46 +2201,13 @@
     }
 
     function renderWorkshopAdminList() {
-        const panel = document.getElementById('workshop-admin-panel');
-        const root = document.getElementById('workshop-admin-list');
-        if (!panel || !root) return;
-        panel.style.display = workshopAdminMode ? 'block' : 'none';
-        if (!workshopAdminMode) return;
-        const pendingItems = Object.values(workshopMarketState.pending || {})
-            .sort((a, b) => num(b.submittedAt || b.updatedAt, 0) - num(a.submittedAt || a.updatedAt, 0));
-        if (!pendingItems.length) {
-            root.innerHTML = '<div class="feature-note">Черга модерації порожня.</div>';
-            return;
-        }
-        root.innerHTML = pendingItems.map(item => `
-            <div class="workshop-item-card">
-                <div class="workshop-item-head">
-                    <div>
-                        <div style="font-size:12px; font-weight:900; color:var(--p);">${escapeHtml(item.name)}</div>
-                        <div class="workshop-item-meta">
-                            <span>${escapeHtml(workshopTypeLabels[item.type] || item.type)}</span>
-                            <span>${escapeHtml(item.creatorDisplayName || item.createdBy || '—')}</span>
-                            <span>${num(item.requestedPrice, 0).toFixed(2)} BB</span>
-                        </div>
-                    </div>
-                    <span class="workshop-badge pending">Очікує</span>
-                </div>
-                ${renderWorkshopItemPreview(item, true)}
-                <div class="feature-note">${escapeHtml(item.description || 'Без опису')}</div>
-                <div class="feature-actions">
-                    <button class="shop-item-btn" onclick="approveWorkshopItem('${item.id}')">СХВАЛИТИ</button>
-                    <button class="shop-item-btn equip-btn" onclick="rejectWorkshopItem('${item.id}')">ПОВЕРНУТИ</button>
-                </div>
-            </div>
-        `).join('');
+        workshopAdminMode = false;
     }
 
     function renderWorkshopStats() {
         const createdItems = Object.values(workshopStateEx.createdItems || {});
         const activeListings = Object.values(workshopMarketState.listings || {}).filter(item => item.createdBy === gameState.user).length;
-        const reviewCount = workshopAdminMode
-            ? Object.keys(workshopMarketState.pending || {}).length
-            : createdItems.filter(item => item.status === 'pending').length;
+        const reviewCount = activeListings;
         document.getElementById('workshop-created-count').textContent = String(createdItems.length);
         document.getElementById('workshop-owned-count').textContent = String(Object.keys(workshopStateEx.ownedItemIds || {}).length);
         document.getElementById('workshop-market-count').textContent = String(activeListings);
@@ -2392,7 +2693,7 @@
         }
 
         // Завантажити дані магазину
-        shopLoad();
+        await shopLoad();
         try {
             await loadExtendedFeatures();
         } catch (error) {
@@ -2456,7 +2757,7 @@
         document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
         document.querySelectorAll('nav .tab').forEach(t => t.classList.remove('active'));
         
-        const tabMap = {1: 'tab1', 2: 'tab2', 3: 'tab3', 4: 'tab4', 5: 'tab5', 6: 'tab6', 7: 'tab7', 8: 'tab8', 9: 'tab9', 10: 'tab10'};
+        const tabMap = {1: 'tab1', 2: 'tab2', 3: 'tab3', 4: 'tab4', 5: 'tab5', 6: 'tab6', 7: 'tab7', 8: 'tab8', 9: 'tab9', 10: 'tab10', 11: 'tab11', 12: 'tab12', 13: 'tab13', 14: 'tab14', 15: 'tab15'};
         document.getElementById(tabMap[tabNum]).style.display = 'block';
         document.querySelectorAll('nav .tab')[tabNum - 1].classList.add('active');
         if (tabNum === 4) {
@@ -2477,6 +2778,9 @@
         }
         if (tabNum === 10) {
             renderCarsTab();
+        }
+        if (typeof window.handleExtendedTabOpen === 'function') {
+            window.handleExtendedTabOpen(tabNum);
         }
     }
 
@@ -3740,157 +4044,212 @@
     // ===== МАГАЗИН =====
 
     const shopCatalog = [
-        // Рамки для аватара
-        { id: 'frame_gold',   name: 'Золота рамка',      cat: 'frames',     price: 7,  icon: '🟡', desc: 'Розкішна золота рамка', shadow: '0 0 0 3px #ffcc00, 0 0 10px rgba(255,204,0,0.5)' },
-        { id: 'frame_neon',   name: 'Неонова рамка',     cat: 'frames',     price: 3,  icon: '🟢', desc: 'Яскрава зелена рамка',  shadow: '0 0 0 3px #00ff88, 0 0 10px rgba(0,255,136,0.5)' },
-        { id: 'frame_red',    name: 'Червона рамка',     cat: 'frames',     price: 2,  icon: '🔴', desc: 'Вогняно-червона рамка', shadow: '0 0 0 3px #ff3366, 0 0 10px rgba(255,51,102,0.5)' },
-        { id: 'frame_cyan',   name: 'Кіберпанк рамка',   cat: 'frames',     price: 9,  icon: '💠', desc: 'Стиль кіберпанк',       shadow: '0 0 0 3px #07FFFF, 0 0 14px rgba(7,255,255,0.6)' },
-        // Шпалери / фони головного екрану
-        { id: 'bg_space',     name: 'Космос',            cat: 'wallpapers', price: 4,  icon: '🌌', desc: 'Зоряне тло',    bg: 'radial-gradient(ellipse at 50% 100%, #1b2735 0%, #090a0f 100%)' },
-        { id: 'bg_neon',      name: 'Неоновий Мегаполіс', cat: 'wallpapers', price: 6, icon: '🌃', desc: 'Нічне місто',   bg: 'linear-gradient(180deg, #0a0015 0%, #1a0030 50%, #000510 100%)' },
-        { id: 'bg_purple',    name: 'Фіолетова галактика', cat: 'wallpapers', price: 5, icon: '💜', desc: 'Галактика',     bg: 'linear-gradient(135deg, #1a0030 0%, #0d001a 50%, #050010 100%)' },
-        { id: 'bg_matrix',    name: 'Матриця',           cat: 'wallpapers', price: 8,  icon: '💻', desc: 'Зелений код',   bg: 'linear-gradient(180deg, #000b00 0%, #001a00 50%, #000500 100%)' },
-        // Різне
-        { id: 'badge_vip',    name: 'VIP Значок',        cat: 'misc',       price: 10, icon: '👑', desc: 'Покажи свій VIP-статус' },
-        { id: 'title_boss',   name: 'Титул "КРИПТО БОС"', cat: 'misc',      price: 8,  icon: '💎', desc: 'Ексклюзивний титул' },
-        { id: 'effect_spark', name: 'Золоті іскри',      cat: 'misc',       price: 10, icon: '✨', desc: 'Анімовані частинки' },
+        { id: 'frame_gold', name: 'Золота рамка', cat: 'frames', price: 7, icon: '🟡', desc: 'Розкішна золота рамка', applyType: 'frame', shadow: '0 0 0 3px #ffcc00, 0 0 10px rgba(255,204,0,0.5)' },
+        { id: 'frame_neon', name: 'Неонова рамка', cat: 'frames', price: 3, icon: '🟢', desc: 'Яскрава зелена рамка', applyType: 'frame', shadow: '0 0 0 3px #00ff88, 0 0 10px rgba(0,255,136,0.5)' },
+        { id: 'frame_red', name: 'Червона рамка', cat: 'frames', price: 2, icon: '🔴', desc: 'Вогняно-червона рамка', applyType: 'frame', shadow: '0 0 0 3px #ff3366, 0 0 10px rgba(255,51,102,0.5)' },
+        { id: 'frame_cyan', name: 'Кіберпанк рамка', cat: 'frames', price: 9, icon: '💠', desc: 'Стиль кіберпанк', applyType: 'frame', shadow: '0 0 0 3px #07FFFF, 0 0 14px rgba(7,255,255,0.6)' },
+        { id: 'frame_obsidian', name: 'Обсидіанова рамка', cat: 'frames', price: 10, icon: '🖤', desc: 'Темна елітна рамка', applyType: 'frame', shadow: '0 0 0 3px #111, 0 0 16px rgba(255,255,255,0.25)' },
+        { id: 'bg_space', name: 'Космос', cat: 'wallpapers', price: 4, icon: '🌌', desc: 'Зоряне тло', applyType: 'background', bg: 'radial-gradient(ellipse at 50% 100%, #1b2735 0%, #090a0f 100%)' },
+        { id: 'bg_neon', name: 'Неоновий Мегаполіс', cat: 'wallpapers', price: 6, icon: '🌃', desc: 'Нічне місто', applyType: 'background', bg: 'linear-gradient(180deg, #0a0015 0%, #1a0030 50%, #000510 100%)' },
+        { id: 'bg_purple', name: 'Фіолетова галактика', cat: 'wallpapers', price: 5, icon: '💜', desc: 'Галактика', applyType: 'background', bg: 'linear-gradient(135deg, #1a0030 0%, #0d001a 50%, #050010 100%)' },
+        { id: 'bg_matrix', name: 'Матриця', cat: 'wallpapers', price: 8, icon: '💻', desc: 'Зелений код', applyType: 'background', bg: 'linear-gradient(180deg, #000b00 0%, #001a00 50%, #000500 100%)' },
+        { id: 'title_boss', name: 'Титул "КРИПТО БОС"', cat: 'titles', price: 8, icon: '💎', desc: 'Ексклюзивний титул', applyType: 'title', titleStyle: { color: '#ffcc00', accent: '#07ffff', icon: '💎' } },
+        { id: 'title_investor', name: 'Титул "ІНВЕСТОР"', cat: 'titles', price: 6, icon: '📈', desc: 'Для активних трейдерів', applyType: 'title', titleStyle: { color: '#00ff88', accent: '#3a86ff', icon: '📈' } },
+        { id: 'exclusive_vip_pass', name: 'VIP Перепустка', cat: 'exclusive', price: 10, icon: '👑', desc: 'Преміальний статус і визнання', applyType: 'misc' },
+        { id: 'exclusive_black_card', name: 'Black Card', cat: 'exclusive', price: 9, icon: '🪪', desc: 'Стильна клубна картка', applyType: 'misc' },
+        { id: 'seasonal_winter', name: 'Зимова ніч', cat: 'seasonal', price: 5, icon: '❄️', desc: 'Сезонний святковий фон', applyType: 'background', bg: 'linear-gradient(180deg, #001d3d 0%, #003566 55%, #edf6f9 100%)' },
+        { id: 'seasonal_summer', name: 'Літній захід', cat: 'seasonal', price: 5, icon: '🌴', desc: 'Сонячний сезонний фон', applyType: 'background', bg: 'linear-gradient(180deg, #ffb703 0%, #fb8500 50%, #023047 100%)' }
     ];
 
-    // Стан магазину (зберігається в localStorage per user)
     let shopState = {
         owned: [],
         equippedFrame: null,
         equippedWallpaper: null,
+        equippedTitle: null,
         activeCat: 'frames'
     };
 
-    function shopLoad() {
+    function normalizeShopState(raw) {
+        return {
+            owned: Array.isArray(raw?.owned) ? raw.owned : [],
+            equippedFrame: raw?.equippedFrame || null,
+            equippedWallpaper: raw?.equippedWallpaper || null,
+            equippedTitle: raw?.equippedTitle || null,
+            activeCat: raw?.activeCat || 'frames'
+        };
+    }
+
+    function getShopCatalogView() {
+        const workshopItems = Object.values(workshopMarketState.listings || {})
+            .filter(item => item.status === 'approved')
+            .map(item => ({
+                id: item.id,
+                name: item.name,
+                cat: 'creator',
+                price: num(item.requestedPrice, 0),
+                icon: item.type === 'frame' ? '🖼️' : item.type === 'background' ? '🎨' : '🏷️',
+                desc: item.description || 'Авторський предмет',
+                applyType: item.type,
+                workshopItem: true
+            }));
+        return [...shopCatalog, ...workshopItems];
+    }
+
+    async function shopLoad() {
         if (!gameState.user) return;
-        const saved = localStorage.getItem('shop_' + gameState.user);
-        if (saved) {
-            try {
-                const d = JSON.parse(saved);
-                shopState.owned          = Array.isArray(d.owned) ? d.owned : [];
-                shopState.equippedFrame  = d.equippedFrame  || null;
-                shopState.equippedWallpaper = d.equippedWallpaper || null;
-            } catch(e) {}
-        }
+        let normalized = normalizeShopState(null);
+        try {
+            const cloudState = await loadUserFeatureStateFirebase(gameState.user, 'shopData');
+            if (cloudState) {
+                normalized = normalizeShopState(cloudState);
+            } else {
+                const saved = localStorage.getItem('shop_' + gameState.user);
+                if (saved) normalized = normalizeShopState(JSON.parse(saved));
+            }
+        } catch (_error) {}
+        shopState = normalized;
         shopApplyEquipped();
     }
 
-    function shopSave() {
+    async function shopSave() {
         if (!gameState.user) return;
-        localStorage.setItem('shop_' + gameState.user, JSON.stringify({
-            owned:            shopState.owned,
-            equippedFrame:    shopState.equippedFrame,
-            equippedWallpaper: shopState.equippedWallpaper
-        }));
+        const payload = {
+            owned: shopState.owned,
+            equippedFrame: shopState.equippedFrame,
+            equippedWallpaper: shopState.equippedWallpaper,
+            equippedTitle: shopState.equippedTitle,
+            activeCat: shopState.activeCat
+        };
+        localStorage.setItem('shop_' + gameState.user, JSON.stringify(payload));
+        await saveUserFeatureStateFirebase(gameState.user, 'shopData', payload);
     }
 
     function shopApplyEquipped() {
-        // Застосувати рамку до аватара
         const avatarEl = document.getElementById('h-a');
+        const titleEl = document.getElementById('h-title');
         if (avatarEl) {
-            const frameItem = shopState.equippedFrame
-                ? shopCatalog.find(i => i.id === shopState.equippedFrame)
-                : null;
+            const frameItem = shopState.equippedFrame ? shopCatalog.find(i => i.id === shopState.equippedFrame) : null;
             avatarEl.style.boxShadow = frameItem ? frameItem.shadow : '';
         }
-
-        // Застосувати шпалери до головного екрану
         const mainEl = document.getElementById('main-scr');
         if (mainEl) {
-            const bgItem = shopState.equippedWallpaper
-                ? shopCatalog.find(i => i.id === shopState.equippedWallpaper)
-                : null;
+            const bgItem = shopState.equippedWallpaper ? shopCatalog.find(i => i.id === shopState.equippedWallpaper) : null;
             mainEl.style.background = bgItem ? bgItem.bg : '';
+        }
+        if (titleEl && !workshopStateEx?.equipped?.titleId) {
+            const titleItem = shopState.equippedTitle ? shopCatalog.find(i => i.id === shopState.equippedTitle) : null;
+            if (titleItem?.titleStyle) {
+                titleEl.className = 'profile-title-chip';
+                titleEl.style.display = 'inline-flex';
+                titleEl.style.color = titleItem.titleStyle.color;
+                titleEl.style.borderColor = titleItem.titleStyle.accent;
+                titleEl.style.boxShadow = `0 0 10px ${titleItem.titleStyle.accent}33`;
+                titleEl.innerHTML = `<span>${escapeHtml(titleItem.titleStyle.icon || '🏷️')}</span><span>${escapeHtml(titleItem.name)}</span>`;
+            }
         }
         applyWorkshopAppearance();
     }
 
     function shopSwitchCat(cat) {
         shopState.activeCat = cat;
-        // Use data-cat attribute for reliable category matching
         document.querySelectorAll('.shop-cat-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.cat === cat);
         });
         shopRender();
     }
 
+    function isShopItemEquipped(item) {
+        if (!item) return false;
+        if (item.applyType === 'frame') return shopState.equippedFrame === item.id;
+        if (item.applyType === 'background') return shopState.equippedWallpaper === item.id;
+        if (item.applyType === 'title') return shopState.equippedTitle === item.id;
+        return false;
+    }
+
     function shopRender() {
-        // Оновити відображення балансу
         document.getElementById('shop-balance').textContent = (gameState.balance || 0).toFixed(4);
-
-        const grid  = document.getElementById('shop-grid');
-        const items = shopCatalog.filter(i => i.cat === shopState.activeCat);
-
+        const grid = document.getElementById('shop-grid');
+        const items = getShopCatalogView().filter(i => i.cat === shopState.activeCat);
+        if (!items.length) {
+            grid.innerHTML = '<div class="feature-note">У цій категорії поки що немає предметів.</div>';
+            return;
+        }
         grid.innerHTML = items.map(item => {
-            const owned    = shopState.owned.includes(item.id);
-            const equipped = shopState.equippedFrame === item.id || shopState.equippedWallpaper === item.id;
-            const canBuy   = !owned && (gameState.balance || 0) >= item.price;
-
+            const owned = item.workshopItem ? (!!workshopStateEx.ownedItemIds[item.id] || item.createdBy === gameState.user) : shopState.owned.includes(item.id);
+            const equipped = item.workshopItem
+                ? workshopStateEx.equipped[`${item.applyType}Id`] === item.id
+                : isShopItemEquipped(item);
+            const canBuy = !owned && (gameState.balance || 0) >= num(item.price, 0);
             let btnClass = 'shop-item-btn';
-            let btnText  = `🛒 ${item.price} BB`;
+            let btnText = `🛒 ${num(item.price, 0).toFixed(2)} BB`;
             let btnDisabled = '';
-
             if (owned && equipped) {
                 btnClass = 'shop-item-btn equipped-btn';
-                btnText  = '✅ ОСНАЩЕНО';
-            } else if (owned && item.cat !== 'misc') {
+                btnText = '✅ ОСНАЩЕНО';
+            } else if (owned && ['frame', 'background', 'title'].includes(item.applyType)) {
                 btnClass = 'shop-item-btn equip-btn';
-                btnText  = '👉 ОСНАСТИТИ';
+                btnText = '👉 ОСНАСТИТИ';
             } else if (owned) {
                 btnClass = 'shop-item-btn owned-misc-btn';
-                btnText  = '✅ КУПЛЕНО';
+                btnText = '✅ КУПЛЕНО';
                 btnDisabled = 'disabled';
             } else if (!canBuy) {
                 btnDisabled = 'disabled';
             }
-
             return `
                 <div class="shop-item ${owned ? 'owned' : ''} ${equipped ? 'equipped' : ''}">
-                    <div class="shop-item-preview">${item.icon}</div>
+                    <div class="shop-item-preview">${escapeHtml(item.icon || '🎁')}</div>
                     <div class="shop-item-name">${escapeHtml(item.name)}</div>
-                    <div class="shop-item-price">${owned ? '✓ У вас є' : item.price + ' BB'}</div>
+                    <div class="shop-item-price">${owned ? '✓ У вас є' : `${num(item.price, 0).toFixed(2)} BB`}</div>
+                    <div class="feature-note" style="min-height:32px;">${escapeHtml(item.desc || '')}</div>
                     <button class="${btnClass}" onclick="shopAction('${item.id}')" ${btnDisabled}>${btnText}</button>
                 </div>
             `;
         }).join('');
     }
 
-    function shopAction(itemId) {
-        const item  = shopCatalog.find(i => i.id === itemId);
-        if (!item) return;
+    async function shopAction(itemId) {
+        const workshopItem = workshopMarketState.listings[itemId];
+        if (workshopItem) {
+            if (workshopStateEx.ownedItemIds[itemId] || workshopItem.createdBy === gameState.user) {
+                await toggleWorkshopEquip(itemId);
+            } else {
+                await purchaseWorkshopItem(itemId);
+            }
+            shopRender();
+            return;
+        }
 
+        const item = shopCatalog.find(i => i.id === itemId);
+        if (!item) return;
         const owned = shopState.owned.includes(itemId);
 
         if (!owned) {
-            // Покупка
-            if ((gameState.balance || 0) < item.price) {
+            const balanceResult = await adjustUserBalanceFirebase(gameState.user, -num(item.price, 0));
+            if (!balanceResult.success) {
                 showGameNotification('❌ Недостатньо BB для купівлі!');
                 return;
             }
-            gameState.balance -= item.price;
+            gameState.balance = balanceResult.balance;
             shopState.owned.push(itemId);
+            updateCachedUser(gameState.user, { balance: balanceResult.balance });
             updateHeader();
-            // Зберегти новий баланс у Firebase
-            updateMiningBalanceFirebase(gameState.user, gameState.balance);
             showGameNotification(`✅ ${item.name} — куплено!`);
-        } else if (item.cat === 'frames') {
-            // Перемкнути рамку
-            shopState.equippedFrame = (shopState.equippedFrame === itemId) ? null : itemId;
-            const msg = shopState.equippedFrame === itemId ? `✅ ${item.name} оснащено!` : `🔄 Рамку знято`;
-            showGameNotification(msg);
+        } else if (item.applyType === 'frame') {
+            shopState.equippedFrame = shopState.equippedFrame === itemId ? null : itemId;
+            showGameNotification(shopState.equippedFrame === itemId ? `✅ ${item.name} оснащено!` : '🔄 Рамку знято');
             shopApplyEquipped();
-        } else if (item.cat === 'wallpapers') {
-            // Перемкнути шпалери
-            shopState.equippedWallpaper = (shopState.equippedWallpaper === itemId) ? null : itemId;
-            const msg = shopState.equippedWallpaper === itemId ? `✅ ${item.name} встановлено!` : `🔄 Шпалери знято`;
-            showGameNotification(msg);
+        } else if (item.applyType === 'background') {
+            shopState.equippedWallpaper = shopState.equippedWallpaper === itemId ? null : itemId;
+            showGameNotification(shopState.equippedWallpaper === itemId ? `✅ ${item.name} встановлено!` : '🔄 Фон знято');
+            shopApplyEquipped();
+        } else if (item.applyType === 'title') {
+            shopState.equippedTitle = shopState.equippedTitle === itemId ? null : itemId;
+            showGameNotification(shopState.equippedTitle === itemId ? `✅ ${item.name} активовано!` : '🔄 Титул знято');
             shopApplyEquipped();
         }
 
-        shopSave();
+        await shopSave();
         shopRender();
     }
 
@@ -3942,6 +4301,7 @@
         shopState.owned = [];
         shopState.equippedFrame = null;
         shopState.equippedWallpaper = null;
+        shopState.equippedTitle = null;
         document.getElementById('h-title').style.display = 'none';
         document.getElementById('h-title').innerHTML = '';
         document.getElementById('h-p').textContent = '🏆 Престиж: 0';
