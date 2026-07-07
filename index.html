@@ -293,7 +293,7 @@
         <div style="text-align:right;">
             <small style="color:#555;">BALANCE</small><br>
             <b id="h-b" style="color:var(--g);">0.0000</b>
-            <div id="h-p" style="font-size:10px; color:var(--gold); margin-top:4px;">Престиж: 0</div>
+            <div id="h-p" style="font-size:10px; color:var(--gold); margin-top:4px;">🏆 Престиж: 0</div>
         </div>
         <img id="h-a" class="av" src="https://api.dicebear.com/7.x/avataaars/svg?seed=default" alt="avatar" onclick="openAvatarModal()">
     </div>
@@ -964,8 +964,11 @@
         { id: 'hyper', name: 'Nova Hyper', icon: '🚀', price: 420, basePrestige: 210, upgradeBase: 150, resaleRatio: 0.76 }
     ];
 
+    // Profit multiplier applied for every real-estate level after the first.
     const REAL_ESTATE_PROFIT_SCALE = 1.32;
+    // Additional prestige gained per extra car level.
     const CAR_PRESTIGE_GROWTH_RATE = 0.55;
+    // Prestige target that marks the garage as fully ready for future events.
     const EVENT_READINESS_PRESTIGE_THRESHOLD = 500;
 
     // ===== ІНІЦІАЛІЗАЦІЯ =====
@@ -977,6 +980,25 @@
         // Ініціалізувати КНП гру
         rpsInit();
         resetWorkshopEditor();
+        document.querySelectorAll('nav .tab').forEach((tab, index, tabs) => {
+            tab.setAttribute('role', 'button');
+            tab.setAttribute('tabindex', '0');
+            tab.setAttribute('aria-label', tab.textContent.trim());
+            tab.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    tab.click();
+                    return;
+                }
+                if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+                    event.preventDefault();
+                    const direction = event.key === 'ArrowRight' ? 1 : -1;
+                    const nextIndex = (index + direction + tabs.length) % tabs.length;
+                    tabs[nextIndex].focus();
+                    tabs[nextIndex].scrollIntoView({ inline: 'center', block: 'nearest' });
+                }
+            });
+        });
     });
 
     function escapeHtml(value) {
@@ -1464,7 +1486,7 @@
 
     function applyWorkshopAppearance() {
         const avatarEl = document.getElementById('h-a');
-        const mainEl = document.getElementById('main-scr');
+        const mainScreenEl = document.getElementById('main-scr');
         const titleEl = document.getElementById('h-title');
         const frameItem = getWorkshopItemById(workshopStateEx?.equipped?.frameId);
         const backgroundItem = getWorkshopItemById(workshopStateEx?.equipped?.backgroundId);
@@ -1480,8 +1502,8 @@
             avatarEl.style.boxShadow = frameItem?.style?.shadow || fallbackFrameItem?.shadow || '';
         }
 
-        if (mainEl) {
-            mainEl.style.background = backgroundItem?.style?.background || fallbackBackgroundItem?.bg || '';
+        if (mainScreenEl) {
+            mainScreenEl.style.background = backgroundItem?.style?.background || fallbackBackgroundItem?.bg || '';
         }
 
         if (titleEl && titleItem?.type === 'title') {
@@ -1536,7 +1558,12 @@
             return;
         }
 
-        const itemId = editingId || firebase.database().ref('workshopIds').push().key || `workshop_${Date.now()}`;
+        const generatedItemId = firebase.database().ref('workshopIds').push().key;
+        if (!editingId && !generatedItemId) {
+            alert('Не вдалося створити ідентифікатор роботи. Спробуйте ще раз.');
+            return;
+        }
+        const itemId = editingId || generatedItemId;
         const nextItem = {
             ...(existingItem || {}),
             ...draft,
@@ -1745,7 +1772,7 @@
         }
 
         workshopStateEx.ownedItemIds[itemId] = true;
-        const sellerReward = await adjustUserBalanceFirebase(item.createdBy, price);
+        await adjustUserBalanceFirebase(item.createdBy, price);
         const saveSuccess = await saveWorkshopStateEx();
         if (!saveSuccess) {
             alert('Покупку виконано, але не вдалося оновити вашу колекцію.');
@@ -1754,9 +1781,6 @@
 
         gameState.balance = purchaseResult.balance;
         updateCachedUser(gameState.user, { balance: purchaseResult.balance });
-        if (sellerReward.success && item.createdBy === gameState.user) {
-            gameState.balance = sellerReward.balance;
-        }
         updateHeader();
         showGameNotification(`🛍️ Ви придбали "${item.name}"`);
         renderWorkshopTab();
@@ -2383,7 +2407,7 @@
         document.getElementById('v-bal').textContent = gameState.balance.toFixed(4);
         document.getElementById('h-a').src = gameState.avatar || avatarGallery[0];
         document.getElementById('settings-avatar-preview').src = gameState.avatar || avatarGallery[0];
-        document.getElementById('h-p').textContent = `Престиж: ${Math.round(num(gameState.prestige, 0))}`;
+        document.getElementById('h-p').textContent = `🏆 Престиж: ${Math.round(num(gameState.prestige, 0))}`;
         applyWorkshopAppearance();
     }
 
@@ -3920,7 +3944,7 @@
         shopState.equippedWallpaper = null;
         document.getElementById('h-title').style.display = 'none';
         document.getElementById('h-title').innerHTML = '';
-        document.getElementById('h-p').textContent = 'Престиж: 0';
+        document.getElementById('h-p').textContent = '🏆 Престиж: 0';
         resetWorkshopEditor();
         shopApplyEquipped();
         document.getElementById('main-scr').style.display = 'none';
