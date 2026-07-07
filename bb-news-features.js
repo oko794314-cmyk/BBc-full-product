@@ -658,10 +658,32 @@
         const assetsRoot = document.getElementById('profile-assets-list');
         const activityRoot = document.getElementById('profile-recent-activity');
         if (!identityRoot || !statsRoot || !assetsRoot || !activityRoot || !state.accountHub) return;
+        // Sanitize CSS color values: allow only hex, rgb/rgba, hsl, named colors, and CSS variables
+        const safeCssColor = (v, fallback) => {
+            const s = String(v || '');
+            return /^(#[0-9a-fA-F]{3,8}|rgba?\([^)]{0,60}\)|hsla?\([^)]{0,60}\)|var\(--[a-zA-Z0-9-]{1,40}\)|[a-zA-Z]{1,20})$/.test(s.trim()) ? s.trim() : fallback;
+        };
         identityRoot.innerHTML = `
             <img class="profile-avatar" src="${escapeText(gameState?.avatar || '')}" alt="avatar">
             <div>
                 <div style="font-size:18px; font-weight:900; color:var(--p);">${escapeText(gameState?.displayName || gameState?.user || 'Гість')}</div>
+                ${(function() {
+                    const titleId = (typeof workshopStateEx !== 'undefined' && workshopStateEx?.equipped?.titleId) || null;
+                    const workshopTitle = titleId && typeof getWorkshopItemById === 'function' ? getWorkshopItemById(titleId) : null;
+                    const shopTitleId = (typeof shopState !== 'undefined' && shopState?.equippedTitle) || null;
+                    const shopTitleItem = (!workshopTitle && shopTitleId && typeof shopCatalog !== 'undefined') ? shopCatalog.find(i => i.id === shopTitleId) : null;
+                    if (workshopTitle?.type === 'title') {
+                        const color = safeCssColor(workshopTitle.style?.color, 'var(--gold)');
+                        const accent = safeCssColor(workshopTitle.style?.accent, 'rgba(255,204,0,0.35)');
+                        return `<div class="profile-title-chip" style="display:inline-flex; color:${color}; border-color:${accent}; box-shadow:0 0 10px ${accent}33; margin-top:4px;"><span>${escapeText(workshopTitle.style?.icon||'✨')}</span><span>${escapeText(workshopTitle.name)}</span></div>`;
+                    }
+                    if (shopTitleItem?.titleStyle) {
+                        const color = safeCssColor(shopTitleItem.titleStyle.color, 'var(--gold)');
+                        const accent = safeCssColor(shopTitleItem.titleStyle.accent, 'rgba(255,204,0,0.35)');
+                        return `<div class="profile-title-chip" style="display:inline-flex; color:${color}; border-color:${accent}; box-shadow:0 0 10px ${accent}33; margin-top:4px;"><span>${escapeText(shopTitleItem.titleStyle.icon||'🏷️')}</span><span>${escapeText(shopTitleItem.name)}</span></div>`;
+                    }
+                    return '';
+                })()}
                 <div class="hub-note">@${escapeText(gameState?.user || '---')} • Реєстрація: ${state.accountHub.stats.registeredAt ? new Date(state.accountHub.stats.registeredAt).toLocaleDateString('uk-UA') : '—'}</div>
                 <div class="hub-note">Останній вхід: ${state.accountHub.stats.lastLoginAt ? new Date(state.accountHub.stats.lastLoginAt).toLocaleString('uk-UA') : '—'}</div>
             </div>
