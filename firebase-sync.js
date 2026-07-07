@@ -1067,6 +1067,7 @@ async function adjustUserBalanceFirebase(username, delta) {
         const result = await db.ref(`users/${username}/balance`).transaction((currentBalance) => {
             const normalized = firebaseNumber(currentBalance, 0);
             const candidate = normalized + firebaseNumber(delta, 0);
+            // Return undefined to abort the transaction when the balance would go negative.
             if (candidate < 0) return;
             nextBalance = candidate;
             return candidate;
@@ -1076,7 +1077,7 @@ async function adjustUserBalanceFirebase(username, delta) {
             return { success: false, balance: null };
         }
 
-        await db.ref(`users/${username}/miningUpdatedAt`).set(firebase.database.ServerValue.TIMESTAMP);
+        await db.ref(`users/${username}/balanceUpdatedAt`).set(firebase.database.ServerValue.TIMESTAMP);
         updateSyncIndicator(true);
         return { success: true, balance: nextBalance };
     } catch (error) {

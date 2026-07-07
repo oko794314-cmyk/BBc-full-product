@@ -687,7 +687,7 @@
                     <option value="title">Титул</option>
                 </select>
                 <label class="settings-label" for="workshop-name">НАЗВА</label>
-                <input type="text" id="workshop-name" maxlength="32" placeholder="Наприклад: Neon Crown" oninput="renderWorkshopPreview()">
+                <input type="text" id="workshop-name" maxlength="32" placeholder="Наприклад: Неонова корона" oninput="renderWorkshopPreview()">
                 <label class="settings-label" for="workshop-description">ОПИС</label>
                 <textarea id="workshop-description" placeholder="Короткий опис вашої роботи" style="width:100%; min-height:90px; margin:8px 0; background:#000; border:1px solid #333; color:#fff; border-radius:8px; padding:10px; resize:vertical;" oninput="renderWorkshopPreview()"></textarea>
                 <label class="settings-label" for="workshop-price">ЦІНА ПРОДАЖУ (BB)</label>
@@ -964,6 +964,10 @@
         { id: 'hyper', name: 'Nova Hyper', icon: '🚀', price: 420, basePrestige: 210, upgradeBase: 150, resaleRatio: 0.76 }
     ];
 
+    const REAL_ESTATE_PROFIT_SCALE = 1.32;
+    const CAR_PRESTIGE_GROWTH_RATE = 0.55;
+    const EVENT_READINESS_PRESTIGE_THRESHOLD = 500;
+
     // ===== ІНІЦІАЛІЗАЦІЯ =====
     document.addEventListener('DOMContentLoaded', () => {
         // Ініціалізувати Firebase
@@ -994,7 +998,7 @@
 
     function sanitizeHexColor(value, fallback) {
         const normalized = String(value || '').trim();
-        return /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(normalized) ? normalized : fallback;
+        return /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(normalized) ? normalized.toLowerCase() : fallback;
     }
 
     function sanitizeShortText(value, maxLength = 32) {
@@ -1532,7 +1536,7 @@
             return;
         }
 
-        const itemId = editingId || `workshop_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+        const itemId = editingId || firebase.database().ref('workshopIds').push().key || `workshop_${Date.now()}`;
         const nextItem = {
             ...(existingItem || {}),
             ...draft,
@@ -1903,7 +1907,7 @@
     }
 
     function getRealEstateHourlyProfit(definition, level) {
-        return num(definition?.baseProfit, 0) * Math.pow(1.32, Math.max(0, level - 1));
+        return num(definition?.baseProfit, 0) * Math.pow(REAL_ESTATE_PROFIT_SCALE, Math.max(0, level - 1));
     }
 
     function getRealEstateUpgradeCost(definition, level) {
@@ -2086,7 +2090,7 @@
     }
 
     function getCarPrestigeValue(definition, level) {
-        return Math.round(num(definition?.basePrestige, 0) * (1 + (level - 1) * 0.55));
+        return Math.round(num(definition?.basePrestige, 0) * (1 + (level - 1) * CAR_PRESTIGE_GROWTH_RATE));
     }
 
     function getCarSaleValue(definition, level) {
@@ -2190,7 +2194,7 @@
         syncCarsPrestige();
         const ownedCount = Object.keys(carsState.ownedCars || {}).length;
         const activeCar = getCarDefinition(carsState.activeCarId);
-        const readiness = clamp(Math.round((gameState.prestige / 500) * 100), 0, 100);
+        const readiness = clamp(Math.round((gameState.prestige / EVENT_READINESS_PRESTIGE_THRESHOLD) * 100), 0, 100);
 
         document.getElementById('cars-owned-count').textContent = String(ownedCount);
         document.getElementById('cars-total-prestige').textContent = String(gameState.prestige || 0);
@@ -2428,7 +2432,7 @@
         document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
         document.querySelectorAll('nav .tab').forEach(t => t.classList.remove('active'));
         
-        const tabMap = {1: 'tab1', 2: 'tab2', 3: 'tab3', 4: 'tab4', 5: 'tab5', 6: 'tab6', 8: 'tab8', 9: 'tab9', 10: 'tab10'};
+        const tabMap = {1: 'tab1', 2: 'tab2', 3: 'tab3', 4: 'tab4', 5: 'tab5', 6: 'tab6', 7: 'tab7', 8: 'tab8', 9: 'tab9', 10: 'tab10'};
         document.getElementById(tabMap[tabNum]).style.display = 'block';
         document.querySelectorAll('nav .tab')[tabNum - 1].classList.add('active');
         if (tabNum === 4) {
