@@ -21,7 +21,8 @@ let firebaseState = {
     typingListeners: {},
     rpsMatchListeners: {},
     rpsMatchIdListeners: {},
-    rpsOutgoingListeners: {}
+    rpsOutgoingListeners: {},
+    groupChatListeners: {}
 };
 
 /**
@@ -968,6 +969,97 @@ function setupRpsOutgoingInviteListener(currentUser, callback) {
 /**
  * 🧹 ВИДАЛИТИ ВСІ СЛУХАЧІ
  */
+/**
+ * 👥 ГРУПОВІ ЧАТИ
+ */
+
+async function createGroupChatFirebase(creatorUsername, groupName, memberUsernames) {
+    try {
+        const db = firebase.database();
+        const groupId = db.ref('groupChats').push().key;
+        if (!groupId) return { success: false, error: 'key generation failed' };
+        const allMembers = [...new Set([creatorUsername, ...memberUsernames])];
+        const groupInfo = {
+            id: groupId,
+            name: String(groupName).trim().slice(0, 40) || 'Нова група',
+            createdBy: creatorUsername,
+            members: allMembers,
+            createdAt: Date.now()
+        };
+        await db.ref(`groupChats/${groupId}/info`).set(groupInfo);
+        // Add groupId to each member's groups list
+        const memberUpdates = {};
+        allMembers.forEach(member => {
+            memberUpdates[`users/${member}/groups/${groupId}`] = true;
+        });
+        await db.ref().update(memberUpdates);
+        updateSyncIndicator(true);
+        return { success: true, groupId };
+    } catch (error) {
+        console.error('❌ Помилка створення групи:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+async function sendGroupMessageFirebase(groupId, fromUser, text) {
+    try {
+        const db = firebase.database();
+        const msgRef = db.ref(`groupChats/${groupId}/messages`).push();
+        await msgRef.set({
+            from: fromUser,
+            text: String(text).slice(0, 2000),
+            timestamp: Date.now()
+        });
+        updateSyncIndicator(true);
+        return true;
+    } catch (error) {
+        console.error('❌ Помилка надсилання групового повідомлення:', error);
+        return false;
+    }
+}
+
+async function loadGroupChatsForUserFirebase(username) {
+    try {
+        const db = firebase.database();
+        const snap = await db.ref(`users/${username}/groups`).once('value');
+        const groupIds = Object.keys(snap.val() || {});
+        if (!groupIds.length) return { groups: [] };
+        const infos = await Promise.all(groupIds.map(gid =>
+            db.ref(`groupChats/${gid}/info`).once('value').then(s => s.val())
+        ));
+        return { groups: infos.filter(Boolean) };
+    } catch (error) {
+        console.error('❌ Помилка завантаження груп:', error);
+        return { groups: [] };
+    }
+}
+
+function setupGroupChatListener(groupId, callback) {
+    const db = firebase.database();
+    const ref = db.ref(`groupChats/${groupId}/messages`);
+    if (firebaseState.groupChatListeners[groupId]) {
+        ref.off('value', firebaseState.groupChatListeners[groupId]);
+    }
+    const handler = (snap) => {
+        const raw = snap.val() || {};
+        const messages = Object.values(raw).map(msg => ({
+            sender: msg.from || '',
+            text: msg.text || '',
+            timestamp: msg.timestamp || 0
+        })).sort((a, b) => a.timestamp - b.timestamp);
+        callback(messages);
+    };
+    firebaseState.groupChatListeners[groupId] = handler;
+    ref.on('value', handler);
+}
+
+function removeGroupChatListener(groupId) {
+    if (!firebaseState.groupChatListeners[groupId]) return;
+    const db = firebase.database();
+    db.ref(`groupChats/${groupId}/messages`).off('value', firebaseState.groupChatListeners[groupId]);
+    delete firebaseState.groupChatListeners[groupId];
+}
+
 function removeAllListeners() {
     const db = firebase.database();
     
@@ -1006,6 +1098,10 @@ function removeAllListeners() {
     Object.keys(firebaseState.rpsOutgoingListeners || {}).forEach(user => {
         db.ref(`users/${user}/outgoingRpsInvite`).off('value', firebaseState.rpsOutgoingListeners[user]);
     });
+
+    Object.keys(firebaseState.groupChatListeners || {}).forEach(groupId => {
+        db.ref(`groupChats/${groupId}/messages`).off('value', firebaseState.groupChatListeners[groupId]);
+    });
     
     firebaseState.friendRequestListeners = {};
     firebaseState.gameInvitationListeners = {};
@@ -1016,6 +1112,7 @@ function removeAllListeners() {
     firebaseState.rpsMatchListeners = {};
     firebaseState.rpsMatchIdListeners = {};
     firebaseState.rpsOutgoingListeners = {};
+    firebaseState.groupChatListeners = {};
     
     console.log('🧹 Всі слухачі видалені');
 }
@@ -1145,5 +1242,12 @@ window.resolveRpsMatchFirebase = resolveRpsMatchFirebase;
 window.setupRpsMatchListener = setupRpsMatchListener;
 window.setupRpsMatchIdListener = setupRpsMatchIdListener;
 window.setupRpsOutgoingInviteListener = setupRpsOutgoingInviteListener;
+
+// Group chats
+window.createGroupChatFirebase = createGroupChatFirebase;
+window.sendGroupMessageFirebase = sendGroupMessageFirebase;
+window.loadGroupChatsForUserFirebase = loadGroupChatsForUserFirebase;
+window.setupGroupChatListener = setupGroupChatListener;
+window.removeGroupChatListener = removeGroupChatListener;
 
 console.log('✅ firebase-sync.js завантажено');

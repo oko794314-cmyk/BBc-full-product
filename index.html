@@ -269,6 +269,49 @@
         .workshop-mini-preview .workshop-preview-avatar { width:54px; height:54px; }
         .feature-note { font-size:10px; color:#888; line-height:1.45; }
         .feature-pill { display:inline-flex; align-items:center; gap:5px; padding:5px 9px; border-radius:999px; font-size:9px; border:1px solid #333; color:#aaa; background:#050505; }
+
+        /* ===== SLOT MACHINE ===== */
+        .slots-machine { display:flex; flex-direction:column; align-items:center; gap:20px; padding:20px 10px; }
+        .slots-reels { display:flex; gap:12px; }
+        .slot-reel { width:80px; height:80px; background:#0a0a0a; border:2px solid var(--p); border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:42px; overflow:hidden; transition:border-color .2s; position:relative; box-shadow:0 0 14px rgba(7,255,255,0.18); }
+        .slot-reel.spinning { border-color:var(--gold); animation:reelSpin .18s linear infinite; }
+        @keyframes reelSpin { 0%{transform:translateY(0)} 50%{transform:translateY(-8px)} 100%{transform:translateY(0)} }
+        .slot-reel.win { border-color:var(--g); box-shadow:0 0 22px rgba(0,255,136,0.55); animation:winGlow 0.6s ease alternate; }
+        @keyframes winGlow { 0%{box-shadow:0 0 12px rgba(0,255,136,0.3)} 100%{box-shadow:0 0 30px rgba(0,255,136,0.8)} }
+        .slots-lever-btn { background:linear-gradient(135deg,#ff3366,#cc0033); color:#fff; border:none; border-radius:14px; padding:14px 36px; font-size:15px; font-weight:900; cursor:pointer; letter-spacing:1px; box-shadow:0 4px 16px rgba(255,51,102,0.4); transition:transform .1s,box-shadow .1s; }
+        .slots-lever-btn:active { transform:scale(0.95); box-shadow:0 2px 8px rgba(255,51,102,0.3); }
+        .slots-lever-btn:disabled { opacity:0.5; cursor:not-allowed; }
+        .slots-result-msg { font-size:14px; font-weight:700; min-height:22px; text-align:center; }
+        .slots-result-msg.win { color:var(--g); }
+        .slots-result-msg.lose { color:var(--r); }
+        .slots-paytable { width:100%; background:#050505; border-radius:12px; border:1px solid #1a1a1a; padding:12px; }
+        .slots-paytable-row { display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid #111; font-size:12px; }
+        .slots-paytable-row:last-child { border-bottom:none; }
+
+        /* ===== GROUP CHATS ===== */
+        .group-chat-list { display:flex; flex-direction:column; gap:10px; }
+        .group-chat-item { background:#0a0a0a; border:1px solid #1c1c1c; border-radius:12px; padding:12px 14px; display:flex; align-items:center; gap:12px; cursor:pointer; transition:border-color .2s; }
+        .group-chat-item:hover { border-color:var(--p); }
+        .group-chat-icon { width:44px; height:44px; border-radius:50%; background:linear-gradient(135deg,var(--p),#0066cc); display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0; }
+        .group-chat-info { flex:1; min-width:0; }
+        .group-chat-name { font-size:13px; font-weight:700; color:var(--p); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .group-chat-last { font-size:11px; color:#666; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .create-group-btn { width:100%; background:rgba(7,255,255,0.08); border:1px dashed rgba(7,255,255,0.3); border-radius:12px; padding:12px; color:var(--p); font-size:13px; cursor:pointer; font-weight:700; transition:background .2s; }
+        .create-group-btn:hover { background:rgba(7,255,255,0.16); }
+        .group-members-list { display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
+        .group-member-chip { font-size:10px; color:#888; background:#111; border-radius:999px; padding:3px 8px; border:1px solid #222; }
+
+        /* ===== PROFILE TITLE CHIP ===== */
+        .profile-title-chip { display:inline-flex; align-items:center; gap:6px; padding:4px 12px; border-radius:999px; font-size:11px; font-weight:900; border:1px solid rgba(255,204,0,0.35); background:rgba(255,204,0,0.08); letter-spacing:0.8px; text-transform:uppercase; }
+
+        /* ===== LANGUAGE TOGGLE ===== */
+        .lang-toggle { display:flex; gap:8px; }
+        .lang-btn { flex:1; padding:10px 0; border-radius:10px; border:1px solid #222; background:#0a0a0a; color:#888; font-size:13px; font-weight:700; cursor:pointer; transition:all .2s; }
+        .lang-btn.active { background:rgba(7,255,255,0.12); border-color:var(--p); color:var(--p); }
+
+        /* ===== MINOR DESIGN TWEAKS ===== */
+        .nav-tab { transition:color .2s, border-color .2s, box-shadow .2s; }
+        .nav-tab.active { box-shadow:0 2px 10px rgba(7,255,255,0.18); border-radius:8px 8px 0 0; }
     </style>
 </head>
 <body>
@@ -364,6 +407,7 @@
         <!-- Підвкладки казино -->
         <div class="casino-subtabs">
             <div class="casino-subtab active" onclick="switchCasinoTab('roulette')" id="cs-roulette">🎡 Рулетка</div>
+            <div class="casino-subtab" onclick="switchCasinoTab('slots')" id="cs-slots">🎰 Слоти</div>
             <div class="casino-subtab" onclick="switchCasinoTab('rps')" id="cs-rps">✊ КНП (PvP)</div>
             <div class="casino-subtab" onclick="switchCasinoTab('rps-online')" id="cs-rps-online">🌐 КНП Online</div>
         </div>
@@ -382,6 +426,37 @@
                     <button class="btn" onclick="spin('red')" style="flex:1; background:#1a1a1a; border:2px solid #ff3366; color:#ff3366;">🔴 RED (x2)</button>
                     <button class="btn" onclick="spin('green')" style="flex:1; background:#1a1a1a; border:2px solid #00ff88; color:#00ff88;">🟢 GREEN 0 (x14)</button>
                     <button class="btn" onclick="spin('black')" style="flex:1; background:#1a1a1a; border:2px solid #333;">⬛ BLACK (x2)</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Слот-машина -->
+        <div id="casino-slots" style="display:none;">
+            <div class="glass">
+                <div class="slots-machine">
+                    <div class="slots-reels">
+                        <div class="slot-reel" id="slot-reel-0">🎰</div>
+                        <div class="slot-reel" id="slot-reel-1">🎰</div>
+                        <div class="slot-reel" id="slot-reel-2">🎰</div>
+                    </div>
+                    <div id="slots-result-msg" class="slots-result-msg">Зробіть ставку і крутіть!</div>
+                    <div style="display:flex; gap:8px; align-items:center; width:100%;">
+                        <input type="number" id="slots-bet" placeholder="СТАВКА" min="0.0001" step="0.0001" style="flex:1;">
+                        <button class="slots-lever-btn" id="slots-lever-btn" onclick="spinSlots()">🎰 КРУТИТИ</button>
+                    </div>
+                    <div class="slots-paytable">
+                        <p style="font-size:11px; color:var(--p); margin:0 0 8px; font-weight:900; letter-spacing:1px;">ТАБЛИЦЯ ВИПЛАТ</p>
+                        <div class="slots-paytable-row"><span>3 × 💎</span><span style="color:var(--gold);">× 50</span></div>
+                        <div class="slots-paytable-row"><span>3 × 🎰</span><span style="color:var(--gold);">× 25</span></div>
+                        <div class="slots-paytable-row"><span>3 × ⭐</span><span style="color:var(--p);">× 10</span></div>
+                        <div class="slots-paytable-row"><span>3 × 🍀</span><span style="color:var(--g);">× 8</span></div>
+                        <div class="slots-paytable-row"><span>3 × 🔔</span><span style="color:var(--g);">× 6</span></div>
+                        <div class="slots-paytable-row"><span>3 × 🍊</span><span style="color:#fff;">× 4</span></div>
+                        <div class="slots-paytable-row"><span>3 × 🍋</span><span style="color:#fff;">× 3</span></div>
+                        <div class="slots-paytable-row"><span>3 × 🍒</span><span style="color:#fff;">× 2</span></div>
+                        <div class="slots-paytable-row"><span>2 однакових</span><span style="color:#888;">× 1.5 (повернення)</span></div>
+                        <div class="slots-paytable-row"><span>Без збігів</span><span style="color:var(--r);">Програш</span></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -552,10 +627,70 @@
 
         <h3 style="margin-top:20px; color:var(--g);">📋 МОЇ ДРУЗІ</h3>
         <div id="f-list" style="margin-top:10px;"></div>
+
+        <h3 style="margin-top:24px; color:var(--p);">💬 ГРУПОВІ ЧАТИ</h3>
+        <button class="create-group-btn" onclick="openCreateGroupModal()">➕ Створити групу</button>
+        <div id="group-chat-list" class="group-chat-list" style="margin-top:10px;"></div>
     </div>
 
     <!-- ВКЛ.4-ЧАТ: ПРИВАТНИЙ ЧАТ -->
     <div id="tab4-chat" class="view" style="display:none;">
+        <div class="chat-container">
+            <div style="display:flex; align-items:center; margin-bottom:15px; padding-bottom:10px; border-bottom:1px solid #333;">
+                <span style="cursor:pointer; font-size:18px;" onclick="backToFriendsList()">◀ НАЗАД</span>
+                <div style="flex:1; margin-left:10px; display:flex; align-items:center; gap:8px;">
+                    <div id="chat-friend-name" style="font-weight:900; color:var(--p);">---</div>
+                    <span id="chat-online-dot" class="online-dot" style="display:none;" title="Онлайн"></span>
+                </div>
+            </div>
+            <div class="chat-messages" id="private-chat-messages"></div>
+            <div id="typing-indicator" style="display:none;">
+                <div class="typing-row">
+                    <span class="chat-avatar-wrap" aria-hidden="true"></span>
+                    <div class="typing-bubble">
+                        <span class="typing-dot"></span>
+                        <span class="typing-dot"></span>
+                        <span class="typing-dot"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="chat-input-wrap">
+                <input type="text" id="private-msg-in" placeholder="Повідомлення..." onkeypress="handlePrivateChatKeypress(event)" oninput="handleChatInput()">
+                <button class="btn" onclick="sendPrivateMsg()">></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ВКЛ.4-ГРУП-ЧАТ: ГРУПОВИЙ ЧАТ -->
+    <div id="tab4-group-chat" class="view" style="display:none;">
+        <div class="chat-container">
+            <div style="display:flex; align-items:center; margin-bottom:15px; padding-bottom:10px; border-bottom:1px solid #333;">
+                <span style="cursor:pointer; font-size:18px;" onclick="backToFriendsFromGroup()">◀ НАЗАД</span>
+                <div style="flex:1; margin-left:10px;">
+                    <div id="group-chat-header-name" style="font-weight:900; color:var(--p);">---</div>
+                    <div id="group-chat-header-members" class="group-members-list"></div>
+                </div>
+            </div>
+            <div class="chat-messages" id="group-chat-messages"></div>
+            <div class="chat-input-wrap">
+                <input type="text" id="group-msg-in" placeholder="Повідомлення групі..." onkeypress="handleGroupChatKeypress(event)">
+                <button class="btn" onclick="sendGroupMsg()">></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- МОДАЛКА: СТВОРЕННЯ ГРУПИ -->
+    <div id="create-group-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center; padding:20px;">
+        <div class="glass" style="width:100%; max-width:340px; position:relative;">
+            <button onclick="closeCreateGroupModal()" style="position:absolute; top:10px; right:12px; background:none; border:none; color:#888; font-size:20px; cursor:pointer;">✕</button>
+            <h3 style="margin-top:0; color:var(--p);">💬 Нова група</h3>
+            <label style="font-size:10px; color:var(--p);">НАЗВА ГРУПИ</label>
+            <input type="text" id="group-name-input" placeholder="Введіть назву...">
+            <label style="font-size:10px; color:var(--p); margin-top:12px;">ЗАПРОСИТИ ДРУЗІВ (через кому)</label>
+            <input type="text" id="group-invite-input" placeholder="логін1, логін2...">
+            <button class="btn" onclick="createGroupChat()" style="margin-top:14px;">СТВОРИТИ</button>
+        </div>
+    </div>
         <div class="chat-container">
             <div style="display:flex; align-items:center; margin-bottom:15px; padding-bottom:10px; border-bottom:1px solid #333;">
                 <span style="cursor:pointer; font-size:18px;" onclick="backToFriendsList()">◀ НАЗАД</span>
@@ -593,6 +728,13 @@
             <label class="settings-label" for="settings-display-name">ІМʼЯ ВІДОБРАЖЕННЯ</label>
             <input type="text" id="settings-display-name" placeholder="Ваше імʼя">
             <button class="btn" onclick="saveDisplayName()">ЗБЕРЕГТИ ІМʼЯ</button>
+        </div>
+        <div class="glass settings-section">
+            <label class="settings-label">МОВА / LANGUAGE</label>
+            <div class="lang-toggle">
+                <button id="lang-btn-ua" class="lang-btn active" onclick="setLanguage('ua')">🇺🇦 Українська</button>
+                <button id="lang-btn-en" class="lang-btn" onclick="setLanguage('en')">🇬🇧 English</button>
+            </div>
         </div>
         <div class="glass settings-section">
             <label class="settings-label" for="settings-current-password">ПОТОЧНИЙ ПАРОЛЬ</label>
@@ -1119,7 +1261,11 @@
         { id: 'office', name: 'Офіс', icon: '🏬', price: 80, baseProfit: 5.8, upgradeBase: 34, sellRatio: 0.76 },
         { id: 'factory', name: 'Завод', icon: '🏭', price: 160, baseProfit: 11.5, upgradeBase: 70, sellRatio: 0.78 },
         { id: 'farm', name: 'Ферма', icon: '🚜', price: 95, baseProfit: 7.1, upgradeBase: 38, sellRatio: 0.75 },
-        { id: 'mine', name: 'Шахта', icon: '⛏️', price: 210, baseProfit: 15.8, upgradeBase: 88, sellRatio: 0.8 }
+        { id: 'mine', name: 'Шахта', icon: '⛏️', price: 210, baseProfit: 15.8, upgradeBase: 88, sellRatio: 0.8 },
+        { id: 'hotel', name: 'Готель', icon: '🏨', price: 280, baseProfit: 20.5, upgradeBase: 115, sellRatio: 0.79 },
+        { id: 'mall', name: 'Торговий центр', icon: '🏪', price: 350, baseProfit: 26.0, upgradeBase: 145, sellRatio: 0.80 },
+        { id: 'warehouse', name: 'Склад', icon: '📦', price: 55, baseProfit: 4.2, upgradeBase: 24, sellRatio: 0.73 },
+        { id: 'villa', name: 'Вілла', icon: '🏡', price: 500, baseProfit: 38.0, upgradeBase: 200, sellRatio: 0.82 }
     ];
 
     const carsCatalog = [
@@ -1127,7 +1273,12 @@
         { id: 'suv', name: 'Iron SUV', icon: '🚙', price: 58, basePrestige: 28, upgradeBase: 22, resaleRatio: 0.7 },
         { id: 'sport', name: 'Crimson GT', icon: '🏎️', price: 120, basePrestige: 64, upgradeBase: 46, resaleRatio: 0.72 },
         { id: 'lux', name: 'Royal Phantom', icon: '🚘', price: 220, basePrestige: 110, upgradeBase: 82, resaleRatio: 0.74 },
-        { id: 'hyper', name: 'Nova Hyper', icon: '🚀', price: 420, basePrestige: 210, upgradeBase: 150, resaleRatio: 0.76 }
+        { id: 'hyper', name: 'Nova Hyper', icon: '🚀', price: 420, basePrestige: 210, upgradeBase: 150, resaleRatio: 0.76 },
+        { id: 'muscle', name: 'Muscle Titan', icon: '🚔', price: 80, basePrestige: 40, upgradeBase: 32, resaleRatio: 0.70 },
+        { id: 'pickup', name: 'Thunder Pickup', icon: '🛻', price: 65, basePrestige: 32, upgradeBase: 26, resaleRatio: 0.71 },
+        { id: 'cabrio', name: 'SunDrive Cabrio', icon: '🚐', price: 150, basePrestige: 78, upgradeBase: 58, resaleRatio: 0.73 },
+        { id: 'electric', name: 'Volt Neo', icon: '⚡', price: 310, basePrestige: 155, upgradeBase: 110, resaleRatio: 0.75 },
+        { id: 'legend', name: 'Legend One', icon: '🏆', price: 750, basePrestige: 380, upgradeBase: 260, resaleRatio: 0.78 }
     ];
 
     // Profit multiplier applied for every real-estate level after the first.
@@ -1860,10 +2011,20 @@
         }
 
         if (mainScreenEl) {
-            mainScreenEl.style.background = backgroundItem?.style?.background || fallbackBackgroundItem?.bg || '';
-            mainScreenEl.style.backgroundImage = backgroundItem?.style?.imageData ? `url(${backgroundItem.style.imageData})` : '';
-            mainScreenEl.style.backgroundSize = backgroundItem?.style?.imageData ? 'cover' : '';
-            mainScreenEl.style.backgroundPosition = backgroundItem?.style?.imageData ? 'center' : '';
+            const bgValue = backgroundItem?.style?.background || fallbackBackgroundItem?.bg || '';
+            const bgImageData = backgroundItem?.style?.imageData || '';
+            // Clear previous background properties to avoid shorthand/longhand conflicts
+            mainScreenEl.style.backgroundImage = '';
+            mainScreenEl.style.backgroundSize = '';
+            mainScreenEl.style.backgroundPosition = '';
+            if (bgImageData) {
+                mainScreenEl.style.background = bgValue || '#050505';
+                mainScreenEl.style.backgroundImage = `url(${bgImageData})`;
+                mainScreenEl.style.backgroundSize = 'cover';
+                mainScreenEl.style.backgroundPosition = 'center';
+            } else {
+                mainScreenEl.style.background = bgValue;
+            }
         }
 
         if (titleEl && titleItem?.type === 'title') {
@@ -2676,6 +2837,7 @@
         refreshSettingsForm();
         updateFriendRequestsList();
         updateFriendsList();
+        loadGroupChatsList();
 
         // Відновити активний RPS матч (якщо є)
         if (userData.activeRpsMatchId) {
@@ -2921,11 +3083,12 @@
             const multiplier = roulettePayouts[resultSegment.color];
             const resultEmoji = rouletteColorMeta[resultSegment.color].emoji;
 
+            // Deduct bet and pay out winnings correctly
+            gameState.balance -= amount;
             if (isWin) {
                 gameState.balance += amount * multiplier;
-                showGameNotification(`🎯 ${resultEmoji} ${resultSegment.color.toUpperCase()} — ВИГРАШ +${(amount * multiplier).toFixed(4)}`);
+                showGameNotification(`🎯 ${resultEmoji} ${resultSegment.color.toUpperCase()} — ВИГРАШ +${(amount * (multiplier - 1)).toFixed(4)}`);
             } else {
-                gameState.balance -= amount;
                 showGameNotification(`🎯 ${resultEmoji} ${resultSegment.color.toUpperCase()} — ПРОГРАШ -${amount.toFixed(4)}`);
             }
 
@@ -4036,13 +4199,15 @@
 
     function switchCasinoTab(type) {
         document.getElementById('casino-roulette').style.display = type === 'roulette' ? 'block' : 'none';
+        document.getElementById('casino-slots').style.display    = type === 'slots'    ? 'block' : 'none';
         document.getElementById('casino-rps').style.display      = type === 'rps'      ? 'block' : 'none';
         document.getElementById('casino-rps-online').style.display = type === 'rps-online' ? 'block' : 'none';
         document.getElementById('cs-roulette').classList.toggle('active', type === 'roulette');
+        document.getElementById('cs-slots').classList.toggle('active', type === 'slots');
         document.getElementById('cs-rps').classList.toggle('active', type === 'rps');
         document.getElementById('cs-rps-online').classList.toggle('active', type === 'rps-online');
         // При переключенні від КНП — зупинити таймер
-        if (type === 'roulette') clearInterval(rpsGame.timer);
+        if (type !== 'rps') clearInterval(rpsGame.timer);
         if (type === 'rps-online') rpsOnlineRefreshLobby();
     }
 
@@ -4322,6 +4487,219 @@
         document.getElementById('settings-new-password').value = '';
         document.getElementById('settings-confirm-password').value = '';
     }
+
+    // ===== SLOT MACHINE =====
+    const SLOT_SYMBOLS = ['🍒','🍋','🍊','🔔','⭐','🍀','💎','🎰'];
+    const SLOT_PAYOUTS = { '🍒':2, '🍋':3, '🍊':4, '🔔':6, '⭐':10, '🍀':8, '💎':50, '🎰':25 };
+    const slotsState = { spinning: false };
+
+    function spinSlots() {
+        if (slotsState.spinning) return;
+        const betInput = document.getElementById('slots-bet');
+        const amount = parseFloat(betInput.value);
+        if (!amount || amount <= 0) { showGameNotification('❌ Вкажіть ставку'); return; }
+        if (amount > gameState.balance) { showGameNotification('❌ Недостатньо коштів'); return; }
+
+        slotsState.spinning = true;
+        const leverBtn = document.getElementById('slots-lever-btn');
+        leverBtn.disabled = true;
+
+        const reels = [
+            document.getElementById('slot-reel-0'),
+            document.getElementById('slot-reel-1'),
+            document.getElementById('slot-reel-2')
+        ];
+
+        reels.forEach(r => { r.classList.remove('win'); r.classList.add('spinning'); });
+        const resultMsg = document.getElementById('slots-result-msg');
+        resultMsg.className = 'slots-result-msg';
+        resultMsg.textContent = '⏳ Крутимось...';
+
+        const finalSymbols = reels.map(() => SLOT_SYMBOLS[Math.floor(Math.random() * SLOT_SYMBOLS.length)]);
+
+        // Animate each reel stopping sequentially
+        const stopReel = (index, delay) => {
+            setTimeout(() => {
+                reels[index].classList.remove('spinning');
+                reels[index].textContent = finalSymbols[index];
+            }, delay);
+        };
+        stopReel(0, 700);
+        stopReel(1, 1200);
+        stopReel(2, 1700);
+
+        setTimeout(async () => {
+            const [s0, s1, s2] = finalSymbols;
+            let winMultiplier = 0;
+            let winMsg = '';
+
+            if (s0 === s1 && s1 === s2) {
+                winMultiplier = SLOT_PAYOUTS[s0] || 2;
+                winMsg = `🎉 ДЖЕКПОТ! ${s0}${s1}${s2} — виграш ×${winMultiplier}!`;
+                reels.forEach(r => r.classList.add('win'));
+            } else if (s0 === s1 || s1 === s2 || s0 === s2) {
+                winMultiplier = 1.5;
+                winMsg = `✨ Два збіги — повернення ×1.5`;
+            }
+
+            gameState.balance -= amount;
+            if (winMultiplier > 0) {
+                gameState.balance += amount * winMultiplier;
+                resultMsg.className = 'slots-result-msg win';
+                resultMsg.textContent = winMsg;
+            } else {
+                resultMsg.className = 'slots-result-msg lose';
+                resultMsg.textContent = `😔 Немає збігів. Програш -${amount.toFixed(4)}`;
+            }
+
+            betInput.value = '';
+            updateHeader();
+            await updateMiningBalanceFirebase(gameState.user, gameState.balance);
+            slotsState.spinning = false;
+            leverBtn.disabled = false;
+        }, 2000);
+    }
+
+    // ===== GROUP CHATS =====
+    const groupChatsState = { groups: [], activeGroupId: null };
+
+    function openCreateGroupModal() {
+        const modal = document.getElementById('create-group-modal');
+        modal.style.display = 'flex';
+        document.getElementById('group-name-input').value = '';
+        document.getElementById('group-invite-input').value = '';
+    }
+    function closeCreateGroupModal() {
+        document.getElementById('create-group-modal').style.display = 'none';
+    }
+
+    async function createGroupChat() {
+        const name = document.getElementById('group-name-input').value.trim();
+        if (!name) { showGameNotification('❌ Введіть назву групи'); return; }
+        const inviteRaw = document.getElementById('group-invite-input').value.trim();
+        const members = inviteRaw ? inviteRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+        members.push(gameState.user);
+        const uniqueMembers = [...new Set(members)];
+        const result = await createGroupChatFirebase(gameState.user, name, uniqueMembers);
+        if (result.success) {
+            closeCreateGroupModal();
+            showGameNotification('✅ Групу створено!');
+            loadGroupChatsList();
+        } else {
+            showGameNotification('❌ Помилка: ' + (result.error || 'невідома'));
+        }
+    }
+
+    async function loadGroupChatsList() {
+        if (!gameState.user) return;
+        const listEl = document.getElementById('group-chat-list');
+        if (!listEl) return;
+        const result = await loadGroupChatsForUserFirebase(gameState.user);
+        groupChatsState.groups = result.groups || [];
+        if (groupChatsState.groups.length === 0) {
+            listEl.innerHTML = '<div style="color:#555; font-size:12px; text-align:center; padding:12px;">Немає груп. Створіть першу!</div>';
+            return;
+        }
+        listEl.innerHTML = groupChatsState.groups.map(g => `
+            <div class="group-chat-item" onclick="openGroupChat('${g.id}','${escapeAttr(g.name)}',${JSON.stringify(g.members || []).replace(/"/g,'&quot;')})">
+                <div class="group-chat-icon">💬</div>
+                <div class="group-chat-info">
+                    <div class="group-chat-name">${escapeHtml(g.name)}</div>
+                    <div class="group-chat-last">${(g.members||[]).join(', ')}</div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function escapeAttr(s) { return String(s).replace(/'/g,"\\'"); }
+    function escapeHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    function openGroupChat(groupId, groupName, members) {
+        groupChatsState.activeGroupId = groupId;
+        const membersArr = Array.isArray(members) ? members : [];
+        document.getElementById('group-chat-header-name').textContent = groupName;
+        document.getElementById('group-chat-header-members').innerHTML = membersArr.map(m =>
+            `<span class="group-member-chip">${escapeHtml(m)}</span>`).join('');
+        document.getElementById('group-chat-messages').innerHTML = '';
+        document.getElementById('group-msg-in').value = '';
+        document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
+        const groupChatView = document.getElementById('tab4-group-chat');
+        groupChatView.style.display = 'block';
+        const nav = document.querySelector('nav');
+        if (nav) nav.style.display = 'none';
+        setupGroupChatListener(groupId, (messages) => {
+            renderGroupMessages(messages);
+        });
+    }
+
+    function backToFriendsFromGroup() {
+        if (groupChatsState.activeGroupId) {
+            removeGroupChatListener(groupChatsState.activeGroupId);
+            groupChatsState.activeGroupId = null;
+        }
+        const nav = document.querySelector('nav');
+        if (nav) nav.style.display = '';
+        switchTab(4);
+    }
+
+    function renderGroupMessages(messages) {
+        const container = document.getElementById('group-chat-messages');
+        if (!container) return;
+        container.innerHTML = messages.map(msg => {
+            const isMe = msg.sender === gameState.user;
+            return `<div class="chat-msg-row ${isMe ? 'chat-msg-row-me' : 'chat-msg-row-other'}">
+                <div class="chat-bubble ${isMe ? 'my-bubble' : 'other-bubble'}">
+                    ${!isMe ? `<div style="font-size:9px; color:var(--p); margin-bottom:2px;">${escapeHtml(msg.sender)}</div>` : ''}
+                    ${escapeHtml(msg.text)}
+                </div>
+            </div>`;
+        }).join('');
+        container.scrollTop = container.scrollHeight;
+    }
+
+    async function sendGroupMsg() {
+        const input = document.getElementById('group-msg-in');
+        const text = input.value.trim();
+        if (!text || !groupChatsState.activeGroupId) return;
+        input.value = '';
+        await sendGroupMessageFirebase(groupChatsState.activeGroupId, gameState.user, text);
+    }
+
+    function handleGroupChatKeypress(event) {
+        if (event.key === 'Enter') sendGroupMsg();
+    }
+
+    // ===== LANGUAGE (i18n) =====
+    const i18n = {
+        ua: {
+            nav: ['⛏️ Майнінг', '💸 Переказ', '🎰 Казино', '👥 Друзі', '⚙️ Налаш.'],
+            headerBalance: 'BB COIN',
+        },
+        en: {
+            nav: ['⛏️ Mining', '💸 Transfer', '🎰 Casino', '👥 Friends', '⚙️ Settings'],
+            headerBalance: 'BB COIN',
+        }
+    };
+
+    function setLanguage(lang) {
+        localStorage.setItem('bbcLang', lang);
+        document.getElementById('lang-btn-ua').classList.toggle('active', lang === 'ua');
+        document.getElementById('lang-btn-en').classList.toggle('active', lang === 'en');
+        const tabs = document.querySelectorAll('.nav-tab');
+        const labels = i18n[lang]?.nav || i18n.ua.nav;
+        tabs.forEach((tab, idx) => {
+            if (labels[idx]) tab.textContent = labels[idx];
+        });
+    }
+
+    // Apply stored language on load
+    (function() {
+        const stored = localStorage.getItem('bbcLang') || 'ua';
+        // Defer until DOM is ready
+        document.addEventListener('DOMContentLoaded', () => setLanguage(stored));
+        // Also try immediately in case DOMContentLoaded already fired
+        if (document.readyState !== 'loading') setLanguage(stored);
+    })();
 </script>
 <script src="bb-news-features.js"></script>
 

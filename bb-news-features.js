@@ -662,6 +662,19 @@
             <img class="profile-avatar" src="${escapeText(gameState?.avatar || '')}" alt="avatar">
             <div>
                 <div style="font-size:18px; font-weight:900; color:var(--p);">${escapeText(gameState?.displayName || gameState?.user || 'Гість')}</div>
+                ${(function() {
+                    const titleId = (typeof workshopStateEx !== 'undefined' && workshopStateEx?.equipped?.titleId) || null;
+                    const workshopTitle = titleId && typeof getWorkshopItemById === 'function' ? getWorkshopItemById(titleId) : null;
+                    const shopTitleId = (typeof shopState !== 'undefined' && shopState?.equippedTitle) || null;
+                    const shopTitleItem = (!workshopTitle && shopTitleId && typeof shopCatalog !== 'undefined') ? shopCatalog.find(i => i.id === shopTitleId) : null;
+                    if (workshopTitle?.type === 'title') {
+                        return `<div class="profile-title-chip" style="display:inline-flex; color:${escapeText(workshopTitle.style?.color||'var(--gold)')}; border-color:${escapeText(workshopTitle.style?.accent||'rgba(255,204,0,0.35)')}; box-shadow:0 0 10px ${escapeText(workshopTitle.style?.accent||'#ffcc00')}33; margin-top:4px;"><span>${escapeText(workshopTitle.style?.icon||'✨')}</span><span>${escapeText(workshopTitle.name)}</span></div>`;
+                    }
+                    if (shopTitleItem?.titleStyle) {
+                        return `<div class="profile-title-chip" style="display:inline-flex; color:${escapeText(shopTitleItem.titleStyle.color||'var(--gold)')}; border-color:${escapeText(shopTitleItem.titleStyle.accent||'rgba(255,204,0,0.35)')}; box-shadow:0 0 10px ${escapeText(shopTitleItem.titleStyle.accent||'#ffcc00')}33; margin-top:4px;"><span>${escapeText(shopTitleItem.titleStyle.icon||'🏷️')}</span><span>${escapeText(shopTitleItem.name)}</span></div>`;
+                    }
+                    return '';
+                })()}
                 <div class="hub-note">@${escapeText(gameState?.user || '---')} • Реєстрація: ${state.accountHub.stats.registeredAt ? new Date(state.accountHub.stats.registeredAt).toLocaleDateString('uk-UA') : '—'}</div>
                 <div class="hub-note">Останній вхід: ${state.accountHub.stats.lastLoginAt ? new Date(state.accountHub.stats.lastLoginAt).toLocaleString('uk-UA') : '—'}</div>
             </div>
