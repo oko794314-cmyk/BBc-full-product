@@ -344,8 +344,8 @@
         <h2 style="letter-spacing:3px; margin-bottom:30px; font-size:2rem; color:var(--gold);">BB COIN</h2>
         
         <div style="display:flex; gap:10px; margin-bottom:20px;">
-            <div class="auth-tab active" onclick="switchAuth('login')" style="flex:1; padding:10px; background:var(--p); color:#000; cursor:pointer; border-radius:8px; font-weight:900;">Вхід</div>
-            <div class="auth-tab" onclick="switchAuth('register')" style="flex:1; padding:10px; background:#000; color:#555; cursor:pointer; border-radius:8px; border:2px solid #333;">Реєстрація</div>
+            <div class="auth-tab active" data-auth-type="login" onclick="switchAuth('login')" style="flex:1; padding:10px; background:var(--p); color:#000; cursor:pointer; border-radius:8px; font-weight:900;">Вхід</div>
+            <div class="auth-tab" data-auth-type="register" onclick="switchAuth('register')" style="flex:1; padding:10px; background:#000; color:#555; cursor:pointer; border-radius:8px; border:2px solid #333;">Реєстрація</div>
         </div>
 
         <div id="login-form">
@@ -689,31 +689,6 @@
             <label style="font-size:10px; color:var(--p); margin-top:12px;">ЗАПРОСИТИ ДРУЗІВ (через кому)</label>
             <input type="text" id="group-invite-input" placeholder="логін1, логін2...">
             <button class="btn" onclick="createGroupChat()" style="margin-top:14px;">СТВОРИТИ</button>
-        </div>
-    </div>
-        <div class="chat-container">
-            <div style="display:flex; align-items:center; margin-bottom:15px; padding-bottom:10px; border-bottom:1px solid #333;">
-                <span style="cursor:pointer; font-size:18px;" onclick="backToFriendsList()">◀ НАЗАД</span>
-                <div style="flex:1; margin-left:10px; display:flex; align-items:center; gap:8px;">
-                    <div id="chat-friend-name" style="font-weight:900; color:var(--p);">---</div>
-                    <span id="chat-online-dot" class="online-dot" style="display:none;" title="Онлайн"></span>
-                </div>
-            </div>
-            <div class="chat-messages" id="private-chat-messages"></div>
-            <div id="typing-indicator" style="display:none;">
-                <div class="typing-row">
-                    <span class="chat-avatar-wrap" aria-hidden="true"></span>
-                    <div class="typing-bubble">
-                        <span class="typing-dot"></span>
-                        <span class="typing-dot"></span>
-                        <span class="typing-dot"></span>
-                    </div>
-                </div>
-            </div>
-            <div class="chat-input-wrap">
-                <input type="text" id="private-msg-in" placeholder="Повідомлення..." onkeypress="handlePrivateChatKeypress(event)" oninput="handleChatInput()">
-                <button class="btn" onclick="sendPrivateMsg()">></button>
-            </div>
         </div>
     </div>
 
@@ -2751,6 +2726,12 @@
     function switchAuth(type) {
         document.getElementById('login-form').style.display = type === 'login' ? 'block' : 'none';
         document.getElementById('register-form').style.display = type === 'register' ? 'block' : 'none';
+        document.querySelectorAll('.auth-tab').forEach(tab => {
+            const active = tab.dataset.authType === type;
+            tab.style.background = active ? 'var(--p)' : '#000';
+            tab.style.color = active ? '#000' : '#555';
+            tab.style.border = active ? 'none' : '2px solid #333';
+        });
     }
 
     async function register() {
