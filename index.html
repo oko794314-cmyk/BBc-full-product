@@ -344,8 +344,8 @@
         <h2 style="letter-spacing:3px; margin-bottom:30px; font-size:2rem; color:var(--gold);">BB COIN</h2>
         
         <div style="display:flex; gap:10px; margin-bottom:20px;">
-            <div class="auth-tab active" onclick="switchAuth('login')" style="flex:1; padding:10px; background:var(--p); color:#000; cursor:pointer; border-radius:8px; font-weight:900;">Вхід</div>
-            <div class="auth-tab" onclick="switchAuth('register')" style="flex:1; padding:10px; background:#000; color:#555; cursor:pointer; border-radius:8px; border:2px solid #333;">Реєстрація</div>
+            <div class="auth-tab active" data-auth-type="login" onclick="switchAuth('login')" style="flex:1; padding:10px; background:var(--p); color:#000; cursor:pointer; border-radius:8px; font-weight:900;">Вхід</div>
+            <div class="auth-tab" data-auth-type="register" onclick="switchAuth('register')" style="flex:1; padding:10px; background:#000; color:#555; cursor:pointer; border-radius:8px; border:2px solid #333;">Реєстрація</div>
         </div>
 
         <div id="login-form">
@@ -2727,8 +2727,7 @@
         document.getElementById('login-form').style.display = type === 'login' ? 'block' : 'none';
         document.getElementById('register-form').style.display = type === 'register' ? 'block' : 'none';
         document.querySelectorAll('.auth-tab').forEach(tab => {
-            const isLogin = tab.textContent.trim() === 'Вхід';
-            const active = (type === 'login') === isLogin;
+            const active = tab.dataset.authType === type;
             tab.style.background = active ? 'var(--p)' : '#000';
             tab.style.color = active ? '#000' : '#555';
             tab.style.border = active ? 'none' : '2px solid #333';
