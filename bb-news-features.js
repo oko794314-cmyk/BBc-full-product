@@ -194,6 +194,19 @@
         });
     }
 
+    function canOrdersMatch(order, candidate, currentPrice) {
+        if (!order || !candidate) return false;
+        const orderLimit = Number(order.limitPrice);
+        const candidatePrice = num(candidate.limitPrice, currentPrice || 1);
+        if (order.orderType === 'limit' && order.side === 'buy') {
+        return Number.isFinite(orderLimit) && candidatePrice <= orderLimit;
+        }
+        if (order.orderType === 'limit' && order.side === 'sell') {
+        return Number.isFinite(orderLimit) && candidatePrice >= orderLimit;
+        }
+        return true;
+    }
+
     async function isAdminUser(username) {
         if (!username) return false;
         const [roleSnap, aclSnap] = await Promise.all([
@@ -894,7 +907,10 @@
         if (!sellerResult.success) return false;
         const buyerResult = await adjustUserBalanceFirebase(match.buyer, match.amount);
         if (!buyerResult.success) {
-            await adjustUserBalanceFirebase(match.seller, match.amount);
+            const rollbackResult = await adjustUserBalanceFirebase(match.seller, match.amount);
+            if (!rollbackResult.success) {
+                console.error('❌ Не вдалося відкотити баланс продавця після збою біржової угоди');
+            }
             return false;
         }
         if (match.buyer === gameState?.user) {
@@ -950,7 +966,9 @@
                 order = { id: orderId, ...(snap.val() || {}) };
             }
         }
-        if (!order || order.status !== 'open' || num(order.remaining, 0) <= 0) return;
+        const initialRemaining = Number.isFinite(Number(order?.remaining)) ? Number(order.remaining) : Number(order?.amount);
+        if (!order || order.status !== 'open' || !Number.isFinite(initialRemaining) || initialRemaining <= 0) return;
+        order.remaining = Number(initialRemaining.toFixed(4));
         const oppositeSide = order.side === 'buy' ? 'sell' : 'buy';
         const candidates = getOpenOrders()
             .filter(item => item.id !== order.id && item.side === oppositeSide && item.user !== order.user)
@@ -961,8 +979,7 @@
         for (const candidate of candidates) {
             if (remaining <= 0) break;
             const candidatePrice = num(candidate.limitPrice, state.market.currentPrice || 1);
-            if (order.orderType === 'limit' && order.side === 'buy' && candidatePrice > num(order.limitPrice, candidatePrice)) continue;
-            if (order.orderType === 'limit' && order.side === 'sell' && candidatePrice < num(order.limitPrice, candidatePrice)) continue;
+            if (!canOrdersMatch(order, candidate, state.market.currentPrice || 1)) continue;
             const amount = Math.min(remaining, num(candidate.remaining, 0));
             if (amount <= 0) continue;
             const success = await settleTrade({
@@ -1106,12 +1123,20 @@
 
     function wrapAsync(name, callback) {
         const original = window[name];
-        if (typeof original !== 'function') return;
+        if (typeof original !== 'function') {
+            console.warn(`⚠️ wrapAsync: ${name} недоступна`);
+            return;
+        }
         window[name] = async function(...args) {
             const beforeBalance = num(gameState?.balance, 0);
-            const result = await original.apply(this, args);
-            await callback({ args, result, beforeBalance, afterBalance: num(gameState?.balance, 0) });
-            return result;
+            try {
+                const result = await original.apply(this, args);
+                await callback({ args, result, beforeBalance, afterBalance: num(gameState?.balance, 0) });
+                return result;
+            } catch (error) {
+                console.error(`❌ Помилка у ${name}:`, error);
+                throw error;
+            }
         };
     }
 

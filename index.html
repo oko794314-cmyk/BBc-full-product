@@ -723,7 +723,7 @@
                     </div>
                     <div id="workshop-bg-photo-fields" class="workshop-canvas-wrap" style="display:none;">
                         <div class="hub-note">Завантажте власне фото, щоб воно стало фоном профілю та предметом магазину.</div>
-                        <input type="hidden" id="workshop-bg-photo-data">
+                        <input type="hidden" id="workshop-bg-image-data">
                         <input id="workshop-bg-photo-input" class="hidden-file-input" type="file" accept="image/*">
                         <div class="workshop-canvas-tools">
                             <button type="button" class="btn secondary-btn" onclick="document.getElementById('workshop-bg-photo-input').click()">ОБРАТИ ФОТО</button>
@@ -1277,6 +1277,10 @@
         return '';
     }
 
+    function isSafeImageData(value) {
+        return typeof value === 'string' && /^data:image\/(png|jpe?g|gif|webp);base64,/i.test(value);
+    }
+
     function getUserInitials(username) {
         const label = formatUserLabel(username).replace(/\(.*\)/, '').trim();
         const parts = label.split(/\s+/).filter(Boolean);
@@ -1512,7 +1516,7 @@
 
     function saveWorkshopCanvasToField() {
         const canvas = getWorkshopCanvas();
-        const output = document.getElementById('workshop-bg-photo-data');
+        const output = document.getElementById('workshop-bg-image-data');
         if (!canvas || !output) return;
         output.value = canvas.toDataURL('image/png');
     }
@@ -1591,14 +1595,14 @@
         document.getElementById('workshop-bg-gradient-fields').style.display = normalizedMode === 'gradient' ? 'block' : 'none';
         document.getElementById('workshop-bg-draw-fields').style.display = normalizedMode === 'draw' ? 'block' : 'none';
         document.getElementById('workshop-bg-photo-fields').style.display = normalizedMode === 'photo' ? 'block' : 'none';
-        if (normalizedMode === 'draw' && !document.getElementById('workshop-bg-photo-data').value) {
+        if (normalizedMode === 'draw' && !document.getElementById('workshop-bg-image-data').value) {
             saveWorkshopCanvasToField();
         }
         renderWorkshopPreview();
     }
 
     function clearWorkshopPhoto() {
-        const field = document.getElementById('workshop-bg-photo-data');
+        const field = document.getElementById('workshop-bg-image-data');
         if (field) field.value = '';
         const input = document.getElementById('workshop-bg-photo-input');
         if (input) input.value = '';
@@ -1611,11 +1615,11 @@
         const reader = new FileReader();
         reader.onload = () => {
             const result = typeof reader.result === 'string' ? reader.result : '';
-            if (!result.startsWith('data:image/')) {
-                alert('Підтримуються лише зображення.');
+            if (!isSafeImageData(result)) {
+                alert('Підтримуються лише JPG, PNG, GIF або WEBP у base64-форматі.');
                 return;
             }
-            document.getElementById('workshop-bg-photo-data').value = result;
+            document.getElementById('workshop-bg-image-data').value = result;
             setWorkshopBackgroundMode('photo');
             renderWorkshopPreview();
         };
@@ -1674,16 +1678,16 @@
             const startColor = sanitizeHexColor(document.getElementById('workshop-bg-start').value, '#0a0015');
             const endColor = sanitizeHexColor(document.getElementById('workshop-bg-end').value, '#1a0030');
             const angle = clamp(num(document.getElementById('workshop-bg-angle').value, 135), 0, 360);
-            const imageData = document.getElementById('workshop-bg-photo-data').value || '';
-            if (backgroundMode === 'photo' && !imageData.startsWith('data:image/')) {
-                alert('Оберіть власне фото для фону.');
+            const imageData = document.getElementById('workshop-bg-image-data').value || '';
+            if (backgroundMode === 'photo' && !isSafeImageData(imageData)) {
+                alert('Обраний файл не є коректним зображенням. Оберіть JPG, PNG або GIF.');
                 return null;
             }
-            if (backgroundMode === 'draw' && !imageData.startsWith('data:image/')) {
+            if (backgroundMode === 'draw' && !isSafeImageData(imageData)) {
                 saveWorkshopCanvasToField();
             }
-            const safeImageData = document.getElementById('workshop-bg-photo-data').value || '';
-            const imageStyle = safeImageData.startsWith('data:image/')
+            const safeImageData = document.getElementById('workshop-bg-image-data').value || '';
+            const imageStyle = isSafeImageData(safeImageData)
                 ? `url(${JSON.stringify(safeImageData)}) center/cover no-repeat`
                 : '';
             return {
@@ -1790,19 +1794,20 @@
             const backgroundValue = backgroundMode === 'gradient'
                 ? `linear-gradient(${clamp(num(document.getElementById('workshop-bg-angle').value, 135), 0, 360)}deg, ${sanitizeHexColor(document.getElementById('workshop-bg-start').value, '#0a0015')} 0%, ${sanitizeHexColor(document.getElementById('workshop-bg-end').value, '#1a0030')} 100%)`
                 : '#050505';
-            const imageData = document.getElementById('workshop-bg-photo-data').value || '';
+            const imageData = document.getElementById('workshop-bg-image-data').value || '';
+            const safeImageData = isSafeImageData(imageData) ? imageData : '';
             previewItem = {
                 type,
                 name,
                 style: {
                     mode: backgroundMode,
                     background: backgroundValue,
-                    imageData,
-                    backgroundImage: imageData.startsWith('data:image/') ? `url(${JSON.stringify(imageData)}) center/cover no-repeat` : ''
+                    imageData: safeImageData,
+                    backgroundImage: safeImageData ? `url(${JSON.stringify(safeImageData)}) center/cover no-repeat` : ''
                 }
             };
             previewRoot.innerHTML = `
-                <div class="workshop-preview-bg" style="background:${escapeHtml(previewItem.style.background)}; ${previewItem.style.backgroundImage ? `background-image:${escapeHtml(`url(${imageData})`)}; background-size:cover; background-position:center;` : ''}">
+                <div class="workshop-preview-bg" style="background:${escapeHtml(previewItem.style.background)}; ${safeImageData ? `background-image:url('${escapeHtml(safeImageData)}'); background-size:cover; background-position:center;` : ''}">
                     <div>
                         <b>${escapeHtml(name)}</b>
                         <div class="feature-note" style="color:#fff;">${escapeHtml(description)}</div>
@@ -1951,7 +1956,7 @@
         document.getElementById('workshop-bg-end').value = '#1a0030';
         document.getElementById('workshop-bg-angle').value = '135';
         document.getElementById('workshop-bg-mode').value = 'gradient';
-        document.getElementById('workshop-bg-photo-data').value = '';
+        document.getElementById('workshop-bg-image-data').value = '';
         document.getElementById('workshop-bg-photo-input').value = '';
         setWorkshopBrushColor('#07ffff');
         setWorkshopBrushSize(10);
@@ -1984,7 +1989,7 @@
         document.getElementById('workshop-bg-end').value = item?.style?.endColor || '#1a0030';
         document.getElementById('workshop-bg-angle').value = item?.style?.angle || 135;
         document.getElementById('workshop-bg-mode').value = item?.style?.mode || (item?.style?.imageData ? 'photo' : 'gradient');
-        document.getElementById('workshop-bg-photo-data').value = item?.style?.imageData || '';
+        document.getElementById('workshop-bg-image-data').value = item?.style?.imageData || '';
         document.getElementById('workshop-title-icon').value = item?.style?.icon || '✨';
         document.getElementById('workshop-title-color').value = item?.style?.color || '#ffcc00';
         document.getElementById('workshop-title-accent').value = item?.style?.accent || '#07ffff';
@@ -4175,13 +4180,14 @@
             return;
         }
         grid.innerHTML = items.map(item => {
+            const priceValue = Number.isFinite(Number(item.price)) ? Number(item.price) : null;
             const owned = item.workshopItem ? (!!workshopStateEx.ownedItemIds[item.id] || item.createdBy === gameState.user) : shopState.owned.includes(item.id);
             const equipped = item.workshopItem
                 ? workshopStateEx.equipped[`${item.applyType}Id`] === item.id
                 : isShopItemEquipped(item);
-            const canBuy = !owned && (gameState.balance || 0) >= num(item.price, 0);
+            const canBuy = !owned && priceValue !== null && (gameState.balance || 0) >= priceValue;
             let btnClass = 'shop-item-btn';
-            let btnText = `🛒 ${num(item.price, 0).toFixed(2)} BB`;
+            let btnText = priceValue === null ? 'НЕДОСТУПНО' : `🛒 ${priceValue.toFixed(2)} BB`;
             let btnDisabled = '';
             if (owned && equipped) {
                 btnClass = 'shop-item-btn equipped-btn';
@@ -4193,14 +4199,14 @@
                 btnClass = 'shop-item-btn owned-misc-btn';
                 btnText = '✅ КУПЛЕНО';
                 btnDisabled = 'disabled';
-            } else if (!canBuy) {
+            } else if (!canBuy || priceValue === null) {
                 btnDisabled = 'disabled';
             }
             return `
                 <div class="shop-item ${owned ? 'owned' : ''} ${equipped ? 'equipped' : ''}">
                     <div class="shop-item-preview">${escapeHtml(item.icon || '🎁')}</div>
                     <div class="shop-item-name">${escapeHtml(item.name)}</div>
-                    <div class="shop-item-price">${owned ? '✓ У вас є' : `${num(item.price, 0).toFixed(2)} BB`}</div>
+                    <div class="shop-item-price">${owned ? '✓ У вас є' : (priceValue === null ? '—' : `${priceValue.toFixed(2)} BB`)}</div>
                     <div class="feature-note" style="min-height:32px;">${escapeHtml(item.desc || '')}</div>
                     <button class="${btnClass}" onclick="shopAction('${item.id}')" ${btnDisabled}>${btnText}</button>
                 </div>
