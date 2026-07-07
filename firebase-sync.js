@@ -1032,6 +1032,75 @@ function getFirebaseStatus() {
     };
 }
 
+function firebaseNumber(value, fallback = 0) {
+    return Number.isFinite(Number(value)) ? Number(value) : fallback;
+}
+
+async function saveUserFeatureStateFirebase(username, featureKey, data) {
+    try {
+        const db = firebase.database();
+        await db.ref(`users/${username}/${featureKey}`).set(data);
+        updateSyncIndicator(true);
+        return true;
+    } catch (error) {
+        console.error(`❌ Помилка збереження ${featureKey}:`, error);
+        updateSyncIndicator(false);
+        return false;
+    }
+}
+
+async function loadUserFeatureStateFirebase(username, featureKey) {
+    try {
+        const db = firebase.database();
+        const snapshot = await db.ref(`users/${username}/${featureKey}`).once('value');
+        return snapshot.val();
+    } catch (error) {
+        console.error(`❌ Помилка завантаження ${featureKey}:`, error);
+        return null;
+    }
+}
+
+async function adjustUserBalanceFirebase(username, delta) {
+    try {
+        const db = firebase.database();
+        let nextBalance = null;
+        const result = await db.ref(`users/${username}/balance`).transaction((currentBalance) => {
+            const normalized = firebaseNumber(currentBalance, 0);
+            const candidate = normalized + firebaseNumber(delta, 0);
+            if (candidate < 0) return;
+            nextBalance = candidate;
+            return candidate;
+        });
+
+        if (!result.committed) {
+            return { success: false, balance: null };
+        }
+
+        await db.ref(`users/${username}/miningUpdatedAt`).set(firebase.database.ServerValue.TIMESTAMP);
+        updateSyncIndicator(true);
+        return { success: true, balance: nextBalance };
+    } catch (error) {
+        console.error('❌ Помилка зміни балансу:', error);
+        updateSyncIndicator(false);
+        return { success: false, balance: null };
+    }
+}
+
+async function isAdminUserFirebase(username) {
+    try {
+        if (!username) return false;
+        const db = firebase.database();
+        const [roleSnapshot, aclSnapshot] = await Promise.all([
+            db.ref(`users/${username}/role`).once('value'),
+            db.ref(`config/adminUsers/${username}`).once('value')
+        ]);
+        return roleSnapshot.val() === 'admin' || aclSnapshot.val() === true;
+    } catch (error) {
+        console.error('❌ Помилка перевірки адміністратора:', error);
+        return false;
+    }
+}
+
 // Експортувати функції
 window.initFirebaseSync = initFirebaseSync;
 window.saveUserToFirebase = saveUserToFirebase;
@@ -1061,6 +1130,10 @@ window.removeTypingListener = removeTypingListener;
 window.setupAllListenersOnLogin = setupAllListenersOnLogin;
 window.removeAllListeners = removeAllListeners;
 window.getFirebaseStatus = getFirebaseStatus;
+window.saveUserFeatureStateFirebase = saveUserFeatureStateFirebase;
+window.loadUserFeatureStateFirebase = loadUserFeatureStateFirebase;
+window.adjustUserBalanceFirebase = adjustUserBalanceFirebase;
+window.isAdminUserFirebase = isAdminUserFirebase;
 // RPS Online
 window.sendRpsInvitationFirebase = sendRpsInvitationFirebase;
 window.acceptRpsInvitationFirebase = acceptRpsInvitationFirebase;
