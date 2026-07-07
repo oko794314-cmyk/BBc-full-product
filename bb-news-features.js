@@ -1,13 +1,17 @@
 (() => {
     if (typeof firebase === 'undefined') return;
 
-    const ADMIN_USERS = new Set(['admin', 'administrator', 'oko794314-cmyk']);
+    const MIN_PRICE = 0.000001;
+    const MAX_CANDLES = 48; // 48 candles keep the chart readable on both mobile and desktop.
+    const MAX_TRADE_RECORDS = 800;
+    const MARKET_IMPACT_DIVISOR = 10000;
+    const MAX_MARKET_IMPACT = 0.2;
     const QUESTS = [
         { id: 'buy_100', title: 'Купити 100 BB Coin', key: 'totalBought', target: 100, reward: { bb: 10, title: 'Трейдер' } },
         { id: 'sell_50', title: 'Продати 50 BB Coin', key: 'totalSold', target: 50, reward: { bb: 8 } },
         { id: 'login_7_days', title: 'Зайти 7 днів поспіль', key: 'loginStreak', target: 7, reward: { bb: 15, frame: 'frame_gold' } },
         { id: 'deals_10', title: 'Зробити 10 угод', key: 'totalDeals', target: 10, reward: { bb: 12 } },
-        { id: 'earn_1000', title: 'Заробити 1000 BB Coin', key: 'cumulativeEarned', target: 1000, reward: { bb: 25, background: 'bg_space' } },
+        { id: 'earn_1000', title: 'Накопичити 1000 BB Coin', key: 'totalBought', target: 1000, reward: { bb: 25, background: 'bg_space' } },
         { id: 'invite_friend', title: 'Запросити друга', key: 'invitedFriends', target: 1, reward: { bb: 6 } }
     ];
 
@@ -28,7 +32,8 @@
         marketListener: null,
         tradeListener: null,
         newsListener: null,
-        bootstrappedUser: null
+        bootstrappedUser: null,
+        isAdmin: false
     };
 
     function getDb() {
@@ -94,6 +99,16 @@
             totalSales: 0,
             lastUpdated: firebase.database.ServerValue.TIMESTAMP
         });
+    }
+
+    async function isAdminUser(username) {
+        if (!username) return false;
+        const db = getDb();
+        const [roleSnap, aclSnap] = await Promise.all([
+            db.ref(`users/${username}/role`).once('value'),
+            db.ref(`config/adminUsers/${username}`).once('value')
+        ]);
+        return roleSnap.val() === 'admin' || aclSnap.val() === true;
     }
 
     async function loadUserProgress() {
@@ -176,7 +191,7 @@
             return;
         }
         root.innerHTML = sorted.map(item => {
-            const date = item?.date || (item?.createdAt ? new Date(item.createdAt).toLocaleString('uk-UA') : '--');
+            const date = item?.createdAt ? new Date(item.createdAt).toLocaleString('uk-UA') : '--';
             const title = escapeText(item?.title || 'Без заголовка');
             const text = escapeText(item?.text || '');
             const author = escapeText(item?.author || 'Адміністрація');
@@ -287,7 +302,7 @@
                 c.close = price;
             }
         });
-        return Array.from(buckets.values()).sort((a, b) => a.time - b.time).slice(-48);
+        return Array.from(buckets.values()).sort((a, b) => a.time - b.time).slice(-MAX_CANDLES);
     }
 
     function renderCandles() {
@@ -304,7 +319,7 @@
         const prices = candles.flatMap(c => [c.low, c.high]);
         const min = Math.min(...prices);
         const max = Math.max(...prices);
-        const range = Math.max(max - min, 0.000001);
+        const range = Math.max(max - min, MIN_PRICE);
         const xStep = (width - pad * 2) / Math.max(candles.length, 1);
         const bodyW = Math.max(3, Math.min(10, xStep * 0.6));
         const y = p => height - pad - ((p - min) / range) * (height - pad * 2);
@@ -402,7 +417,9 @@
     async function refreshUsers() {
         try {
             allUsers = await loadAllUsersFromFirebase();
-        } catch (_e) {}
+        } catch (error) {
+            console.warn('⚠️ Не вдалося оновити список користувачів для статистики:', error);
+        }
     }
 
     async function renderAll() {
@@ -425,7 +442,7 @@
             renderCandles();
         });
 
-        state.tradeListener = db.ref('marketTrades').limitToLast(5000).on('value', snap => {
+        state.tradeListener = db.ref('marketTrades').limitToLast(MAX_TRADE_RECORDS).on('value', snap => {
             const raw = snap.val() || {};
             state.trades = Object.values(raw).sort((a, b) => num(a.timestamp, 0) - num(b.timestamp, 0));
             renderCandles();
@@ -466,7 +483,7 @@
     }
 
     async function publishNews() {
-        if (!gameState?.user || !ADMIN_USERS.has(gameState.user)) {
+        if (!gameState?.user || !state.isAdmin) {
             alert('Тільки адміністрація може публікувати новини.');
             return;
         }
@@ -482,7 +499,6 @@
             title,
             text,
             author: gameState.user,
-            date: new Date().toLocaleString('uk-UA'),
             image: image || null,
             pinned,
             createdAt: firebase.database.ServerValue.TIMESTAMP
@@ -502,7 +518,7 @@
         const typeInput = document.getElementById('market-trade-type');
         const amount = num(amountInput?.value, 0);
         const type = typeInput?.value === 'sell' ? 'sell' : 'buy';
-        if (!amount || amount <= 0) {
+        if (amount <= 0) {
             alert('Введіть коректну кількість BB.');
             return;
         }
@@ -512,50 +528,62 @@
         }
 
         const db = getDb();
-        const [marketSnap, userSnap] = await Promise.all([
-            db.ref('market').once('value'),
-            db.ref(`users/${gameState.user}`).once('value')
-        ]);
-        const market = {
-            ...state.market,
-            ...(marketSnap.val() || {})
-        };
-        const user = userSnap.val() || {};
-        const currentPrice = Math.max(0.000001, num(market.currentPrice, 1));
-        const impact = Math.min(0.2, amount / 10000);
-        const newPrice = type === 'buy'
-            ? currentPrice * (1 + impact)
-            : Math.max(0.000001, currentPrice * (1 - impact));
-        const nextBalance = type === 'buy'
-            ? num(user.balance, 0) + amount
-            : num(user.balance, 0) - amount;
+        let nextBalance = num(gameState.balance, 0);
+        let tradeData = null;
 
-        const totalSupply = Math.max(0, num(market.totalSupply, 0) + (type === 'buy' ? amount : -amount));
-        const circulatingSupply = Math.max(0, num(market.circulatingSupply, totalSupply) + (type === 'buy' ? amount : -amount));
-        const tradeValue = amount * currentPrice;
+        const userTx = await db.ref(`users/${gameState.user}/balance`).transaction((balance) => {
+            const current = num(balance, 0);
+            if (type === 'sell' && current < amount) return;
+            nextBalance = type === 'buy' ? current + amount : current - amount;
+            return nextBalance;
+        });
+        if (!userTx.committed) {
+            alert('Недостатньо BB для продажу.');
+            return;
+        }
 
-        const tradeId = db.ref('marketTrades').push().key;
         const now = Date.now();
-        const updates = {};
-        updates[`users/${gameState.user}/balance`] = nextBalance;
-        updates['market/currentPrice'] = newPrice;
-        updates['market/totalSupply'] = totalSupply;
-        updates['market/circulatingSupply'] = circulatingSupply;
-        updates['market/totalVolume'] = num(market.totalVolume, 0) + tradeValue;
-        updates['market/totalPurchases'] = num(market.totalPurchases, 0) + (type === 'buy' ? 1 : 0);
-        updates['market/totalSales'] = num(market.totalSales, 0) + (type === 'sell' ? 1 : 0);
-        updates['market/lastUpdated'] = now;
-        updates[`marketTrades/${tradeId}`] = {
-            id: tradeId,
-            user: gameState.user,
-            type,
-            amount,
-            value: tradeValue,
-            priceBefore: currentPrice,
-            priceAfter: newPrice,
-            timestamp: now
-        };
-        await db.ref().update(updates);
+        const marketTx = await db.ref('market').transaction((currentRaw) => {
+            const current = currentRaw || {};
+            const currentPrice = Math.max(MIN_PRICE, num(current.currentPrice, 1));
+            // Impact formula: larger trade volumes move price more, capped at 20% per trade.
+            const impact = Math.min(MAX_MARKET_IMPACT, amount / MARKET_IMPACT_DIVISOR);
+            const newPrice = type === 'buy'
+                ? currentPrice * (1 + impact)
+                : Math.max(MIN_PRICE, currentPrice * (1 - impact));
+            const totalSupply = Math.max(0, num(current.totalSupply, 0) + (type === 'buy' ? amount : -amount));
+            const circulatingBase = num(current.circulatingSupply, 0);
+            const circulatingSupply = Math.max(0, circulatingBase + (type === 'buy' ? amount : -amount));
+            const tradeValue = amount * currentPrice;
+
+            tradeData = {
+                user: gameState.user,
+                type,
+                amount,
+                value: tradeValue,
+                priceBefore: currentPrice,
+                priceAfter: newPrice,
+                timestamp: now
+            };
+
+            return {
+                ...current,
+                currentPrice: newPrice,
+                totalSupply,
+                circulatingSupply,
+                totalVolume: num(current.totalVolume, 0) + tradeValue,
+                totalPurchases: num(current.totalPurchases, 0) + (type === 'buy' ? 1 : 0),
+                totalSales: num(current.totalSales, 0) + (type === 'sell' ? 1 : 0),
+                lastUpdated: now
+            };
+        });
+        if (!marketTx.committed || !tradeData) {
+            alert('Помилка оновлення ринку. Спробуйте ще раз.');
+            return;
+        }
+
+        const tradeRef = db.ref('marketTrades').push();
+        await tradeRef.set({ id: tradeRef.key, ...tradeData });
 
         gameState.balance = nextBalance;
         if (typeof updateHeader === 'function') updateHeader();
@@ -578,7 +606,8 @@
         await ensureMarketInitialized();
         await loadUserProgress();
         await processLoginStreak();
-        document.getElementById('news-admin-form').style.display = ADMIN_USERS.has(gameState.user) ? 'block' : 'none';
+        state.isAdmin = await isAdminUser(gameState.user);
+        document.getElementById('news-admin-form').style.display = state.isAdmin ? 'block' : 'none';
         attachRealtimeListeners();
         await renderAll();
     }
@@ -587,6 +616,7 @@
         detachRealtimeListeners();
         state.bootstrappedUser = null;
         state.userProgress = null;
+        state.isAdmin = false;
     }
 
     function changeChartRange(range) {
@@ -608,25 +638,16 @@
     const baseSwitchTab = window.switchTab;
     if (typeof baseSwitchTab === 'function') {
         window.switchTab = function(tabNum) {
+            if (tabNum !== 7) {
+                return baseSwitchTab.call(this, tabNum);
+            }
             document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
             document.querySelectorAll('nav .tab').forEach(t => t.classList.remove('active'));
-
-            const tabMap = { 1: 'tab1', 2: 'tab2', 3: 'tab3', 4: 'tab4', 5: 'tab5', 6: 'tab6', 7: 'tab7' };
-            const tabId = tabMap[tabNum];
-            if (!tabId) return;
-            const tabEl = document.getElementById(tabId);
+            const tabEl = document.getElementById('tab7');
             if (tabEl) tabEl.style.display = 'block';
-            const navTab = document.querySelectorAll('nav .tab')[tabNum - 1];
+            const navTab = document.querySelectorAll('nav .tab')[6];
             if (navTab) navTab.classList.add('active');
-
-            if (tabNum === 4) {
-                if (typeof updateFriendRequestsList === 'function') updateFriendRequestsList();
-                if (typeof updateFriendsList === 'function') updateFriendsList();
-            } else if (tabNum === 5) {
-                if (typeof refreshSettingsForm === 'function') refreshSettingsForm();
-            } else if (tabNum === 6) {
-                if (typeof shopRender === 'function') shopRender();
-            } else if (tabNum === 7) {
+            if (tabNum === 7) {
                 onNewsTabOpen();
             }
         };
