@@ -49,6 +49,20 @@ function badgeDisplay(total) {
     return total > 9 ? '9+' : String(total);
 }
 
+// ===== EXCHANGE LIMIT MATCHING =====
+function canOrdersMatch(order, candidate, currentPrice) {
+    if (!order || !candidate) return false;
+    const orderLimit = Number(order.limitPrice);
+    const candidatePrice = Number.isFinite(Number(candidate.limitPrice)) ? Number(candidate.limitPrice) : currentPrice || 1;
+    if (order.orderType === 'limit' && order.side === 'buy') {
+        return Number.isFinite(orderLimit) && candidatePrice <= orderLimit;
+    }
+    if (order.orderType === 'limit' && order.side === 'sell') {
+        return Number.isFinite(orderLimit) && candidatePrice >= orderLimit;
+    }
+    return true;
+}
+
 // ===== TESTS =====
 let passed = 0;
 let failed = 0;
@@ -216,6 +230,24 @@ test('badge shows 9+ when count > 9', () => {
 
 test('badge does NOT show 9+ when count is exactly 9', () => {
     assert(badgeDisplay(9) !== '9+', 'count=9 should not be 9+');
+});
+
+// ----- Exchange Matching Tests -----
+console.log('\n📋 Exchange Matching Tests:');
+
+test('limit buy matches only if candidate price is not above limit', () => {
+    assertEqual(canOrdersMatch({ orderType: 'limit', side: 'buy', limitPrice: 2 }, { limitPrice: 1.5 }, 1), true);
+    assertEqual(canOrdersMatch({ orderType: 'limit', side: 'buy', limitPrice: 2 }, { limitPrice: 2.5 }, 1), false);
+});
+
+test('limit sell matches only if candidate price is not below limit', () => {
+    assertEqual(canOrdersMatch({ orderType: 'limit', side: 'sell', limitPrice: 2 }, { limitPrice: 2.5 }, 1), true);
+    assertEqual(canOrdersMatch({ orderType: 'limit', side: 'sell', limitPrice: 2 }, { limitPrice: 1.5 }, 1), false);
+});
+
+test('market orders ignore explicit price limits', () => {
+    assertEqual(canOrdersMatch({ orderType: 'market', side: 'buy' }, { limitPrice: 999 }, 1), true);
+    assertEqual(canOrdersMatch({ orderType: 'market', side: 'sell' }, { limitPrice: 0.0001 }, 1), true);
 });
 
 test('badge shows 0 not 9+ when no unread', () => {
