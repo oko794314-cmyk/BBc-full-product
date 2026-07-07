@@ -691,31 +691,6 @@
             <button class="btn" onclick="createGroupChat()" style="margin-top:14px;">СТВОРИТИ</button>
         </div>
     </div>
-        <div class="chat-container">
-            <div style="display:flex; align-items:center; margin-bottom:15px; padding-bottom:10px; border-bottom:1px solid #333;">
-                <span style="cursor:pointer; font-size:18px;" onclick="backToFriendsList()">◀ НАЗАД</span>
-                <div style="flex:1; margin-left:10px; display:flex; align-items:center; gap:8px;">
-                    <div id="chat-friend-name" style="font-weight:900; color:var(--p);">---</div>
-                    <span id="chat-online-dot" class="online-dot" style="display:none;" title="Онлайн"></span>
-                </div>
-            </div>
-            <div class="chat-messages" id="private-chat-messages"></div>
-            <div id="typing-indicator" style="display:none;">
-                <div class="typing-row">
-                    <span class="chat-avatar-wrap" aria-hidden="true"></span>
-                    <div class="typing-bubble">
-                        <span class="typing-dot"></span>
-                        <span class="typing-dot"></span>
-                        <span class="typing-dot"></span>
-                    </div>
-                </div>
-            </div>
-            <div class="chat-input-wrap">
-                <input type="text" id="private-msg-in" placeholder="Повідомлення..." onkeypress="handlePrivateChatKeypress(event)" oninput="handleChatInput()">
-                <button class="btn" onclick="sendPrivateMsg()">></button>
-            </div>
-        </div>
-    </div>
 
     <!-- ВКЛ.5: НАЛАШТУВАННЯ -->
     <div id="tab5" class="view">
@@ -2751,6 +2726,13 @@
     function switchAuth(type) {
         document.getElementById('login-form').style.display = type === 'login' ? 'block' : 'none';
         document.getElementById('register-form').style.display = type === 'register' ? 'block' : 'none';
+        document.querySelectorAll('.auth-tab').forEach(tab => {
+            const isLogin = tab.textContent.trim() === 'Вхід';
+            const active = (type === 'login') === isLogin;
+            tab.style.background = active ? 'var(--p)' : '#000';
+            tab.style.color = active ? '#000' : '#555';
+            tab.style.border = active ? 'none' : '2px solid #333';
+        });
     }
 
     async function register() {
