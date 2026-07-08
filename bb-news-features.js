@@ -3,8 +3,16 @@
 
     const MIN_PRICE = 0.000001;
     const REQUIRED_BB_SIDE_COUNT = 1;
-    const MAX_CANDLES = 48;
+    const MAX_CANDLES = 100;
     const MAX_TRADE_RECORDS = 800;
+    const INTERVALS = {
+        '1m':  60 * 1000,
+        '5m':  5 * 60 * 1000,
+        '15m': 15 * 60 * 1000,
+        '1h':  60 * 60 * 1000,
+        '4h':  4 * 60 * 60 * 1000,
+        '1d':  24 * 60 * 60 * 1000
+    };
     // Price impact per 1 BB traded (0.5% per unit, capped at ±20% per trade)
     const PRICE_IMPACT_PER_UNIT = 0.005;
     const PRICE_IMPACT_MAX = 0.20;
@@ -25,7 +33,10 @@
         { id: 'investor', title: 'Інвестор', description: 'Отримайте 250 BB сукупного прибутку.', check: () => num(state.accountHub?.stats?.totalProfit, 0) >= 250 }
     ];
     const state = {
-        chartRange: '24h',
+        chartInterval: '1h',
+        candleHistory: {},
+        candleHistoryListener: null,
+        _candleHistoryInterval: null,
         market: {
             currentPrice: 1,
             totalVolume: 0,
@@ -239,43 +250,47 @@
         return state.orders.filter(order => order && order.status === 'open');
     }
 
-    function getRangeStart(range) {
-        const now = Date.now();
-        if (range === '24h') return now - 24 * 60 * 60 * 1000;
-        if (range === '7d') return now - 7 * 24 * 60 * 60 * 1000;
-        if (range === '30d') return now - 30 * 24 * 60 * 60 * 1000;
-        return 0;
+    function buildCandles(interval) {
+        return (state.candleHistory[interval] || []).slice(-MAX_CANDLES);
     }
 
-    function getBucketMs(range) {
-        if (range === '24h') return 60 * 60 * 1000;
-        if (range === '7d') return 6 * 60 * 60 * 1000;
-        if (range === '30d') return 24 * 60 * 60 * 1000;
-        return 7 * 24 * 60 * 60 * 1000;
+    async function updateCandleHistory(trade) {
+        const price = Math.max(MIN_PRICE, num(trade.price, 1));
+        const amount = num(trade.amount, 0);
+        const ts = num(trade.timestamp, Date.now());
+        const db = getDb();
+        await Promise.all(Object.entries(INTERVALS).map(([interval, ms]) => {
+            const bucketKey = Math.floor(ts / ms) * ms;
+            return db.ref(`candleHistory/${interval}/${bucketKey}`).transaction(existing => {
+                if (existing === null) {
+                    return { time: bucketKey, open: price, high: price, low: price, close: price, volume: Number(amount.toFixed(4)) };
+                }
+                return {
+                    ...existing,
+                    high: Math.max(existing.high, price),
+                    low: Math.min(existing.low, price),
+                    close: price,
+                    volume: Number((num(existing.volume, 0) + amount).toFixed(4))
+                };
+            });
+        }));
     }
 
-    function buildCandles(range) {
-        const start = getRangeStart(range);
-        const bucketMs = getBucketMs(range);
-        const filtered = state.trades
-            .filter(trade => num(trade.timestamp, 0) >= start)
-            .sort((a, b) => num(a.timestamp, 0) - num(b.timestamp, 0));
-        if (!filtered.length) return [];
-        const buckets = new Map();
-        filtered.forEach(trade => {
-            const key = Math.floor(num(trade.timestamp, 0) / bucketMs) * bucketMs;
-            const price = Math.max(MIN_PRICE, num(trade.price, state.market.currentPrice || 1));
-            if (!buckets.has(key)) {
-                buckets.set(key, { time: key, open: price, high: price, low: price, close: price, volume: num(trade.amount, 0) });
-            } else {
-                const candle = buckets.get(key);
-                candle.high = Math.max(candle.high, price);
-                candle.low = Math.min(candle.low, price);
-                candle.close = price;
-                candle.volume += num(trade.amount, 0);
-            }
-        });
-        return Array.from(buckets.values()).sort((a, b) => a.time - b.time).slice(-MAX_CANDLES);
+    function reattachCandleHistoryListener() {
+        const db = getDb();
+        if (state.candleHistoryListener && state._candleHistoryInterval) {
+            db.ref(`candleHistory/${state._candleHistoryInterval}`).off('value', state.candleHistoryListener);
+            state.candleHistoryListener = null;
+        }
+        state._candleHistoryInterval = state.chartInterval;
+        state.candleHistoryListener = db.ref(`candleHistory/${state.chartInterval}`)
+            .limitToLast(MAX_CANDLES)
+            .on('value', snap => {
+                const raw = snap.val() || {};
+                state.candleHistory[state.chartInterval] = Object.values(raw)
+                    .sort((a, b) => a.time - b.time);
+                renderCandles();
+            });
     }
 
     async function ensureMarketInitialized() {
@@ -650,7 +665,7 @@
         const meta = document.getElementById('exchange-candle-meta');
         const livePriceEl = document.getElementById('chart-live-price');
         if (!canvas || !canvas.getContext) return;
-        const candles = buildCandles(state.chartRange);
+        const candles = buildCandles(state.chartInterval);
 
         const dpr = window.devicePixelRatio || 1;
         const cssW = canvas.clientWidth || 640;
@@ -729,9 +744,15 @@
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'top';
                 const d = new Date(c.time);
-                const label = state.chartRange === '24h'
-                    ? `${d.getHours().toString().padStart(2,'0')}:00`
-                    : `${d.getDate()}/${d.getMonth()+1}`;
+                const iv = state.chartInterval;
+                let label;
+                if (iv === '1m' || iv === '5m' || iv === '15m') {
+                    label = `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+                } else if (iv === '1h' || iv === '4h') {
+                    label = `${d.getDate()}/${d.getMonth()+1} ${d.getHours().toString().padStart(2,'0')}г`;
+                } else {
+                    label = `${d.getDate()}/${d.getMonth()+1}`;
+                }
                 ctx.fillText(label, cx, H - padBottom + 4);
             }
         });
@@ -1354,7 +1375,8 @@
                 lastUpdated: trade.timestamp,
                 lastTradeAt: trade.timestamp
             }),
-            getDb().ref(`marketOrders/${orderId}`).update({ status: 'filled', remaining: 0, updatedAt: Date.now(), fulfilledBy: executor, fulfilledAt: trade.timestamp })
+            getDb().ref(`marketOrders/${orderId}`).update({ status: 'filled', remaining: 0, updatedAt: Date.now(), fulfilledBy: executor, fulfilledAt: trade.timestamp }),
+            updateCandleHistory(trade)
         ]);
 
         // If creator offers BB, creator spends BB (expense) and executor receives BB (income).
@@ -1419,7 +1441,7 @@
         canvas.addEventListener('click', (e) => {
             const rect = canvas.getBoundingClientRect();
             const x = e.clientX - rect.left;
-            const candles = buildCandles(state.chartRange);
+            const candles = buildCandles(state.chartInterval);
             if (!candles.length) return;
             const W = rect.width;
             const padLeft = 10, padRight = 66;
@@ -1487,6 +1509,7 @@
             renderNews();
             maybeNotifyAboutNews();
         });
+        reattachCandleHistoryListener();
     }
 
     function detachRealtimeListeners() {
@@ -1495,10 +1518,15 @@
         if (state.tradeListener) db.ref('marketTrades').off('value', state.tradeListener);
         if (state.orderListener) db.ref('marketOrders').off('value', state.orderListener);
         if (state.newsListener) db.ref('newsPosts').off('value', state.newsListener);
+        if (state.candleHistoryListener && state._candleHistoryInterval) {
+            db.ref(`candleHistory/${state._candleHistoryInterval}`).off('value', state.candleHistoryListener);
+        }
         state.marketListener = null;
         state.tradeListener = null;
         state.orderListener = null;
         state.newsListener = null;
+        state.candleHistoryListener = null;
+        state._candleHistoryInterval = null;
     }
 
     async function onUserAuthenticated() {
@@ -1524,12 +1552,15 @@
         state.isAdmin = false;
         state.knownNewsIds = new Set();
         state.selectedCandleIndex = null;
+        state.candleHistory = {};
     }
 
-    function changeChartRange(range) {
-        state.chartRange = range;
-        updateMiniTabState('chart-range-tabs', 'range', range);
-        renderCandles();
+    function changeChartInterval(interval) {
+        if (!INTERVALS[interval]) return;
+        state.chartInterval = interval;
+        updateMiniTabState('chart-interval-tabs', 'interval', interval);
+        state.selectedCandleIndex = null;
+        reattachCandleHistoryListener();
     }
 
     function handleExtendedTabOpen(tabNum) {
@@ -1678,7 +1709,7 @@
         placeExchangeOrder,
         fulfillOrder,
         cancelOrder,
-        changeChartRange,
+        changeChartInterval,
         refreshExchangeView,
         renderBalanceHub,
         renderNotificationCenter,

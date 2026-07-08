@@ -978,11 +978,13 @@
                     <span style="font-size:13px; font-weight:900; color:var(--text);">BB/USDT</span>
                     <span id="chart-live-price" style="font-size:18px; font-weight:900; color:var(--g);">—</span>
                 </div>
-                <div class="mini-tabs" id="chart-range-tabs">
-                    <button class="mini-tab active" data-range="24h" onclick="bbFeatures.changeChartRange('24h')">24г</button>
-                    <button class="mini-tab" data-range="7d" onclick="bbFeatures.changeChartRange('7d')">7д</button>
-                    <button class="mini-tab" data-range="30d" onclick="bbFeatures.changeChartRange('30d')">30д</button>
-                    <button class="mini-tab" data-range="all" onclick="bbFeatures.changeChartRange('all')">Все</button>
+                <div class="mini-tabs" id="chart-interval-tabs">
+                    <button class="mini-tab" data-interval="1m" onclick="bbFeatures.changeChartInterval('1m')">1хв</button>
+                    <button class="mini-tab" data-interval="5m" onclick="bbFeatures.changeChartInterval('5m')">5хв</button>
+                    <button class="mini-tab" data-interval="15m" onclick="bbFeatures.changeChartInterval('15m')">15хв</button>
+                    <button class="mini-tab active" data-interval="1h" onclick="bbFeatures.changeChartInterval('1h')">1г</button>
+                    <button class="mini-tab" data-interval="4h" onclick="bbFeatures.changeChartInterval('4h')">4г</button>
+                    <button class="mini-tab" data-interval="1d" onclick="bbFeatures.changeChartInterval('1d')">1д</button>
                 </div>
             </div>
             <canvas id="exchange-candles" width="640" height="300" style="width:100%; height:300px; background:#0B0E11; border:1px solid var(--border); border-radius:10px; display:block;"></canvas>
