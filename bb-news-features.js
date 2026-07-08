@@ -1192,21 +1192,8 @@
             return;
         }
 
-        // Escrow: deduct BB from creator's balance immediately when offering BB,
-        // so the fulfillment transfer never needs to debit a non-logged-in user.
-        let bbEscrowed = false;
-        if (payload.offer.type === 'bb') {
-            const escrowResult = await adjustUserBalanceFirebase(gameState.user, -payload.bbAmount);
-            if (!escrowResult.success) {
-                alert('Не вдалося заблокувати BB для заявки. Перевірте баланс.');
-                return;
-            }
-            gameState.balance = escrowResult.balance;
-            updateCachedUser(gameState.user, { balance: escrowResult.balance });
-            updateHeader();
-            bbEscrowed = true;
-        }
-
+        // Write the order to the database first. If the write fails we abort
+        // before touching any balances, preventing fund loss.
         const ref = getDb().ref('marketOrders').push();
         const summary = buildOrderSummary(payload.offer, payload.want);
         const order = {
@@ -1219,14 +1206,35 @@
             amount: Number(payload.bbAmount.toFixed(4)),
             remaining: Number(payload.bbAmount.toFixed(4)),
             summary,
-            bbEscrowed,
+            bbEscrowed: false,
             // amount/remaining are kept for backward compatibility with existing exchange widgets and stats cards.
             // TODO: remove these fields after all UI readers fully migrate to `bbAmount`.
             status: 'open',
             createdAt: Date.now(),
             updatedAt: Date.now()
         };
-        await ref.set(order);
+        try {
+            await ref.set(order);
+        } catch (dbErr) {
+            console.error('❌ Помилка запису заявки:', dbErr);
+            alert('Не вдалося зберегти заявку. Спробуйте ще раз.');
+            return;
+        }
+
+        // Escrow: deduct BB after the order is confirmed in the DB.
+        // If escrow deduction fails, remove the order so it cannot be fulfilled.
+        if (payload.offer.type === 'bb') {
+            const escrowResult = await adjustUserBalanceFirebase(gameState.user, -payload.bbAmount);
+            if (!escrowResult.success) {
+                await ref.remove().catch(() => {});
+                alert('Не вдалося заблокувати BB для заявки. Перевірте баланс.');
+                return;
+            }
+            gameState.balance = escrowResult.balance;
+            updateCachedUser(gameState.user, { balance: escrowResult.balance });
+            updateHeader();
+            await ref.update({ bbEscrowed: true });
+        }
         const amountInput = document.getElementById('exchange-order-bb-amount');
         if (amountInput) amountInput.value = '';
         await appendLocalNotification({ type: 'exchange', level: 'info', title: '💹 Нова заявка на біржі', message: summary });
@@ -1286,14 +1294,19 @@
         const assetResult = await transferAssetBetweenUsers(assetToTransfer, assetFrom, assetTo);
         if (!assetResult.success) {
             if (coinTransferDone) {
-                // Rollback: reverse the coin transfer.
+                // Best-effort rollback: reverse the coin transfer.
+                // Both operations are attempted; partial failure is logged but
+                // does not suppress the primary error shown to the user.
                 if (bbEscrowed && offer.type === 'bb') {
-                    // Return BB from executor back to escrow (creator's balance).
-                    await adjustUserBalanceFirebase(executor, -bbAmount);
-                    await adjustUserBalanceFirebase(creator, bbAmount);
-                    if (executor === gameState?.user) {
-                        gameState.balance = Math.max(0, (gameState.balance || 0) - bbAmount);
+                    // Return BB from executor back to creator (restore escrow state).
+                    const rollbackExec = await adjustUserBalanceFirebase(executor, -bbAmount);
+                    const rollbackCreator = await adjustUserBalanceFirebase(creator, bbAmount);
+                    if (rollbackExec.success && executor === gameState?.user) {
+                        gameState.balance = Math.max(0, rollbackExec.balance);
                         updateCachedUser(gameState.user, { balance: gameState.balance });
+                    }
+                    if (!rollbackExec.success || !rollbackCreator.success) {
+                        console.error('❌ Rollback parcialmente falhou — executor:', rollbackExec.success, ', creator:', rollbackCreator.success);
                     }
                 } else {
                     const rollbackFrom = offer.type === 'bb' ? executor : creator;
@@ -1367,8 +1380,14 @@
 
     async function cancelOrder(orderId) {
         const target = state.orders.find(item => item.id === orderId);
-        if (target && target.bbEscrowed && target.offer?.type === 'bb' && target.user === gameState?.user) {
-            const bbAmount = num(target.bbAmount, 0);
+        const needsRefund = !!(target && target.bbEscrowed && target.offer?.type === 'bb' && target.user === gameState?.user);
+        const bbAmount = needsRefund ? num(target.bbAmount, 0) : 0;
+
+        // Cancel the order in the database first. Only refund the escrowed BB after
+        // the cancellation is confirmed, to prevent double-spending.
+        await getDb().ref(`marketOrders/${orderId}`).update({ status: 'cancelled', remaining: 0, updatedAt: Date.now() });
+
+        if (needsRefund && bbAmount > 0) {
             const refund = await adjustUserBalanceFirebase(gameState.user, bbAmount);
             if (refund.success) {
                 gameState.balance = refund.balance;
@@ -1376,7 +1395,7 @@
                 updateHeader();
             }
         }
-        await getDb().ref(`marketOrders/${orderId}`).update({ status: 'cancelled', remaining: 0, updatedAt: Date.now() });
+
         await appendLocalNotification({ type: 'exchange', level: 'warning', title: '🚫 Ордер скасовано', message: `Ордер ${orderId} знято з книги.` });
         renderExchangeHub();
     }
@@ -1403,7 +1422,7 @@
             const candles = buildCandles(state.chartRange);
             if (!candles.length) return;
             const W = rect.width;
-            const padLeft = 6, padRight = 60;
+            const padLeft = 10, padRight = 66;
             const chartW = W - padLeft - padRight;
             const xStep = chartW / Math.max(candles.length, 1);
             const idx = Math.floor((x - padLeft) / xStep);
