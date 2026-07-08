@@ -224,7 +224,10 @@
         const ownedOptions = getOwnedOrderAssets();
         const desiredOptions = getDesiredOrderAssets();
         fillSelectOptions('exchange-order-offer', ownedOptions);
-        fillSelectOptions('exchange-order-want', desiredOptions);
+        // Default "want" to first non-BB option so the form is valid on first open
+        const firstNonBB = desiredOptions.find(opt => opt.value && !opt.value.startsWith('bb:'));
+        const wantDefault = firstNonBB ? firstNonBB.value : undefined;
+        fillSelectOptions('exchange-order-want', desiredOptions, wantDefault);
         fillSelectOptions('exchange-search-offer', [{ value: 'all', label: 'Віддають: усе' }, ...desiredOptions.map(item => ({ value: item.value, label: `Віддають: ${item.label}` }))]);
         fillSelectOptions('exchange-search-want', [{ value: 'all', label: 'Хочуть: усе' }, ...desiredOptions.map(item => ({ value: item.value, label: `Хочуть: ${item.label}` }))]);
     }
@@ -640,48 +643,152 @@
     }
 
     function renderCandles() {
-        const svg = document.getElementById('exchange-candles');
+        const canvas = document.getElementById('exchange-candles');
         const meta = document.getElementById('exchange-candle-meta');
-        if (!svg) return;
+        const livePriceEl = document.getElementById('chart-live-price');
+        if (!canvas || !canvas.getContext) return;
         const candles = buildCandles(state.chartRange);
+
+        const dpr = window.devicePixelRatio || 1;
+        const cssW = canvas.clientWidth || 640;
+        const cssH = 260;
+        canvas.width = cssW * dpr;
+        canvas.height = cssH * dpr;
+        const ctx = canvas.getContext('2d');
+        ctx.scale(dpr, dpr);
+        const W = cssW;
+        const H = cssH;
+
+        // Colors matching Binance
+        const BG = '#0B0E11';
+        const GRID = '#1E2026';
+        const UP = '#0ECB81';
+        const DOWN = '#F6465D';
+        const TEXT_COLOR = '#848E9C';
+        const PRICE_LABEL = '#EAECEF';
+        const PRICE_LINE = '#F0B90B';
+
+        ctx.fillStyle = BG;
+        ctx.fillRect(0, 0, W, H);
+
         if (!candles.length) {
-            svg.innerHTML = '<text x="50%" y="50%" fill="#666" dominant-baseline="middle" text-anchor="middle" font-size="13">Недостатньо даних для графіка</text>';
-            if (meta) meta.textContent = 'Натисніть на свічку, щоб побачити час і ціну угоди.';
+            ctx.fillStyle = TEXT_COLOR;
+            ctx.font = '13px Orbitron, monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('Недостатньо даних для графіка', W / 2, H / 2);
             return;
         }
-        const width = 640;
-        const height = 220;
-        const pad = 20;
+
+        const padLeft = 6, padRight = 60, padTop = 16, padBottom = 36;
+        const chartW = W - padLeft - padRight;
+        const chartH = H - padTop - padBottom;
         const prices = candles.flatMap(c => [c.low, c.high]);
-        const min = Math.min(...prices);
-        const max = Math.max(...prices);
-        const range = Math.max(max - min, MIN_PRICE);
-        const xStep = (width - pad * 2) / Math.max(candles.length, 1);
-        const bodyW = Math.max(6, Math.min(12, xStep * 0.6));
-        const y = price => height - pad - ((price - min) / range) * (height - pad * 2);
-        const parts = [];
-        candles.forEach((candle, index) => {
-            const cx = pad + index * xStep + xStep / 2;
-            const yHigh = y(candle.high);
-            const yLow = y(candle.low);
-            const yOpen = y(candle.open);
-            const yClose = y(candle.close);
-            const up = candle.close >= candle.open;
-            const color = up ? '#00ff88' : '#ff3366';
-            const bodyY = Math.min(yOpen, yClose);
-            const bodyH = Math.max(2, Math.abs(yOpen - yClose));
-            const selected = state.selectedCandleIndex === index;
-            parts.push(`<g onclick="bbFeatures.selectCandle(${index})" style="cursor:pointer;">
-                <line x1="${cx}" y1="${yHigh}" x2="${cx}" y2="${yLow}" stroke="${color}" stroke-width="2" />
-                <rect x="${cx - bodyW / 2}" y="${bodyY}" width="${bodyW}" height="${bodyH}" fill="${color}" opacity="${selected ? '1' : '0.75'}" stroke="${selected ? '#fff' : 'transparent'}" stroke-width="1.5" />
-            </g>`);
+        const minP = Math.min(...prices);
+        const maxP = Math.max(...prices);
+        const pRange = Math.max(maxP - minP, MIN_PRICE);
+        const toY = p => padTop + chartH - ((p - minP) / pRange) * chartH;
+
+        // Draw grid lines
+        const gridLines = 5;
+        ctx.strokeStyle = GRID;
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= gridLines; i++) {
+            const y = padTop + (chartH / gridLines) * i;
+            ctx.beginPath(); ctx.moveTo(padLeft, y); ctx.lineTo(W - padRight, y); ctx.stroke();
+            const price = maxP - ((maxP - minP) / gridLines) * i;
+            ctx.fillStyle = TEXT_COLOR;
+            ctx.font = '10px Orbitron, monospace';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(price.toFixed(4), W - padRight + 4, y);
+        }
+
+        // Draw vertical time labels
+        const xStep = chartW / Math.max(candles.length, 1);
+        const labelEvery = Math.max(1, Math.floor(candles.length / 4));
+        candles.forEach((c, i) => {
+            if (i % labelEvery === 0) {
+                const cx = padLeft + i * xStep + xStep / 2;
+                ctx.fillStyle = TEXT_COLOR;
+                ctx.font = '9px Orbitron, monospace';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'top';
+                const d = new Date(c.time);
+                const label = state.chartRange === '24h'
+                    ? `${d.getHours().toString().padStart(2,'0')}:00`
+                    : `${d.getDate()}/${d.getMonth()+1}`;
+                ctx.fillText(label, cx, H - padBottom + 6);
+            }
         });
-        parts.push(`<text x="${pad}" y="${pad - 4}" fill="#888" font-size="10">MAX ${max.toFixed(6)}</text>`);
-        parts.push(`<text x="${pad}" y="${height - 6}" fill="#888" font-size="10">MIN ${min.toFixed(6)}</text>`);
-        svg.innerHTML = parts.join('');
-        const selected = candles[state.selectedCandleIndex] || candles[candles.length - 1];
+
+        // Draw candles
+        const bodyW = Math.max(4, Math.min(14, xStep * 0.6));
+        candles.forEach((candle, i) => {
+            const cx = padLeft + i * xStep + xStep / 2;
+            const up = candle.close >= candle.open;
+            const color = up ? UP : DOWN;
+            const yHigh = toY(candle.high);
+            const yLow = toY(candle.low);
+            const yOpen = toY(candle.open);
+            const yClose = toY(candle.close);
+            const bodyTop = Math.min(yOpen, yClose);
+            const bodyH = Math.max(1.5, Math.abs(yClose - yOpen));
+
+            // Wick
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.moveTo(cx, yHigh); ctx.lineTo(cx, yLow); ctx.stroke();
+
+            // Body
+            if (up) {
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 1;
+                ctx.strokeRect(cx - bodyW / 2, bodyTop, bodyW, bodyH);
+                ctx.fillStyle = color;
+                ctx.fillRect(cx - bodyW / 2, bodyTop, bodyW, bodyH);
+            } else {
+                ctx.fillStyle = color;
+                ctx.fillRect(cx - bodyW / 2, bodyTop, bodyW, bodyH);
+            }
+
+            // Selected highlight
+            if (state.selectedCandleIndex === i) {
+                ctx.strokeStyle = PRICE_LINE;
+                ctx.lineWidth = 1.5;
+                ctx.strokeRect(cx - bodyW / 2 - 2, bodyTop - 2, bodyW + 4, bodyH + 4);
+            }
+        });
+
+        // Current price line
+        const lastCandle = candles[candles.length - 1];
+        if (lastCandle) {
+            const cy = toY(lastCandle.close);
+            ctx.setLineDash([4, 3]);
+            ctx.strokeStyle = PRICE_LINE;
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(padLeft, cy); ctx.lineTo(W - padRight, cy); ctx.stroke();
+            ctx.setLineDash([]);
+            // Price tag
+            const tag = lastCandle.close.toFixed(4);
+            const tagW = ctx.measureText(tag).width + 8;
+            ctx.fillStyle = PRICE_LINE;
+            ctx.fillRect(W - padRight + 2, cy - 9, padRight - 4, 18);
+            ctx.fillStyle = '#000';
+            ctx.font = 'bold 10px Orbitron, monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(tag, W - padRight + (padRight - 4) / 2 + 2, cy);
+
+            if (livePriceEl) {
+                livePriceEl.textContent = lastCandle.close.toFixed(4);
+                livePriceEl.style.color = lastCandle.close >= lastCandle.open ? UP : DOWN;
+            }
+        }
+
+        const selected = candles[state.selectedCandleIndex] || lastCandle;
         if (meta && selected) {
-            meta.textContent = `Свічка ${new Date(selected.time).toLocaleString('uk-UA')} • OPEN ${selected.open.toFixed(6)} • CLOSE ${selected.close.toFixed(6)} • VOL ${selected.volume.toFixed(4)} BB`;
+            meta.textContent = `${new Date(selected.time).toLocaleString('uk-UA')} • O:${selected.open.toFixed(4)} H:${selected.high.toFixed(4)} L:${selected.low.toFixed(4)} C:${selected.close.toFixed(4)} Vol:${selected.volume.toFixed(2)}`;
         }
     }
 
@@ -1198,6 +1305,28 @@
         renderTradeHistory();
         renderLargestTrades();
         renderCandles();
+        setupChartClickHandler();
+    }
+
+    function setupChartClickHandler() {
+        const canvas = document.getElementById('exchange-candles');
+        if (!canvas || canvas._clickBound) return;
+        canvas._clickBound = true;
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const candles = buildCandles(state.chartRange);
+            if (!candles.length) return;
+            const W = rect.width;
+            const padLeft = 6, padRight = 60;
+            const chartW = W - padLeft - padRight;
+            const xStep = chartW / Math.max(candles.length, 1);
+            const idx = Math.floor((x - padLeft) / xStep);
+            if (idx >= 0 && idx < candles.length) {
+                state.selectedCandleIndex = idx;
+                renderCandles();
+            }
+        });
     }
 
     async function refreshExchangeView() {
