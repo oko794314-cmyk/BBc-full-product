@@ -358,6 +358,58 @@ async function rejectFriendRequestFirebase(currentUser, requester) {
 }
 
 /**
+ * 🗑️ ВИДАЛИТИ ДРУГА
+ */
+async function removeFriendFirebase(currentUser, friendUsername) {
+    try {
+        const db = firebase.database();
+        const [currentSnap, friendSnap] = await Promise.all([
+            db.ref(`users/${currentUser}/friends`).once('value'),
+            db.ref(`users/${friendUsername}/friends`).once('value')
+        ]);
+        const updatedCurrentFriends = (currentSnap.val() || []).filter(f => f !== friendUsername);
+        const updatedFriendFriends = (friendSnap.val() || []).filter(f => f !== currentUser);
+        await Promise.all([
+            db.ref(`users/${currentUser}/friends`).set(updatedCurrentFriends),
+            db.ref(`users/${friendUsername}/friends`).set(updatedFriendFriends)
+        ]);
+        console.log(`🗑️ ${currentUser} видалив друга ${friendUsername}`);
+        updateSyncIndicator(true);
+        return true;
+    } catch (error) {
+        console.error('❌ Помилка видалення друга:', error);
+        updateSyncIndicator(false);
+        return false;
+    }
+}
+
+/**
+ * 🚪 ПОКИНУТИ ГРУПУ
+ */
+async function leaveGroupFirebase(groupId, username) {
+    try {
+        const db = firebase.database();
+        const groupSnap = await db.ref(`groupChats/${groupId}`).once('value');
+        const group = groupSnap.val();
+        if (!group) return false;
+        const members = (group.members || []).filter(m => m !== username);
+        if (members.length === 0) {
+            // Last member leaving — delete the group
+            await db.ref(`groupChats/${groupId}`).remove();
+        } else {
+            await db.ref(`groupChats/${groupId}/members`).set(members);
+        }
+        console.log(`🚪 ${username} покинув групу ${groupId}`);
+        updateSyncIndicator(true);
+        return true;
+    } catch (error) {
+        console.error('❌ Помилка виходу з групи:', error);
+        updateSyncIndicator(false);
+        return false;
+    }
+}
+
+/**
  * ⚙️ ОНОВИТИ ПРОФІЛЬ КОРИСТУВАЧА
  */
 async function updateUserProfileFirebase(username, updates) {
