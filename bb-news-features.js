@@ -170,7 +170,7 @@
     function formatAssetLabel(asset) {
         if (!asset || !asset.type) return '—';
         if (asset.type === 'bb') {
-            return `${num(asset.bbAmount, 0).toFixed(4)} BB`;
+            return `${Number(asset.bbAmount || 0).toFixed(4)} BB`;
         }
         if (asset.type === 'car') {
             return `🚗 ${getCarName(asset.id)}`;
@@ -207,7 +207,13 @@
         const select = document.getElementById(selectId);
         if (!select) return;
         const previous = selectedValue || select.value;
-        select.innerHTML = options.map(item => `<option value="${escapeText(item.value)}">${escapeText(item.label)}</option>`).join('');
+        select.innerHTML = '';
+        options.forEach(item => {
+            const option = document.createElement('option');
+            option.value = String(item.value ?? '');
+            option.textContent = String(item.label ?? '');
+            select.appendChild(option);
+        });
         if (options.some(item => item.value === previous)) {
             select.value = previous;
         }
@@ -1138,7 +1144,7 @@
             buyOrderId: offer.type === 'bb' ? orderId : null,
             sellOrderId: offer.type === 'bb' ? null : orderId,
             amount: Number(bbAmount.toFixed(4)),
-            price: Number(Math.max(MIN_PRICE, bbAmount || state.market.currentPrice || 1).toFixed(6)),
+            price: Number(Math.max(MIN_PRICE, state.market.currentPrice || 1).toFixed(6)),
             offer,
             want,
             summary: target.summary || buildOrderSummary(offer, want),
