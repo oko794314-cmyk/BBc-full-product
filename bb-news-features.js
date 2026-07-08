@@ -1047,8 +1047,8 @@
             alert('Предмети обміну не можуть бути однаковими.');
             return;
         }
-        const bbSides = [payload.offer.type, payload.want.type].filter(type => type === 'bb').length;
-        if (bbSides !== REQUIRED_BB_SIDE_COUNT) {
+        const bbSideCount = [payload.offer.type, payload.want.type].filter(type => type === 'bb').length;
+        if (bbSideCount !== REQUIRED_BB_SIDE_COUNT) {
             alert('Одна сторона обміну має бути BB Coin, інша — авто або нерухомість.');
             return;
         }
@@ -1076,7 +1076,8 @@
             amount: Number(payload.bbAmount.toFixed(4)),
             remaining: Number(payload.bbAmount.toFixed(4)),
             summary,
-            // amount/remaining залишені для сумісності зі старими віджетами, які очікують ці поля.
+            // amount/remaining are kept for backward compatibility with existing exchange widgets and stats cards.
+            // TODO: remove these fields after all UI readers fully migrate to `bbAmount`.
             status: 'open',
             createdAt: Date.now(),
             updatedAt: Date.now()
@@ -1085,10 +1086,6 @@
         const amountInput = document.getElementById('exchange-order-bb-amount');
         if (amountInput) amountInput.value = '';
         await appendLocalNotification({ type: 'exchange', level: 'info', title: '💹 Нова заявка на біржі', message: summary });
-        renderExchangeHub();
-    }
-
-    async function matchExchangeOrder() {
         renderExchangeHub();
     }
 
@@ -1165,8 +1162,8 @@
             getDb().ref(`marketOrders/${orderId}`).update({ status: 'filled', remaining: 0, updatedAt: Date.now(), fulfilledBy: executor, fulfilledAt: trade.timestamp })
         ]);
 
-        // Якщо creator віддає BB (offer=bb) — це витрата для creator і надходження для executor.
-        // Якщо creator віддає актив (offer!=bb) — creator отримує BB, executor витрачає BB.
+        // If creator offers BB, creator spends BB (expense) and executor receives BB (income).
+        // If creator offers an asset, creator receives BB (income) and executor spends BB (expense).
         const creatorDirection = offer.type === 'bb' ? 'expense' : 'income';
         const executorDirection = offer.type === 'bb' ? 'income' : 'expense';
         await Promise.all([
@@ -1446,7 +1443,6 @@
     window.bbFeatures = {
         publishNews,
         placeExchangeOrder,
-        matchExchangeOrder,
         fulfillOrder,
         cancelOrder,
         changeChartRange,
