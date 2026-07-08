@@ -981,7 +981,7 @@
         toState[fromCollectionKey][asset.id] = transferPayload;
         if (asset.type === 'car') {
             if (fromState.activeCarId === asset.id) {
-                fromState.activeCarId = Object.keys(fromState.ownedCars || {})[0] || null;
+                fromState.activeCarId = Object.keys(fromState.ownedCars || {}).sort()[0] || null;
             }
             if (!toState.activeCarId) {
                 toState.activeCarId = asset.id;
@@ -1076,6 +1076,7 @@
             amount: Number(payload.bbAmount.toFixed(4)),
             remaining: Number(payload.bbAmount.toFixed(4)),
             summary,
+            // amount/remaining залишені для сумісності зі старими віджетами, які очікують ці поля.
             status: 'open',
             createdAt: Date.now(),
             updatedAt: Date.now()
@@ -1126,7 +1127,7 @@
         const assetTo = offer.type === 'bb' ? creator : executor;
         const assetResult = await transferAssetBetweenUsers(assetToTransfer, assetFrom, assetTo);
         if (!assetResult.success) {
-            if (coinTransferDone && bbAmount > 0) {
+            if (coinTransferDone) {
                 const rollbackFrom = offer.type === 'bb' ? executor : creator;
                 const rollbackTo = offer.type === 'bb' ? creator : executor;
                 await transferCoins(rollbackFrom, rollbackTo, bbAmount);
