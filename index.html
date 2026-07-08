@@ -948,24 +948,15 @@
             <div class="hub-card">
                 <h4>📝 Нова заявка</h4>
                 <div class="exchange-form-grid">
-                    <select id="exchange-order-side">
-                        <option value="buy">Хочу купити BB</option>
-                        <option value="sell">Хочу продати BB</option>
-                    </select>
-                    <select id="exchange-order-type">
-                        <option value="market">Ринковий ордер</option>
-                        <option value="limit">Лімітний ордер</option>
-                    </select>
-                    <input type="number" id="exchange-order-amount" min="0.0001" step="0.0001" placeholder="Кількість BB">
-                    <input type="number" id="exchange-order-price" min="0.0001" step="0.0001" placeholder="Ціна / умова">
-                    <input type="text" id="exchange-order-desired" maxlength="80" placeholder="Що хочете натомість: авто, квартира, інше">
-                    <input type="text" id="exchange-order-source" maxlength="48" placeholder="Джерело / примітка">
+                    <select id="exchange-order-offer"></select>
+                    <select id="exchange-order-want"></select>
+                    <input type="number" id="exchange-order-bb-amount" min="0.0001" step="0.0001" placeholder="Кількість BB (якщо обмін з BB)">
                 </div>
                 <div class="exchange-toolbar" style="margin-top:12px;">
                     <button class="btn" onclick="bbFeatures.placeExchangeOrder()">Створити заявку</button>
-                    <button class="btn secondary-btn" onclick="bbFeatures.matchExchangeOrder()">Швидко знайти пропозиції</button>
+                    <button class="btn secondary-btn" onclick="bbFeatures.refreshExchangeView()">Оновити списки</button>
                 </div>
-                <div class="hub-note">Угоди виконуються тільки між людьми: монети переходять від продавця до покупця, а курс змінюється лише після реальних угод.</div>
+                <div class="hub-note">Оберіть, що ви віддаєте, і що хочете отримати. Для угод із BB вкажіть суму.</div>
             </div>
             <div class="hub-card">
                 <h4>📊 Статистика біржі</h4>
@@ -987,7 +978,10 @@
         </div>
         <div class="glass">
             <div class="exchange-toolbar">
-                <input type="text" id="exchange-order-search" placeholder="Швидкий пошук по людям, причині, джерелу або предмету">
+                <input type="text" id="exchange-order-search" placeholder="Швидкий пошук по людям і предметах">
+                <select id="exchange-search-offer"></select>
+                <select id="exchange-search-want"></select>
+                <input type="number" id="exchange-search-bb-amount" min="0.0001" step="0.0001" placeholder="BB (мін.)">
                 <button class="btn secondary-btn" style="width:auto;" onclick="bbFeatures.refreshExchangeView()">ОНОВИТИ</button>
             </div>
             <div class="order-book-grid">
