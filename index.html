@@ -3240,9 +3240,13 @@
                     ${unread > 0
                         ? `<span class="unread-badge" aria-label="${unread} непрочитаних">${unread > 9 ? '9+' : unread}</span>`
                         : ''}
-                    <button class="btn danger-btn" style="width:auto;padding:7px 10px;font-size:11px;margin:0;" data-remove-friend="${escapeHtml(friend)}" onclick="removeFriend('${escapeHtml(friend)}');event.stopPropagation();">🗑️</button>
+                    <button class="btn danger-btn" style="width:auto;padding:7px 10px;font-size:11px;margin:0;" aria-label="Видалити друга" data-remove-friend-btn="1">🗑️</button>
                 </div>
             `;
+            const removeBtn = item.querySelector('[data-remove-friend-btn]');
+            if (removeBtn) {
+                removeBtn.addEventListener('click', (e) => { e.stopPropagation(); removeFriend(friend); });
+            }
             item.addEventListener('click', () => openChat(friend));
             item.addEventListener('keypress', (event) => {
                 if (event.key === 'Enter' || event.key === ' ') {
@@ -4630,7 +4634,7 @@
                     <div class="group-chat-name">${escapeHtml(g.name)}</div>
                     <div class="group-chat-last">${(g.members||[]).map(escapeHtml).join(', ')}</div>
                 </div>
-                <button class="btn danger-btn" style="width:auto;padding:7px 10px;font-size:11px;margin:0;flex-shrink:0;" data-leave-group="${escapeAttr(g.id)}" onclick="leaveGroup('${escapeAttr(g.id)}', '${escapeAttr(g.name)}');event.stopPropagation();">🚪</button>
+                <button class="btn danger-btn" style="width:auto;padding:7px 10px;font-size:11px;margin:0;flex-shrink:0;" aria-label="Покинути групу" data-leave-group="${escapeAttr(g.id)}" onclick="leaveGroup('${escapeAttr(g.id)}', '${escapeAttr(g.name)}');event.stopPropagation();">🚪</button>
             </div>
         `).join('');
         listEl.querySelectorAll('.group-chat-item').forEach(el => {
