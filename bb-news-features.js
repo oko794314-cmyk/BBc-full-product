@@ -2,6 +2,7 @@
     if (typeof firebase === 'undefined') return;
 
     const MIN_PRICE = 0.000001;
+    const REQUIRED_BB_SIDE_COUNT = 1;
     const MAX_CANDLES = 48;
     const MAX_TRADE_RECORDS = 800;
     const QUESTS = [
@@ -1047,7 +1048,7 @@
             return;
         }
         const bbSides = [payload.offer.type, payload.want.type].filter(type => type === 'bb').length;
-        if (bbSides !== 1) {
+        if (bbSides !== REQUIRED_BB_SIDE_COUNT) {
             alert('Одна сторона обміну має бути BB Coin, інша — авто або нерухомість.');
             return;
         }
@@ -1163,6 +1164,8 @@
             getDb().ref(`marketOrders/${orderId}`).update({ status: 'filled', remaining: 0, updatedAt: Date.now(), fulfilledBy: executor, fulfilledAt: trade.timestamp })
         ]);
 
+        // Якщо creator віддає BB (offer=bb) — це витрата для creator і надходження для executor.
+        // Якщо creator віддає актив (offer!=bb) — creator отримує BB, executor витрачає BB.
         const creatorDirection = offer.type === 'bb' ? 'expense' : 'income';
         const executorDirection = offer.type === 'bb' ? 'income' : 'expense';
         await Promise.all([
@@ -1172,10 +1175,10 @@
             writeRemoteHubEntry(executor, 'notifications', { type: 'exchange', level: 'success', title: '✅ Угоду виконано', message: `Виконано: ${trade.summary}`, createdAt: trade.timestamp })
         ]);
         if (creator === gameState?.user || executor === gameState?.user) {
-            const localSold = creator === gameState?.user && creatorDirection === 'income' ? trade.amount : 0;
-            const localBought = executor === gameState?.user && executorDirection === 'income' ? trade.amount : 0;
-            await updateLocalStats({ totalTrades: 1, exchangeVolume: trade.amount, totalProfit: localSold });
-            await addProgress({ totalDeals: 1, totalBought: localBought, totalSold: localSold });
+            const localBbIncome = (creator === gameState?.user && creatorDirection === 'income') || (executor === gameState?.user && executorDirection === 'income') ? trade.amount : 0;
+            const localBbExpense = (creator === gameState?.user && creatorDirection === 'expense') || (executor === gameState?.user && executorDirection === 'expense') ? trade.amount : 0;
+            await updateLocalStats({ totalTrades: 1, exchangeVolume: trade.amount, totalProfit: localBbIncome });
+            await addProgress({ totalDeals: 1, totalBought: localBbIncome, totalSold: localBbExpense });
             await evaluateAchievements();
         }
         await appendLocalNotification({ type: 'exchange', level: 'success', title: '🤝 Угоду завершено', message: trade.summary });
