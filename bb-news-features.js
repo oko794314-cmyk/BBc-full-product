@@ -2,6 +2,7 @@
     if (typeof firebase === 'undefined') return;
 
     const MIN_PRICE = 0.000001;
+    const REQUIRED_BB_SIDE_COUNT = 1;
     const MAX_CANDLES = 48;
     const MAX_TRADE_RECORDS = 800;
     const QUESTS = [
@@ -139,8 +140,97 @@
         return shopOwned + workshopOwned + properties + cars;
     }
 
+    function toAssetKey(asset) {
+        if (!asset?.type) return '';
+        return `${asset.type}:${asset.id || ''}`;
+    }
+
+    function parseAssetKey(value) {
+        const [type, id] = String(value || '').split(':');
+        if (type === 'bb') return { type: 'bb', id: null };
+        if (type === 'car' || type === 'estate') return { type, id: id || null };
+        return null;
+    }
+
+    function getCarName(carId) {
+        if (typeof getCarDefinition === 'function') {
+            const definition = getCarDefinition(carId);
+            if (definition?.name) return definition.name;
+        }
+        return carId || 'Авто';
+    }
+
+    function getEstateName(propertyId) {
+        if (typeof getRealEstateDefinition === 'function') {
+            const definition = getRealEstateDefinition(propertyId);
+            if (definition?.name) return definition.name;
+        }
+        return propertyId || 'Нерухомість';
+    }
+
+    function formatAssetLabel(asset) {
+        if (!asset || !asset.type) return '—';
+        if (asset.type === 'bb') {
+            return `${Number(asset.bbAmount || 0).toFixed(4)} BB`;
+        }
+        if (asset.type === 'car') {
+            return `🚗 ${getCarName(asset.id)}`;
+        }
+        if (asset.type === 'estate') {
+            return `🏠 ${getEstateName(asset.id)}`;
+        }
+        return '—';
+    }
+
+    function getOwnedOrderAssets() {
+        const options = [{ value: 'bb:', label: '💰 BB Coin' }];
+        Object.keys(carsState?.ownedCars || {}).forEach(carId => {
+            options.push({ value: `car:${carId}`, label: `🚗 Моє авто: ${getCarName(carId)}` });
+        });
+        Object.keys(realEstateState?.properties || {}).forEach(propertyId => {
+            options.push({ value: `estate:${propertyId}`, label: `🏠 Моя нерухомість: ${getEstateName(propertyId)}` });
+        });
+        return options;
+    }
+
+    function getDesiredOrderAssets() {
+        const options = [{ value: 'bb:', label: '💰 BB Coin' }];
+        if (typeof carsCatalog !== 'undefined' && Array.isArray(carsCatalog)) {
+            carsCatalog.forEach(item => options.push({ value: `car:${item.id}`, label: `🚗 ${item.name}` }));
+        }
+        if (typeof realEstateCatalog !== 'undefined' && Array.isArray(realEstateCatalog)) {
+            realEstateCatalog.forEach(item => options.push({ value: `estate:${item.id}`, label: `🏠 ${item.name}` }));
+        }
+        return options;
+    }
+
+    function fillSelectOptions(selectId, options, selectedValue) {
+        const select = document.getElementById(selectId);
+        if (!select) return;
+        const previous = selectedValue || select.value;
+        select.innerHTML = '';
+        options.forEach(item => {
+            const option = document.createElement('option');
+            option.value = String(item.value ?? '');
+            option.textContent = String(item.label ?? '');
+            select.appendChild(option);
+        });
+        if (options.some(item => item.value === previous)) {
+            select.value = previous;
+        }
+    }
+
+    function renderExchangeAssetSelectors() {
+        const ownedOptions = getOwnedOrderAssets();
+        const desiredOptions = getDesiredOrderAssets();
+        fillSelectOptions('exchange-order-offer', ownedOptions);
+        fillSelectOptions('exchange-order-want', desiredOptions);
+        fillSelectOptions('exchange-search-offer', [{ value: 'all', label: 'Віддають: усе' }, ...desiredOptions.map(item => ({ value: item.value, label: `Віддають: ${item.label}` }))]);
+        fillSelectOptions('exchange-search-want', [{ value: 'all', label: 'Хочуть: усе' }, ...desiredOptions.map(item => ({ value: item.value, label: `Хочуть: ${item.label}` }))]);
+    }
+
     function getOpenOrders() {
-        return state.orders.filter(order => order && order.status === 'open' && num(order.remaining, 0) > 0);
+        return state.orders.filter(order => order && order.status === 'open');
     }
 
     function getRangeStart(range) {
@@ -192,19 +282,6 @@
             lastUpdated: firebase.database.ServerValue.TIMESTAMP,
             lastTradeAt: 0
         });
-    }
-
-    function canOrdersMatch(order, candidate, currentPrice) {
-        if (!order || !candidate) return false;
-        const orderLimit = Number(order.limitPrice);
-        const candidatePrice = num(candidate.limitPrice, currentPrice || 1);
-        if (order.orderType === 'limit' && order.side === 'buy') {
-        return Number.isFinite(orderLimit) && candidatePrice <= orderLimit;
-        }
-        if (order.orderType === 'limit' && order.side === 'sell') {
-        return Number.isFinite(orderLimit) && candidatePrice >= orderLimit;
-        }
-        return true;
     }
 
     async function isAdminUser(username) {
@@ -385,25 +462,41 @@
         return (document.getElementById('exchange-order-search')?.value || '').trim().toLowerCase();
     }
 
-    function getFilteredOpenOrders(side) {
+    function getOrderBucket(order) {
+        if (order?.offer?.type === 'bb') return 'sell';
+        if (order?.want?.type === 'bb') return 'buy';
+        if (order?.side === 'sell') return 'sell';
+        if (order?.side === 'buy') return 'buy';
+        return 'other';
+    }
+
+    function orderMatchesSearchFilters(order) {
         const search = getExchangeSearch();
+        const offerFilter = document.getElementById('exchange-search-offer')?.value || 'all';
+        const wantFilter = document.getElementById('exchange-search-want')?.value || 'all';
+        const bbMin = num(document.getElementById('exchange-search-bb-amount')?.value, 0);
+        if (offerFilter !== 'all' && toAssetKey(order.offer) !== offerFilter) return false;
+        if (wantFilter !== 'all' && toAssetKey(order.want) !== wantFilter) return false;
+        if (bbMin > 0 && num(order.bbAmount, 0) < bbMin) return false;
+        if (!search) return true;
+        const haystack = [
+            order.user,
+            order.creatorDisplayName,
+            formatAssetLabel(order.offer),
+            formatAssetLabel(order.want),
+            order.summary
+        ]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase();
+        return haystack.includes(search);
+    }
+
+    function getFilteredOpenOrders(side) {
         return getOpenOrders()
-            .filter(order => order.side === side)
-            .filter(order => {
-                if (!search) return true;
-                const haystack = [order.user, order.creatorDisplayName, order.desiredAsset, order.source, order.notes]
-                    .filter(Boolean)
-                    .join(' ')
-                    .toLowerCase();
-                return haystack.includes(search);
-            })
-            .sort((a, b) => {
-                const priceA = num(a.limitPrice, state.market.currentPrice || 1);
-                const priceB = num(b.limitPrice, state.market.currentPrice || 1);
-                return side === 'sell'
-                    ? priceA - priceB || num(a.createdAt, 0) - num(b.createdAt, 0)
-                    : priceB - priceA || num(a.createdAt, 0) - num(b.createdAt, 0);
-            });
+            .filter(order => getOrderBucket(order) === side)
+            .filter(orderMatchesSearchFilters)
+            .sort((a, b) => num(b.createdAt, 0) - num(a.createdAt, 0));
     }
 
     function renderNews() {
@@ -468,14 +561,13 @@
                 <div class="order-head">
                     <div>
                         <div style="font-size:12px; font-weight:900; color:${side === 'sell' ? 'var(--r)' : 'var(--g)'};">${escapeText(order.creatorDisplayName || order.user)}</div>
-                        <div class="order-meta"><span>${escapeText(order.orderType === 'market' ? 'Ринковий' : 'Лімітний')}</span><span>${new Date(order.createdAt).toLocaleString('uk-UA')}</span></div>
+                        <div class="order-meta"><span>${escapeText(side === 'sell' ? 'Продає BB' : 'Купує BB')}</span><span>${new Date(order.createdAt).toLocaleString('uk-UA')}</span></div>
                     </div>
                     <span class="pill ${side === 'sell' ? 'sell' : 'buy'}">${side === 'sell' ? 'SELL' : 'BUY'}</span>
                 </div>
-                <div style="font-size:13px; font-weight:900; color:var(--p);">${num(order.remaining, 0).toFixed(4)} / ${num(order.amount, 0).toFixed(4)} BB</div>
-                <div class="hub-note">Ціна: ${num(order.limitPrice, state.market.currentPrice || 1).toFixed(6)} • Потрібно: ${escapeText(order.desiredAsset || 'Домовленість між людьми')}</div>
-                <div class="order-meta"><span>Джерело: ${escapeText(order.source || 'біржа')}</span></div>
-                ${order.user !== gameState?.user ? `<div class="feature-actions"><button class="shop-item-btn" onclick="bbFeatures.fulfillOrder('${order.id}')">Виконати</button></div>` : ''}
+                <div style="font-size:13px; font-weight:900; color:var(--p);">${escapeText(formatAssetLabel(order.offer))} ⇄ ${escapeText(formatAssetLabel(order.want))}</div>
+                <div class="hub-note">${escapeText(order.summary || 'Обмін між гравцями')}</div>
+                ${order.user !== gameState?.user && order.offer && order.want ? `<div class="feature-actions"><button class="shop-item-btn" onclick="bbFeatures.fulfillOrder('${order.id}')">Виконати</button></div>` : ''}
             </div>
         `).join('');
     }
@@ -492,12 +584,12 @@
             <div class="order-card">
                 <div class="order-head">
                     <div>
-                        <div style="font-size:12px; font-weight:900; color:var(--p);">${escapeText(order.side === 'buy' ? 'Купівля' : 'Продаж')} • ${escapeText(order.orderType === 'market' ? 'Ринковий' : 'Лімітний')}</div>
+                        <div style="font-size:12px; font-weight:900; color:var(--p);">${escapeText(order.summary || 'Обмін')}</div>
                         <div class="order-meta"><span>${new Date(order.createdAt).toLocaleString('uk-UA')}</span><span>Статус: ${escapeText(order.status || 'open')}</span></div>
                     </div>
-                    <span class="pill ${order.side === 'buy' ? 'buy' : 'sell'}">${escapeText(order.side)}</span>
+                    <span class="pill ${getOrderBucket(order) === 'buy' ? 'buy' : 'sell'}">${escapeText(getOrderBucket(order).toUpperCase())}</span>
                 </div>
-                <div class="hub-note">${num(order.remaining, 0).toFixed(4)} / ${num(order.amount, 0).toFixed(4)} BB • ${escapeText(order.desiredAsset || 'Без уточнення')}</div>
+                <div class="hub-note">${escapeText(formatAssetLabel(order.offer))} ⇄ ${escapeText(formatAssetLabel(order.want))}</div>
                 ${order.status === 'open' ? `<div class="feature-actions"><button class="shop-item-btn equip-btn" onclick="bbFeatures.cancelOrder('${order.id}')">СКАСУВАТИ</button></div>` : ''}
             </div>
         `).join('');
@@ -517,9 +609,9 @@
                         <div style="font-size:12px; font-weight:900; color:var(--gold);">${escapeText(trade.buyer)} ⇄ ${escapeText(trade.seller)}</div>
                         <div class="order-meta"><span>${new Date(trade.timestamp).toLocaleString('uk-UA')}</span><span>${escapeText(trade.executionType || 'trade')}</span></div>
                     </div>
-                    <span class="pill info">${num(trade.amount, 0).toFixed(4)} BB</span>
+                    <span class="pill info">${escapeText(formatAssetLabel(trade.offer))}</span>
                 </div>
-                <div class="hub-note">Ціна: ${num(trade.price, 0).toFixed(6)} • Запит: ${escapeText(trade.desiredAsset || 'поза біржею')}</div>
+                <div class="hub-note">${escapeText(formatAssetLabel(trade.offer))} ⇄ ${escapeText(formatAssetLabel(trade.want))}</div>
             </div>
         `).join('');
     }
@@ -831,14 +923,114 @@
     }
 
     function getOrderInputs() {
+        const offer = parseAssetKey(document.getElementById('exchange-order-offer')?.value || '');
+        const want = parseAssetKey(document.getElementById('exchange-order-want')?.value || '');
+        const bbAmount = num(document.getElementById('exchange-order-bb-amount')?.value, 0);
+        if (offer?.type === 'bb') offer.bbAmount = bbAmount;
+        if (want?.type === 'bb') want.bbAmount = bbAmount;
         return {
-            side: (document.getElementById('exchange-order-side')?.value || 'buy') === 'sell' ? 'sell' : 'buy',
-            orderType: (document.getElementById('exchange-order-type')?.value || 'market') === 'limit' ? 'limit' : 'market',
-            amount: num(document.getElementById('exchange-order-amount')?.value, 0),
-            limitPrice: Math.max(MIN_PRICE, num(document.getElementById('exchange-order-price')?.value, state.market.currentPrice || 1)),
-            desiredAsset: (document.getElementById('exchange-order-desired')?.value || '').trim(),
-            source: (document.getElementById('exchange-order-source')?.value || '').trim()
+            offer,
+            want,
+            bbAmount
         };
+    }
+
+    function buildOrderSummary(offer, want) {
+        return `${formatAssetLabel(offer)} → ${formatAssetLabel(want)}`;
+    }
+
+    function hasCurrentUserAsset(asset) {
+        if (!asset || asset.type === 'bb') return true;
+        if (asset.type === 'car') return !!carsState?.ownedCars?.[asset.id];
+        if (asset.type === 'estate') return !!realEstateState?.properties?.[asset.id];
+        return false;
+    }
+
+    function normalizeEstateState(raw) {
+        if (typeof normalizeRealEstateState === 'function') return normalizeRealEstateState(raw);
+        return { properties: raw?.properties && typeof raw.properties === 'object' ? { ...raw.properties } : {} };
+    }
+
+    function normalizeCarsStateSafe(raw) {
+        if (typeof normalizeCarsState === 'function') return normalizeCarsState(raw);
+        return {
+            ownedCars: raw?.ownedCars && typeof raw.ownedCars === 'object' ? { ...raw.ownedCars } : {},
+            activeCarId: raw?.activeCarId || null,
+            prestige: num(raw?.prestige, 0)
+        };
+    }
+
+    async function transferAssetBetweenUsers(asset, fromUser, toUser) {
+        if (!asset || asset.type === 'bb') return { success: true };
+        const featureKey = asset.type === 'car' ? 'carsData' : 'realEstate';
+        const [fromRaw, toRaw] = await Promise.all([
+            loadUserFeatureStateFirebase(fromUser, featureKey),
+            loadUserFeatureStateFirebase(toUser, featureKey)
+        ]);
+        const fromState = asset.type === 'car' ? normalizeCarsStateSafe(fromRaw) : normalizeEstateState(fromRaw);
+        const toState = asset.type === 'car' ? normalizeCarsStateSafe(toRaw) : normalizeEstateState(toRaw);
+        const fromCollectionKey = asset.type === 'car' ? 'ownedCars' : 'properties';
+        const transferPayload = fromState?.[fromCollectionKey]?.[asset.id];
+        if (!transferPayload) {
+            return { success: false, error: `У ${fromUser} вже немає цього предмета.` };
+        }
+        if (toState?.[fromCollectionKey]?.[asset.id]) {
+            return { success: false, error: `${toUser} уже володіє цим предметом.` };
+        }
+        delete fromState[fromCollectionKey][asset.id];
+        toState[fromCollectionKey][asset.id] = transferPayload;
+        if (asset.type === 'car') {
+            if (fromState.activeCarId === asset.id) {
+                fromState.activeCarId = Object.keys(fromState.ownedCars || {}).sort()[0] || null;
+            }
+            if (!toState.activeCarId) {
+                toState.activeCarId = asset.id;
+            }
+        }
+        await Promise.all([
+            saveUserFeatureStateFirebase(fromUser, featureKey, fromState),
+            saveUserFeatureStateFirebase(toUser, featureKey, toState)
+        ]);
+        if (fromUser === gameState?.user) {
+            if (asset.type === 'car') {
+                carsState = fromState;
+                if (typeof renderCarsTab === 'function') renderCarsTab();
+            } else {
+                realEstateState = fromState;
+                if (typeof renderRealEstateTab === 'function') renderRealEstateTab();
+            }
+        }
+        if (toUser === gameState?.user) {
+            if (asset.type === 'car') {
+                carsState = toState;
+                if (typeof renderCarsTab === 'function') renderCarsTab();
+            } else {
+                realEstateState = toState;
+                if (typeof renderRealEstateTab === 'function') renderRealEstateTab();
+            }
+        }
+        return { success: true };
+    }
+
+    async function transferCoins(fromUser, toUser, amount) {
+        const debit = await adjustUserBalanceFirebase(fromUser, -amount);
+        if (!debit.success) {
+            return { success: false };
+        }
+        const credit = await adjustUserBalanceFirebase(toUser, amount);
+        if (!credit.success) {
+            await adjustUserBalanceFirebase(fromUser, amount);
+            return { success: false };
+        }
+        if (fromUser === gameState?.user) {
+            gameState.balance = debit.balance;
+            updateCachedUser(gameState.user, { balance: debit.balance });
+        }
+        if (toUser === gameState?.user) {
+            gameState.balance = credit.balance;
+            updateCachedUser(gameState.user, { balance: credit.balance });
+        }
+        return { success: true };
     }
 
     async function placeExchangeOrder() {
@@ -847,75 +1039,148 @@
             return;
         }
         const payload = getOrderInputs();
-        if (payload.amount <= 0) {
-            alert('Введіть коректну кількість BB.');
+        if (!payload.offer || !payload.want) {
+            alert('Оберіть предмети для обміну.');
             return;
         }
-        if (payload.side === 'sell' && num(gameState.balance, 0) < payload.amount) {
-            alert('Недостатньо BB для продажу.');
+        if (toAssetKey(payload.offer) === toAssetKey(payload.want)) {
+            alert('Предмети обміну не можуть бути однаковими.');
+            return;
+        }
+        const bbSideCount = [payload.offer.type, payload.want.type].filter(type => type === 'bb').length;
+        if (bbSideCount !== REQUIRED_BB_SIDE_COUNT) {
+            alert('Одна сторона обміну має бути BB Coin, інша — авто або нерухомість.');
+            return;
+        }
+        if (payload.bbAmount <= 0) {
+            alert('Вкажіть коректну кількість BB.');
+            return;
+        }
+        if (payload.offer.type !== 'bb' && !hasCurrentUserAsset(payload.offer)) {
+            alert('Ви не володієте цим предметом.');
+            return;
+        }
+        if (payload.offer.type === 'bb' && num(gameState.balance, 0) < payload.bbAmount) {
+            alert('Недостатньо BB для цієї заявки.');
             return;
         }
         const ref = getDb().ref('marketOrders').push();
+        const summary = buildOrderSummary(payload.offer, payload.want);
         const order = {
             id: ref.key,
             user: gameState.user,
             creatorDisplayName: gameState.displayName || gameState.user,
-            side: payload.side,
-            orderType: payload.orderType,
-            amount: Number(payload.amount.toFixed(4)),
-            remaining: Number(payload.amount.toFixed(4)),
-            limitPrice: Number(payload.limitPrice.toFixed(6)),
-            desiredAsset: payload.desiredAsset,
-            source: payload.source,
-            notes: payload.desiredAsset,
+            offer: payload.offer,
+            want: payload.want,
+            bbAmount: Number(payload.bbAmount.toFixed(4)),
+            amount: Number(payload.bbAmount.toFixed(4)),
+            remaining: Number(payload.bbAmount.toFixed(4)),
+            summary,
+            // amount/remaining are kept for backward compatibility with existing exchange widgets and stats cards.
+            // TODO: remove these fields after all UI readers fully migrate to `bbAmount`.
             status: 'open',
             createdAt: Date.now(),
             updatedAt: Date.now()
         };
         await ref.set(order);
-        document.getElementById('exchange-order-amount').value = '';
-        document.getElementById('exchange-order-desired').value = '';
-        document.getElementById('exchange-order-source').value = '';
-        await appendLocalNotification({ type: 'exchange', level: 'info', title: '💹 Нова заявка на біржі', message: `${payload.side === 'buy' ? 'Купівля' : 'Продаж'} ${order.amount.toFixed(4)} BB` });
-        await matchOrder(order.id);
+        const amountInput = document.getElementById('exchange-order-bb-amount');
+        if (amountInput) amountInput.value = '';
+        await appendLocalNotification({ type: 'exchange', level: 'info', title: '💹 Нова заявка на біржі', message: summary });
         renderExchangeHub();
-    }
-
-    async function matchExchangeOrder() {
-        const myOpenOrders = state.orders.filter(order => order.user === gameState?.user && order.status === 'open');
-        const last = myOpenOrders.sort((a, b) => num(b.createdAt, 0) - num(a.createdAt, 0))[0];
-        if (!last) {
-            alert('Спочатку створіть заявку.');
-            return;
-        }
-        await matchOrder(last.id);
     }
 
     async function fulfillOrder(orderId) {
         const target = state.orders.find(item => item.id === orderId);
-        if (!target || target.user === gameState?.user) return;
-        if (target.side === 'buy' && num(gameState?.balance, 0) < num(target.remaining, 0)) {
-            alert('Недостатньо BB, щоб закрити цю заявку на купівлю.');
+        if (!target || target.user === gameState?.user || target.status !== 'open') return;
+        const creator = target.user;
+        const executor = gameState?.user;
+        const offer = target.offer;
+        const want = target.want;
+        const bbAmount = num(target.bbAmount, 0);
+        if (!offer || !want || !executor) return;
+        if (want.type !== 'bb' && !hasCurrentUserAsset(want)) {
+            alert('Для виконання заявки у вас має бути потрібний предмет.');
             return;
         }
-        const ref = getDb().ref('marketOrders').push();
-        const created = {
-            id: ref.key,
-            user: gameState.user,
-            creatorDisplayName: gameState.displayName || gameState.user,
-            side: target.side === 'buy' ? 'sell' : 'buy',
-            orderType: 'market',
-            amount: Number(num(target.remaining, 0).toFixed(4)),
-            remaining: Number(num(target.remaining, 0).toFixed(4)),
-            limitPrice: Number(num(target.limitPrice, state.market.currentPrice || 1).toFixed(6)),
-            desiredAsset: target.desiredAsset || '',
-            source: 'manual-fulfill',
-            status: 'open',
-            createdAt: Date.now(),
-            updatedAt: Date.now()
+        if (want.type === 'bb' && num(gameState?.balance, 0) < bbAmount) {
+            alert('Недостатньо BB для виконання заявки.');
+            return;
+        }
+
+        let coinTransferDone = false;
+        if (bbAmount > 0) {
+            const payer = offer.type === 'bb' ? creator : executor;
+            const receiver = offer.type === 'bb' ? executor : creator;
+            const coinResult = await transferCoins(payer, receiver, bbAmount);
+            if (!coinResult.success) {
+                alert('Не вдалося провести переказ BB. Перевірте баланс сторін.');
+                return;
+            }
+            coinTransferDone = true;
+        }
+
+        const assetToTransfer = offer.type === 'bb' ? want : offer;
+        const assetFrom = offer.type === 'bb' ? executor : creator;
+        const assetTo = offer.type === 'bb' ? creator : executor;
+        const assetResult = await transferAssetBetweenUsers(assetToTransfer, assetFrom, assetTo);
+        if (!assetResult.success) {
+            if (coinTransferDone) {
+                const rollbackFrom = offer.type === 'bb' ? executor : creator;
+                const rollbackTo = offer.type === 'bb' ? creator : executor;
+                await transferCoins(rollbackFrom, rollbackTo, bbAmount);
+            }
+            alert(assetResult.error || 'Не вдалося передати предмет.');
+            return;
+        }
+
+        if (typeof updateHeader === 'function') updateHeader();
+
+        const tradeRef = getDb().ref('marketTrades').push();
+        const trade = {
+            id: tradeRef.key,
+            buyer: executor,
+            seller: creator,
+            buyOrderId: offer.type === 'bb' ? orderId : null,
+            sellOrderId: offer.type === 'bb' ? null : orderId,
+            amount: Number(bbAmount.toFixed(4)),
+            price: Number(Math.max(MIN_PRICE, state.market.currentPrice || 1).toFixed(6)),
+            offer,
+            want,
+            summary: target.summary || buildOrderSummary(offer, want),
+            executionType: 'manual-execute',
+            timestamp: Date.now()
         };
-        await ref.set(created);
-        await matchOrder(created.id, true);
+        await tradeRef.set(trade);
+        await Promise.all([
+            getDb().ref('market').update({
+                currentPrice: trade.price,
+                totalVolume: num(state.market.totalVolume, 0) + trade.amount,
+                completedTrades: num(state.market.completedTrades, 0) + 1,
+                lastUpdated: trade.timestamp,
+                lastTradeAt: trade.timestamp
+            }),
+            getDb().ref(`marketOrders/${orderId}`).update({ status: 'filled', remaining: 0, updatedAt: Date.now(), fulfilledBy: executor, fulfilledAt: trade.timestamp })
+        ]);
+
+        // If creator offers BB, creator spends BB (expense) and executor receives BB (income).
+        // If creator offers an asset, creator receives BB (income) and executor spends BB (expense).
+        const creatorDirection = offer.type === 'bb' ? 'expense' : 'income';
+        const executorDirection = offer.type === 'bb' ? 'income' : 'expense';
+        await Promise.all([
+            writeRemoteHubEntry(creator, 'transactions', { direction: creatorDirection, amount: trade.amount, source: 'exchange', reason: 'Виконана біржова заявка', details: `${formatAssetLabel(offer)} ⇄ ${formatAssetLabel(want)}`, counterparty: executor, createdAt: trade.timestamp }),
+            writeRemoteHubEntry(executor, 'transactions', { direction: executorDirection, amount: trade.amount, source: 'exchange', reason: 'Виконана біржова заявка', details: `${formatAssetLabel(offer)} ⇄ ${formatAssetLabel(want)}`, counterparty: creator, createdAt: trade.timestamp }),
+            writeRemoteHubEntry(creator, 'notifications', { type: 'exchange', level: 'success', title: '✅ Заявку виконано', message: `${executor} виконав вашу заявку: ${trade.summary}`, createdAt: trade.timestamp }),
+            writeRemoteHubEntry(executor, 'notifications', { type: 'exchange', level: 'success', title: '✅ Угоду виконано', message: `Виконано: ${trade.summary}`, createdAt: trade.timestamp })
+        ]);
+        if (creator === gameState?.user || executor === gameState?.user) {
+            const localBbIncome = (creator === gameState?.user && creatorDirection === 'income') || (executor === gameState?.user && executorDirection === 'income') ? trade.amount : 0;
+            const localBbExpense = (creator === gameState?.user && creatorDirection === 'expense') || (executor === gameState?.user && executorDirection === 'expense') ? trade.amount : 0;
+            await updateLocalStats({ totalTrades: 1, exchangeVolume: trade.amount, totalProfit: localBbIncome });
+            await addProgress({ totalDeals: 1, totalBought: localBbIncome, totalSold: localBbExpense });
+            await evaluateAchievements();
+        }
+        await appendLocalNotification({ type: 'exchange', level: 'success', title: '🤝 Угоду завершено', message: trade.summary });
+        renderExchangeHub();
     }
 
     async function cancelOrder(orderId) {
@@ -924,109 +1189,8 @@
         renderExchangeHub();
     }
 
-    async function settleTrade(match) {
-        const sellerResult = await adjustUserBalanceFirebase(match.seller, -match.amount);
-        if (!sellerResult.success) return false;
-        const buyerResult = await adjustUserBalanceFirebase(match.buyer, match.amount);
-        if (!buyerResult.success) {
-            const rollbackResult = await adjustUserBalanceFirebase(match.seller, match.amount);
-            if (!rollbackResult.success) {
-                console.error('❌ Не вдалося відкотити баланс продавця після збою біржової угоди');
-            }
-            return false;
-        }
-        if (match.buyer === gameState?.user) {
-            gameState.balance = buyerResult.balance;
-            updateCachedUser(gameState.user, { balance: buyerResult.balance });
-        }
-        if (match.seller === gameState?.user) {
-            gameState.balance = sellerResult.balance;
-            updateCachedUser(gameState.user, { balance: sellerResult.balance });
-        }
-        if (typeof updateHeader === 'function') updateHeader();
-        const tradeRef = getDb().ref('marketTrades').push();
-        const trade = {
-            id: tradeRef.key,
-            buyer: match.buyer,
-            seller: match.seller,
-            buyOrderId: match.buyOrderId,
-            sellOrderId: match.sellOrderId,
-            amount: Number(match.amount.toFixed(4)),
-            price: Number(match.price.toFixed(6)),
-            desiredAsset: match.desiredAsset,
-            source: match.source,
-            executionType: match.executionType,
-            timestamp: Date.now()
-        };
-        await tradeRef.set(trade);
-        await getDb().ref('market').update({
-            currentPrice: trade.price,
-            totalVolume: num(state.market.totalVolume, 0) + trade.amount,
-            completedTrades: num(state.market.completedTrades, 0) + 1,
-            lastUpdated: trade.timestamp,
-            lastTradeAt: trade.timestamp
-        });
-        await Promise.all([
-            writeRemoteHubEntry(match.buyer, 'transactions', { direction: 'income', amount: trade.amount, source: 'exchange', reason: 'Купівля на біржі', details: `Отримано від ${match.seller}`, counterparty: match.seller, createdAt: trade.timestamp }),
-            writeRemoteHubEntry(match.seller, 'transactions', { direction: 'expense', amount: trade.amount, source: 'exchange', reason: 'Продаж на біржі', details: `Передано для ${match.buyer}`, counterparty: match.buyer, createdAt: trade.timestamp }),
-            writeRemoteHubEntry(match.buyer, 'notifications', { type: 'exchange', level: 'success', title: '🟢 Угоду виконано', message: `Отримано ${trade.amount.toFixed(4)} BB від ${match.seller}`, createdAt: trade.timestamp }),
-            writeRemoteHubEntry(match.seller, 'notifications', { type: 'exchange', level: 'success', title: '🔴 Угоду виконано', message: `Передано ${trade.amount.toFixed(4)} BB для ${match.buyer}`, createdAt: trade.timestamp })
-        ]);
-        if (match.buyer === gameState?.user || match.seller === gameState?.user) {
-            await updateLocalStats({ totalTrades: 1, exchangeVolume: trade.amount, totalProfit: match.seller === gameState?.user ? trade.amount : 0 });
-            await addProgress({ totalDeals: 1, totalBought: match.buyer === gameState?.user ? trade.amount : 0, totalSold: match.seller === gameState?.user ? trade.amount : 0 });
-            await evaluateAchievements();
-        }
-        return true;
-    }
-
-    async function matchOrder(orderId, fulfillExisting = false) {
-        let order = state.orders.find(item => item.id === orderId);
-        if (!order) {
-            const snap = await getDb().ref(`marketOrders/${orderId}`).once('value');
-            if (snap.exists()) {
-                order = { id: orderId, ...(snap.val() || {}) };
-            }
-        }
-        const initialRemaining = Number.isFinite(Number(order?.remaining)) ? Number(order.remaining) : Number(order?.amount);
-        if (!order || order.status !== 'open' || !Number.isFinite(initialRemaining) || initialRemaining <= 0) return;
-        order.remaining = Number(initialRemaining.toFixed(4));
-        const oppositeSide = order.side === 'buy' ? 'sell' : 'buy';
-        const candidates = getOpenOrders()
-            .filter(item => item.id !== order.id && item.side === oppositeSide && item.user !== order.user)
-            .sort((a, b) => order.side === 'buy'
-                ? num(a.limitPrice, state.market.currentPrice || 1) - num(b.limitPrice, state.market.currentPrice || 1)
-                : num(b.limitPrice, state.market.currentPrice || 1) - num(a.limitPrice, state.market.currentPrice || 1));
-        let remaining = num(order.remaining, order.amount);
-        for (const candidate of candidates) {
-            if (remaining <= 0) break;
-            const candidatePrice = num(candidate.limitPrice, state.market.currentPrice || 1);
-            if (!canOrdersMatch(order, candidate, state.market.currentPrice || 1)) continue;
-            const amount = Math.min(remaining, num(candidate.remaining, 0));
-            if (amount <= 0) continue;
-            const success = await settleTrade({
-                buyer: order.side === 'buy' ? order.user : candidate.user,
-                seller: order.side === 'sell' ? order.user : candidate.user,
-                buyOrderId: order.side === 'buy' ? order.id : candidate.id,
-                sellOrderId: order.side === 'sell' ? order.id : candidate.id,
-                amount,
-                price: candidatePrice || num(order.limitPrice, state.market.currentPrice || 1),
-                desiredAsset: candidate.desiredAsset || order.desiredAsset,
-                source: candidate.source || order.source,
-                executionType: fulfillExisting ? 'manual-match' : order.orderType
-            });
-            if (!success) continue;
-            remaining = Number((remaining - amount).toFixed(4));
-            const candidateRemaining = Number((num(candidate.remaining, 0) - amount).toFixed(4));
-            await Promise.all([
-                getDb().ref(`marketOrders/${order.id}`).update({ remaining, status: remaining > 0 ? 'open' : 'filled', updatedAt: Date.now() }),
-                getDb().ref(`marketOrders/${candidate.id}`).update({ remaining: candidateRemaining, status: candidateRemaining > 0 ? 'open' : 'filled', updatedAt: Date.now() })
-            ]);
-        }
-        renderExchangeHub();
-    }
-
     function renderExchangeHub() {
+        renderExchangeAssetSelectors();
         renderExchangeStats();
         renderOrderBook('sell', 'exchange-book-sell');
         renderOrderBook('buy', 'exchange-book-buy');
@@ -1113,6 +1277,7 @@
         state.isAdmin = await isAdminUser(gameState.user);
         const form = document.getElementById('news-admin-form');
         if (form) form.style.display = state.isAdmin ? 'block' : 'none';
+        renderExchangeAssetSelectors();
         attachRealtimeListeners();
         await evaluateAchievements();
         renderAll();
@@ -1267,12 +1432,17 @@
     if (notificationSearch) notificationSearch.addEventListener('input', () => renderNotificationCenter());
     const exchangeSearch = document.getElementById('exchange-order-search');
     if (exchangeSearch) exchangeSearch.addEventListener('input', () => renderExchangeHub());
+    const exchangeSearchOffer = document.getElementById('exchange-search-offer');
+    if (exchangeSearchOffer) exchangeSearchOffer.addEventListener('change', () => renderExchangeHub());
+    const exchangeSearchWant = document.getElementById('exchange-search-want');
+    if (exchangeSearchWant) exchangeSearchWant.addEventListener('change', () => renderExchangeHub());
+    const exchangeSearchAmount = document.getElementById('exchange-search-bb-amount');
+    if (exchangeSearchAmount) exchangeSearchAmount.addEventListener('input', () => renderExchangeHub());
 
     window.handleExtendedTabOpen = handleExtendedTabOpen;
     window.bbFeatures = {
         publishNews,
         placeExchangeOrder,
-        matchExchangeOrder,
         fulfillOrder,
         cancelOrder,
         changeChartRange,
