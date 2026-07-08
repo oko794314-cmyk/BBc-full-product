@@ -5,6 +5,9 @@
     const REQUIRED_BB_SIDE_COUNT = 1;
     const MAX_CANDLES = 48;
     const MAX_TRADE_RECORDS = 800;
+    // Price impact per 1 BB traded (0.5% per unit, capped at ±20% per trade)
+    const PRICE_IMPACT_PER_UNIT = 0.005;
+    const PRICE_IMPACT_MAX = 0.20;
     const QUESTS = [
         { id: 'buy_100', title: 'Купити 100 BB Coin', key: 'totalBought', target: 100, reward: { bb: 10, title: 'Трейдер' } },
         { id: 'sell_50', title: 'Продати 50 BB Coin', key: 'totalSold', target: 50, reward: { bb: 8 } },
@@ -651,7 +654,7 @@
 
         const dpr = window.devicePixelRatio || 1;
         const cssW = canvas.clientWidth || 640;
-        const cssH = 260;
+        const cssH = 300;
         canvas.width = cssW * dpr;
         canvas.height = cssH * dpr;
         const ctx = canvas.getContext('2d');
@@ -661,9 +664,12 @@
 
         // Colors matching Binance
         const BG = '#0B0E11';
-        const GRID = '#1E2026';
+        const GRID = '#1c2128';
+        const GRID_LIGHT = '#2B3139';
         const UP = '#0ECB81';
         const DOWN = '#F6465D';
+        const UP_DIM = 'rgba(14,203,129,0.15)';
+        const DOWN_DIM = 'rgba(246,70,93,0.15)';
         const TEXT_COLOR = '#848E9C';
         const PRICE_LABEL = '#EAECEF';
         const PRICE_LINE = '#F0B90B';
@@ -680,115 +686,129 @@
             return;
         }
 
-        const padLeft = 6, padRight = 60, padTop = 16, padBottom = 36;
+        const padLeft = 10, padRight = 66, padTop = 20, padBottom = 36;
         const chartW = W - padLeft - padRight;
         const chartH = H - padTop - padBottom;
         const prices = candles.flatMap(c => [c.low, c.high]);
         const minP = Math.min(...prices);
         const maxP = Math.max(...prices);
         const pRange = Math.max(maxP - minP, MIN_PRICE);
-        const toY = p => padTop + chartH - ((p - minP) / pRange) * chartH;
+        // Add 5% padding to price range so candles never touch top/bottom edges
+        const padding = pRange * 0.05;
+        const visMin = minP - padding;
+        const visMax = maxP + padding;
+        const visRange = visMax - visMin;
+        const toY = p => padTop + chartH - ((p - visMin) / visRange) * chartH;
 
-        // Draw grid lines
-        const gridLines = 5;
-        ctx.strokeStyle = GRID;
-        ctx.lineWidth = 1;
+        // Draw horizontal grid lines with subtle styling
+        const gridLines = 6;
         for (let i = 0; i <= gridLines; i++) {
             const y = padTop + (chartH / gridLines) * i;
+            ctx.strokeStyle = i === 0 || i === gridLines ? GRID_LIGHT : GRID;
+            ctx.lineWidth = 0.5;
             ctx.beginPath(); ctx.moveTo(padLeft, y); ctx.lineTo(W - padRight, y); ctx.stroke();
-            const price = maxP - ((maxP - minP) / gridLines) * i;
+            const price = visMax - (visRange / gridLines) * i;
             ctx.fillStyle = TEXT_COLOR;
-            ctx.font = '10px Orbitron, monospace';
+            ctx.font = '10px monospace';
             ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
             ctx.fillText(price.toFixed(4), W - padRight + 4, y);
         }
 
-        // Draw vertical time labels
+        // Draw vertical time labels and subtle vertical grid lines
         const xStep = chartW / Math.max(candles.length, 1);
-        const labelEvery = Math.max(1, Math.floor(candles.length / 4));
+        const labelEvery = Math.max(1, Math.floor(candles.length / 6));
         candles.forEach((c, i) => {
             if (i % labelEvery === 0) {
                 const cx = padLeft + i * xStep + xStep / 2;
+                ctx.strokeStyle = GRID;
+                ctx.lineWidth = 0.5;
+                ctx.beginPath(); ctx.moveTo(cx, padTop); ctx.lineTo(cx, padTop + chartH); ctx.stroke();
                 ctx.fillStyle = TEXT_COLOR;
-                ctx.font = '9px Orbitron, monospace';
+                ctx.font = '9px monospace';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'top';
                 const d = new Date(c.time);
                 const label = state.chartRange === '24h'
                     ? `${d.getHours().toString().padStart(2,'0')}:00`
                     : `${d.getDate()}/${d.getMonth()+1}`;
-                ctx.fillText(label, cx, H - padBottom + 6);
+                ctx.fillText(label, cx, H - padBottom + 4);
             }
         });
 
-        // Draw candles
-        const bodyW = Math.max(4, Math.min(14, xStep * 0.6));
+        // Draw candles — Binance-style: wide body, thin wick, filled bullish, filled bearish
+        const bodyW = Math.max(3, Math.min(18, xStep * 0.65));
+        const wickW = Math.max(1, bodyW * 0.15);
         candles.forEach((candle, i) => {
             const cx = padLeft + i * xStep + xStep / 2;
             const up = candle.close >= candle.open;
             const color = up ? UP : DOWN;
+            const colorDim = up ? UP_DIM : DOWN_DIM;
             const yHigh = toY(candle.high);
             const yLow = toY(candle.low);
             const yOpen = toY(candle.open);
             const yClose = toY(candle.close);
             const bodyTop = Math.min(yOpen, yClose);
-            const bodyH = Math.max(1.5, Math.abs(yClose - yOpen));
+            const bodyH = Math.max(2, Math.abs(yClose - yOpen));
 
-            // Wick
+            // Upper wick
             ctx.strokeStyle = color;
-            ctx.lineWidth = 1.5;
-            ctx.beginPath(); ctx.moveTo(cx, yHigh); ctx.lineTo(cx, yLow); ctx.stroke();
+            ctx.lineWidth = wickW;
+            ctx.beginPath(); ctx.moveTo(cx, yHigh); ctx.lineTo(cx, bodyTop); ctx.stroke();
+            // Lower wick
+            ctx.beginPath(); ctx.moveTo(cx, bodyTop + bodyH); ctx.lineTo(cx, yLow); ctx.stroke();
 
-            // Body
-            if (up) {
-                ctx.strokeStyle = color;
-                ctx.lineWidth = 1;
-                ctx.strokeRect(cx - bodyW / 2, bodyTop, bodyW, bodyH);
-                ctx.fillStyle = color;
-                ctx.fillRect(cx - bodyW / 2, bodyTop, bodyW, bodyH);
-            } else {
-                ctx.fillStyle = color;
-                ctx.fillRect(cx - bodyW / 2, bodyTop, bodyW, bodyH);
-            }
+            // Body shadow (glow)
+            ctx.fillStyle = colorDim;
+            ctx.fillRect(cx - bodyW / 2 - 1, bodyTop - 1, bodyW + 2, bodyH + 2);
+            // Body fill
+            ctx.fillStyle = color;
+            ctx.fillRect(cx - bodyW / 2, bodyTop, bodyW, bodyH);
 
             // Selected highlight
             if (state.selectedCandleIndex === i) {
                 ctx.strokeStyle = PRICE_LINE;
                 ctx.lineWidth = 1.5;
-                ctx.strokeRect(cx - bodyW / 2 - 2, bodyTop - 2, bodyW + 4, bodyH + 4);
+                ctx.strokeRect(cx - bodyW / 2 - 3, bodyTop - 3, bodyW + 6, bodyH + 6);
             }
         });
 
-        // Current price line
+        // Current price dashed line
         const lastCandle = candles[candles.length - 1];
         if (lastCandle) {
             const cy = toY(lastCandle.close);
+            const isUp = lastCandle.close >= lastCandle.open;
+            const lineColor = isUp ? UP : DOWN;
             ctx.setLineDash([4, 3]);
-            ctx.strokeStyle = PRICE_LINE;
+            ctx.strokeStyle = lineColor;
             ctx.lineWidth = 1;
             ctx.beginPath(); ctx.moveTo(padLeft, cy); ctx.lineTo(W - padRight, cy); ctx.stroke();
             ctx.setLineDash([]);
-            // Price tag
+            // Price tag badge
             const tag = lastCandle.close.toFixed(4);
-            const tagW = ctx.measureText(tag).width + 8;
-            ctx.fillStyle = PRICE_LINE;
-            ctx.fillRect(W - padRight + 2, cy - 9, padRight - 4, 18);
+            ctx.fillStyle = lineColor;
+            ctx.beginPath();
+            ctx.roundRect(W - padRight + 2, cy - 10, padRight - 4, 20, 3);
+            ctx.fill();
             ctx.fillStyle = '#000';
-            ctx.font = 'bold 10px Orbitron, monospace';
+            ctx.font = 'bold 10px monospace';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(tag, W - padRight + (padRight - 4) / 2 + 2, cy);
 
             if (livePriceEl) {
                 livePriceEl.textContent = lastCandle.close.toFixed(4);
-                livePriceEl.style.color = lastCandle.close >= lastCandle.open ? UP : DOWN;
+                livePriceEl.style.color = isUp ? UP : DOWN;
             }
         }
 
         const selected = candles[state.selectedCandleIndex] || lastCandle;
         if (meta && selected) {
-            meta.textContent = `${new Date(selected.time).toLocaleString('uk-UA')} • O:${selected.open.toFixed(4)} H:${selected.high.toFixed(4)} L:${selected.low.toFixed(4)} C:${selected.close.toFixed(4)} Vol:${selected.volume.toFixed(2)}`;
+            const d = new Date(selected.time).toLocaleString('uk-UA');
+            const ch = selected.close - selected.open;
+            const pct = selected.open > 0 ? ((ch / selected.open) * 100).toFixed(2) : '0.00';
+            const sign = ch >= 0 ? '+' : '';
+            meta.textContent = `${d} | О:${selected.open.toFixed(4)} В:${selected.high.toFixed(4)} Н:${selected.low.toFixed(4)} З:${selected.close.toFixed(4)} | ${sign}${ch.toFixed(4)} (${sign}${pct}%) | Об:${selected.volume.toFixed(2)}`;
         }
     }
 
@@ -1171,6 +1191,22 @@
             alert('Недостатньо BB для цієї заявки.');
             return;
         }
+
+        // Escrow: deduct BB from creator's balance immediately when offering BB,
+        // so the fulfillment transfer never needs to debit a non-logged-in user.
+        let bbEscrowed = false;
+        if (payload.offer.type === 'bb') {
+            const escrowResult = await adjustUserBalanceFirebase(gameState.user, -payload.bbAmount);
+            if (!escrowResult.success) {
+                alert('Не вдалося заблокувати BB для заявки. Перевірте баланс.');
+                return;
+            }
+            gameState.balance = escrowResult.balance;
+            updateCachedUser(gameState.user, { balance: escrowResult.balance });
+            updateHeader();
+            bbEscrowed = true;
+        }
+
         const ref = getDb().ref('marketOrders').push();
         const summary = buildOrderSummary(payload.offer, payload.want);
         const order = {
@@ -1183,6 +1219,7 @@
             amount: Number(payload.bbAmount.toFixed(4)),
             remaining: Number(payload.bbAmount.toFixed(4)),
             summary,
+            bbEscrowed,
             // amount/remaining are kept for backward compatibility with existing exchange widgets and stats cards.
             // TODO: remove these fields after all UI readers fully migrate to `bbAmount`.
             status: 'open',
@@ -1214,16 +1251,33 @@
             return;
         }
 
+        // Determine whether BB was escrowed at order creation.
+        // If escrowed (offer.type==='bb'), the creator's balance was already deducted —
+        // we only need to credit the executor now.
+        const bbEscrowed = !!target.bbEscrowed;
         let coinTransferDone = false;
         if (bbAmount > 0) {
-            const payer = offer.type === 'bb' ? creator : executor;
-            const receiver = offer.type === 'bb' ? executor : creator;
-            const coinResult = await transferCoins(payer, receiver, bbAmount);
-            if (!coinResult.success) {
-                alert('Не вдалося провести переказ BB. Перевірте баланс сторін.');
-                return;
+            if (bbEscrowed && offer.type === 'bb') {
+                // BB already held in escrow; just credit the executor.
+                const creditResult = await adjustUserBalanceFirebase(executor, bbAmount);
+                if (!creditResult.success) {
+                    alert('Не вдалося зарахувати BB виконавцю. Спробуйте ще раз.');
+                    return;
+                }
+                gameState.balance = creditResult.balance;
+                updateCachedUser(gameState.user, { balance: creditResult.balance });
+                coinTransferDone = true;
+            } else {
+                // Legacy path: transfer from payer to receiver in a single atomic step.
+                const payer = offer.type === 'bb' ? creator : executor;
+                const receiver = offer.type === 'bb' ? executor : creator;
+                const coinResult = await transferCoins(payer, receiver, bbAmount);
+                if (!coinResult.success) {
+                    alert('Не вдалося провести переказ BB. Перевірте баланс сторін.');
+                    return;
+                }
+                coinTransferDone = true;
             }
-            coinTransferDone = true;
         }
 
         const assetToTransfer = offer.type === 'bb' ? want : offer;
@@ -1232,15 +1286,36 @@
         const assetResult = await transferAssetBetweenUsers(assetToTransfer, assetFrom, assetTo);
         if (!assetResult.success) {
             if (coinTransferDone) {
-                const rollbackFrom = offer.type === 'bb' ? executor : creator;
-                const rollbackTo = offer.type === 'bb' ? creator : executor;
-                await transferCoins(rollbackFrom, rollbackTo, bbAmount);
+                // Rollback: reverse the coin transfer.
+                if (bbEscrowed && offer.type === 'bb') {
+                    // Return BB from executor back to escrow (creator's balance).
+                    await adjustUserBalanceFirebase(executor, -bbAmount);
+                    await adjustUserBalanceFirebase(creator, bbAmount);
+                    if (executor === gameState?.user) {
+                        gameState.balance = Math.max(0, (gameState.balance || 0) - bbAmount);
+                        updateCachedUser(gameState.user, { balance: gameState.balance });
+                    }
+                } else {
+                    const rollbackFrom = offer.type === 'bb' ? executor : creator;
+                    const rollbackTo = offer.type === 'bb' ? creator : executor;
+                    await transferCoins(rollbackFrom, rollbackTo, bbAmount);
+                }
             }
             alert(assetResult.error || 'Не вдалося передати предмет.');
             return;
         }
 
         if (typeof updateHeader === 'function') updateHeader();
+
+        // Calculate new market price with supply/demand pressure.
+        const currentPrice = Math.max(MIN_PRICE, state.market.currentPrice || 1);
+        const impact = Math.min(PRICE_IMPACT_MAX, PRICE_IMPACT_PER_UNIT * bbAmount);
+        // offer.type === 'bb' means creator is selling BB → supply increases → price falls.
+        // want.type  === 'bb' means creator is buying  BB → demand increases → price rises.
+        const isBuy = want.type === 'bb';
+        const newPrice = Math.max(MIN_PRICE, isBuy
+            ? currentPrice * (1 + impact)
+            : currentPrice * (1 - impact));
 
         const tradeRef = getDb().ref('marketTrades').push();
         const trade = {
@@ -1250,7 +1325,7 @@
             buyOrderId: offer.type === 'bb' ? orderId : null,
             sellOrderId: offer.type === 'bb' ? null : orderId,
             amount: Number(bbAmount.toFixed(4)),
-            price: Number(Math.max(MIN_PRICE, state.market.currentPrice || 1).toFixed(6)),
+            price: Number(newPrice.toFixed(6)),
             offer,
             want,
             summary: target.summary || buildOrderSummary(offer, want),
@@ -1291,6 +1366,16 @@
     }
 
     async function cancelOrder(orderId) {
+        const target = state.orders.find(item => item.id === orderId);
+        if (target && target.bbEscrowed && target.offer?.type === 'bb' && target.user === gameState?.user) {
+            const bbAmount = num(target.bbAmount, 0);
+            const refund = await adjustUserBalanceFirebase(gameState.user, bbAmount);
+            if (refund.success) {
+                gameState.balance = refund.balance;
+                updateCachedUser(gameState.user, { balance: refund.balance });
+                updateHeader();
+            }
+        }
         await getDb().ref(`marketOrders/${orderId}`).update({ status: 'cancelled', remaining: 0, updatedAt: Date.now() });
         await appendLocalNotification({ type: 'exchange', level: 'warning', title: '🚫 Ордер скасовано', message: `Ордер ${orderId} знято з книги.` });
         renderExchangeHub();
