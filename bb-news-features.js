@@ -1223,13 +1223,16 @@
     }
 
     async function transferCoins(fromUser, toUser, amount) {
-        const debit = await adjustUserBalanceFirebase(fromUser, -amount);
+        const breakdown = typeof getBbTransactionBreakdown === 'function'
+            ? getBbTransactionBreakdown(amount)
+            : { amount: num(amount, 0), fee: 0, total: num(amount, 0) };
+        const debit = await adjustUserBalanceFirebase(fromUser, -breakdown.total);
         if (!debit.success) {
             return { success: false };
         }
-        const credit = await adjustUserBalanceFirebase(toUser, amount);
+        const credit = await adjustUserBalanceFirebase(toUser, breakdown.amount);
         if (!credit.success) {
-            await adjustUserBalanceFirebase(fromUser, amount);
+            await adjustUserBalanceFirebase(fromUser, breakdown.total);
             return { success: false };
         }
         if (fromUser === gameState?.user) {
@@ -1240,7 +1243,7 @@
             gameState.balance = credit.balance;
             updateCachedUser(gameState.user, { balance: credit.balance });
         }
-        return { success: true };
+        return { success: true, amount: breakdown.amount, fee: breakdown.fee, totalAmount: breakdown.total };
     }
 
     async function placeExchangeOrder() {
@@ -1270,9 +1273,14 @@
             alert('Ви не володієте цим предметом.');
             return;
         }
-        if (payload.offer.type === 'bb' && num(gameState.balance, 0) < payload.bbAmount) {
-            alert('Недостатньо BB для цієї заявки.');
-            return;
+        if (payload.offer.type === 'bb') {
+            const escrowBreakdown = typeof getBbTransactionBreakdown === 'function'
+                ? getBbTransactionBreakdown(payload.bbAmount)
+                : { total: payload.bbAmount };
+            if (num(gameState.balance, 0) < escrowBreakdown.total) {
+                alert(`Недостатньо BB для цієї заявки. Потрібно ${escrowBreakdown.total.toFixed(4)} BB з урахуванням комісії.`);
+                return;
+            }
         }
 
         // Write the order to the database first. If the write fails we abort
@@ -1288,6 +1296,9 @@
             bbAmount: Number(payload.bbAmount.toFixed(4)),
             amount: Number(payload.bbAmount.toFixed(4)),
             remaining: Number(payload.bbAmount.toFixed(4)),
+            bbFee: payload.offer.type === 'bb' && typeof calculateBbTransactionFee === 'function'
+                ? calculateBbTransactionFee(payload.bbAmount)
+                : 0,
             summary,
             bbEscrowed: false,
             // amount/remaining are kept for backward compatibility with existing exchange widgets and stats cards.
@@ -1307,10 +1318,12 @@
         // Escrow: deduct BB after the order is confirmed in the DB.
         // If escrow deduction fails, remove the order so it cannot be fulfilled.
         if (payload.offer.type === 'bb') {
-            const escrowResult = await adjustUserBalanceFirebase(gameState.user, -payload.bbAmount);
+            const escrowFee = num(order.bbFee, 0);
+            const escrowTotal = Number((payload.bbAmount + escrowFee).toFixed(4));
+            const escrowResult = await adjustUserBalanceFirebase(gameState.user, -escrowTotal);
             if (!escrowResult.success) {
                 await ref.remove().catch(() => {});
-                alert('Не вдалося заблокувати BB для заявки. Перевірте баланс.');
+                alert(`Не вдалося заблокувати BB для заявки. Потрібно ${escrowTotal.toFixed(4)} BB з комісією ${escrowFee.toFixed(4)} BB.`);
                 return;
             }
             gameState.balance = escrowResult.balance;
@@ -1332,14 +1345,22 @@
         const offer = target.offer;
         const want = target.want;
         const bbAmount = num(target.bbAmount, 0);
+        const bbFee = target.offer?.type === 'bb' && typeof calculateBbTransactionFee === 'function'
+            ? num(target.bbFee, calculateBbTransactionFee(bbAmount))
+            : (target.want?.type === 'bb' && typeof calculateBbTransactionFee === 'function' ? calculateBbTransactionFee(bbAmount) : 0);
         if (!offer || !want || !executor) return;
         if (want.type !== 'bb' && !hasCurrentUserAsset(want)) {
             alert('Для виконання заявки у вас має бути потрібний предмет.');
             return;
         }
-        if (want.type === 'bb' && num(gameState?.balance, 0) < bbAmount) {
-            alert('Недостатньо BB для виконання заявки.');
-            return;
+        if (want.type === 'bb') {
+            const payerBreakdown = typeof getBbTransactionBreakdown === 'function'
+                ? getBbTransactionBreakdown(bbAmount)
+                : { total: bbAmount };
+            if (num(gameState?.balance, 0) < payerBreakdown.total) {
+                alert(`Недостатньо BB для виконання заявки. Потрібно ${payerBreakdown.total.toFixed(4)} BB з урахуванням комісії.`);
+                return;
+            }
         }
 
         // Determine whether BB was escrowed at order creation.
@@ -1347,6 +1368,7 @@
         // we only need to credit the executor now.
         const bbEscrowed = !!target.bbEscrowed;
         let coinTransferDone = false;
+        let coinTransferMeta = null;
         if (bbAmount > 0) {
             if (bbEscrowed && offer.type === 'bb') {
                 // BB already held in escrow; just credit the executor.
@@ -1357,6 +1379,13 @@
                 }
                 gameState.balance = creditResult.balance;
                 updateCachedUser(gameState.user, { balance: creditResult.balance });
+                coinTransferMeta = {
+                    amount: bbAmount,
+                    fee: bbFee,
+                    totalAmount: Number((bbAmount + bbFee).toFixed(4)),
+                    payer: creator,
+                    receiver: executor
+                };
                 coinTransferDone = true;
             } else {
                 // Legacy path: transfer from payer to receiver in a single atomic step.
@@ -1367,6 +1396,13 @@
                     alert('Не вдалося провести переказ BB. Перевірте баланс сторін.');
                     return;
                 }
+                coinTransferMeta = {
+                    amount: num(coinResult.amount, bbAmount),
+                    fee: num(coinResult.fee, 0),
+                    totalAmount: num(coinResult.totalAmount, bbAmount),
+                    payer,
+                    receiver
+                };
                 coinTransferDone = true;
             }
         }
@@ -1380,21 +1416,20 @@
                 // Best-effort rollback: reverse the coin transfer.
                 // Both operations are attempted; partial failure is logged but
                 // does not suppress the primary error shown to the user.
-                if (bbEscrowed && offer.type === 'bb') {
-                    // Return BB from executor back to creator (restore escrow state).
-                    const rollbackExec = await adjustUserBalanceFirebase(executor, -bbAmount);
-                    const rollbackCreator = await adjustUserBalanceFirebase(creator, bbAmount);
-                    if (rollbackExec.success && executor === gameState?.user) {
-                        gameState.balance = Math.max(0, rollbackExec.balance);
+                if (coinTransferMeta) {
+                    const rollbackReceiver = await adjustUserBalanceFirebase(coinTransferMeta.receiver, -coinTransferMeta.amount);
+                    const rollbackPayer = await adjustUserBalanceFirebase(coinTransferMeta.payer, coinTransferMeta.totalAmount);
+                    if (rollbackReceiver.success && coinTransferMeta.receiver === gameState?.user) {
+                        gameState.balance = Math.max(0, rollbackReceiver.balance);
                         updateCachedUser(gameState.user, { balance: gameState.balance });
                     }
-                    if (!rollbackExec.success || !rollbackCreator.success) {
-                        console.error('❌ Rollback parcialmente falhou — executor:', rollbackExec.success, ', creator:', rollbackCreator.success);
+                    if (rollbackPayer.success && coinTransferMeta.payer === gameState?.user) {
+                        gameState.balance = rollbackPayer.balance;
+                        updateCachedUser(gameState.user, { balance: gameState.balance });
                     }
-                } else {
-                    const rollbackFrom = offer.type === 'bb' ? executor : creator;
-                    const rollbackTo = offer.type === 'bb' ? creator : executor;
-                    await transferCoins(rollbackFrom, rollbackTo, bbAmount);
+                    if (!rollbackReceiver.success || !rollbackPayer.success) {
+                        console.error('❌ Rollback parcialmente falhou — receiver:', rollbackReceiver.success, ', payer:', rollbackPayer.success);
+                    }
                 }
             }
             alert(assetResult.error || 'Не вдалося передати предмет.');
@@ -1421,6 +1456,7 @@
             buyOrderId: offer.type === 'bb' ? orderId : null,
             sellOrderId: offer.type === 'bb' ? null : orderId,
             amount: Number(bbAmount.toFixed(4)),
+            fee: Number(bbFee.toFixed(4)),
             price: Number(newPrice.toFixed(6)),
             offer,
             want,
@@ -1445,15 +1481,19 @@
         // If creator offers an asset, creator receives BB (income) and executor spends BB (expense).
         const creatorDirection = offer.type === 'bb' ? 'expense' : 'income';
         const executorDirection = offer.type === 'bb' ? 'income' : 'expense';
+        const creatorAmount = offer.type === 'bb' ? Number((trade.amount + trade.fee).toFixed(4)) : trade.amount;
+        const executorAmount = want.type === 'bb' ? Number((trade.amount + trade.fee).toFixed(4)) : trade.amount;
         await Promise.all([
-            writeRemoteHubEntry(creator, 'transactions', { direction: creatorDirection, amount: trade.amount, source: 'exchange', reason: 'Виконана біржова заявка', details: `${formatAssetLabel(offer)} ⇄ ${formatAssetLabel(want)}`, counterparty: executor, createdAt: trade.timestamp }),
-            writeRemoteHubEntry(executor, 'transactions', { direction: executorDirection, amount: trade.amount, source: 'exchange', reason: 'Виконана біржова заявка', details: `${formatAssetLabel(offer)} ⇄ ${formatAssetLabel(want)}`, counterparty: creator, createdAt: trade.timestamp }),
+            writeRemoteHubEntry(creator, 'transactions', { direction: creatorDirection, amount: creatorAmount, source: 'exchange', reason: 'Виконана біржова заявка', details: `${formatAssetLabel(offer)} ⇄ ${formatAssetLabel(want)}${trade.fee > 0 ? ` • Комісія ${trade.fee.toFixed(4)} BB` : ''}`, counterparty: executor, createdAt: trade.timestamp }),
+            writeRemoteHubEntry(executor, 'transactions', { direction: executorDirection, amount: executorAmount, source: 'exchange', reason: 'Виконана біржова заявка', details: `${formatAssetLabel(offer)} ⇄ ${formatAssetLabel(want)}${trade.fee > 0 ? ` • Комісія ${trade.fee.toFixed(4)} BB` : ''}`, counterparty: creator, createdAt: trade.timestamp }),
             writeRemoteHubEntry(creator, 'notifications', { type: 'exchange', level: 'success', title: '✅ Заявку виконано', message: `${executor} виконав вашу заявку: ${trade.summary}`, createdAt: trade.timestamp }),
             writeRemoteHubEntry(executor, 'notifications', { type: 'exchange', level: 'success', title: '✅ Угоду виконано', message: `Виконано: ${trade.summary}`, createdAt: trade.timestamp })
         ]);
         if (creator === gameState?.user || executor === gameState?.user) {
             const localBbIncome = (creator === gameState?.user && creatorDirection === 'income') || (executor === gameState?.user && executorDirection === 'income') ? trade.amount : 0;
-            const localBbExpense = (creator === gameState?.user && creatorDirection === 'expense') || (executor === gameState?.user && executorDirection === 'expense') ? trade.amount : 0;
+            const localBbExpense = creator === gameState?.user && creatorDirection === 'expense'
+                ? creatorAmount
+                : (executor === gameState?.user && executorDirection === 'expense' ? executorAmount : 0);
             await updateLocalStats({ totalTrades: 1, exchangeVolume: trade.amount, totalProfit: localBbIncome });
             await addProgress({ totalDeals: 1, totalBought: localBbIncome, totalSold: localBbExpense });
             await evaluateAchievements();
@@ -1466,13 +1506,14 @@
         const target = state.orders.find(item => item.id === orderId);
         const needsRefund = !!(target && target.bbEscrowed && target.offer?.type === 'bb' && target.user === gameState?.user);
         const bbAmount = needsRefund ? num(target.bbAmount, 0) : 0;
+        const bbFee = needsRefund ? num(target.bbFee, typeof calculateBbTransactionFee === 'function' ? calculateBbTransactionFee(bbAmount) : 0) : 0;
 
         // Cancel the order in the database first. Only refund the escrowed BB after
         // the cancellation is confirmed, to prevent double-spending.
         await getDb().ref(`marketOrders/${orderId}`).update({ status: 'cancelled', remaining: 0, updatedAt: Date.now() });
 
         if (needsRefund && bbAmount > 0) {
-            const refund = await adjustUserBalanceFirebase(gameState.user, bbAmount);
+            const refund = await adjustUserBalanceFirebase(gameState.user, bbAmount + bbFee);
             if (refund.success) {
                 gameState.balance = refund.balance;
                 updateCachedUser(gameState.user, { balance: refund.balance });
@@ -1695,12 +1736,14 @@
         }
     });
     wrapAsync('transferCoinsFirebase', async ({ args, result }) => {
-        if (!result) return;
+        if (!result?.success) return;
         const [, recipient, amountRaw] = args;
-        const amount = num(amountRaw, 0);
+        const amount = num(result.amount, amountRaw);
+        const fee = num(result.fee, 0);
+        const totalAmount = num(result.totalAmount, amount);
         if (amount > 0) {
-            await appendLocalTransaction({ direction: 'expense', amount, source: 'transfer', reason: 'Переказ іншому гравцю', details: `Отримувач: ${recipient}`, counterparty: recipient });
-            await appendLocalNotification({ type: 'gift', level: 'info', title: '🎁 Переказ відправлено', message: `${amount.toFixed(4)} BB → ${recipient}` });
+            await appendLocalTransaction({ direction: 'expense', amount: totalAmount, source: 'transfer', reason: 'Переказ іншому гравцю', details: `Отримувач: ${recipient}${fee > 0 ? ` • Комісія: ${fee.toFixed(4)} BB` : ''}`, counterparty: recipient });
+            await appendLocalNotification({ type: 'gift', level: 'info', title: '🎁 Переказ відправлено', message: `${amount.toFixed(4)} BB → ${recipient}${fee > 0 ? ` (комісія ${fee.toFixed(4)} BB)` : ''}` });
             await updateLocalStats({ giftsSent: 1 });
             if (recipient) {
                 await Promise.all([

@@ -159,14 +159,21 @@ async function sendFriendRequestFirebaseV2(fromUser, toUser) {
 /**
  * 💳 ПЕРЕДАЧА МОНЕТ
  */
-async function transferCoinsFirebaseV2(fromUser, toUser, amount) {
+async function transferCoinsFirebaseV2(fromUser, toUser, amount, feeOverride) {
     try {
         if (!firebaseSyncState.db) {
             throw new Error('Firebase не ініціалізований');
         }
 
+        const normalizedAmount = Number((Number(amount) || 0).toFixed(4));
+        const fee = Number((Number.isFinite(Number(feeOverride))
+            ? Number(feeOverride)
+            : (typeof calculateBbTransactionFee === 'function' ? calculateBbTransactionFee(normalizedAmount) : 0)
+        ).toFixed(4));
+        const totalAmount = Number((normalizedAmount + fee).toFixed(4));
+
         // Перевірки
-        if (amount <= 0) {
+        if (normalizedAmount <= 0) {
             throw new Error('Сума повинна бути > 0');
         }
 
@@ -178,31 +185,42 @@ async function transferCoinsFirebaseV2(fromUser, toUser, amount) {
             throw new Error('Користувач не знайдений');
         }
 
-        if (fromUserData.balance < amount) {
+        if ((Number(fromUserData.balance) || 0) < totalAmount) {
             throw new Error('Недостатньо коштів');
         }
 
-        // Виконати передачу
-        const newFromBalance = fromUserData.balance - amount;
-        const newToBalance = (toUserData.balance || 0) + amount;
+        const newFromBalance = Number(((Number(fromUserData.balance) || 0) - totalAmount).toFixed(4));
+        const newToBalance = Number(((Number(toUserData.balance) || 0) + normalizedAmount).toFixed(4));
 
-        // Оновити баланси
-        await firebaseSyncState.db.ref(`users/${fromUser}/balance`).set(newFromBalance);
-        await firebaseSyncState.db.ref(`users/${toUser}/balance`).set(newToBalance);
+        await firebaseSyncState.db.ref().update({
+            [`users/${fromUser}/balance`]: newFromBalance,
+            [`users/${fromUser}/balanceUpdatedAt`]: firebase.database.ServerValue.TIMESTAMP,
+            [`users/${toUser}/balance`]: newToBalance,
+            [`users/${toUser}/balanceUpdatedAt`]: firebase.database.ServerValue.TIMESTAMP
+        });
 
         // Записати транзакцію
         await firebaseSyncState.db.ref('transactions').push({
             from: fromUser,
             to: toUser,
-            amount: amount,
+            amount: normalizedAmount,
+            fee,
+            totalAmount,
             timestamp: firebase.database.ServerValue.TIMESTAMP
         });
 
-        console.log(`✅ Передано ${amount} монет від ${fromUser} до ${toUser}`);
-        return true;
+        console.log(`✅ Передано ${normalizedAmount} монет від ${fromUser} до ${toUser} (комісія ${fee})`);
+        return {
+            success: true,
+            amount: normalizedAmount,
+            fee,
+            totalAmount,
+            senderBalance: newFromBalance,
+            recipientBalance: newToBalance
+        };
     } catch (error) {
         console.error('❌ Помилка передачі:', error);
-        return false;
+        return { success: false, amount: 0, fee: 0, totalAmount: 0, senderBalance: null, recipientBalance: null };
     }
 }
 

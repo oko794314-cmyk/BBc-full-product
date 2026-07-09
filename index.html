@@ -391,7 +391,7 @@
             <div style="font-size:12px;color:var(--text2);">BB Coin</div>
         </div>
         <div id="mbtn" class="orb" onclick="toggleMine()">START<br>MINING</div>
-        <div style="text-align:center; font-size:13px; color:var(--text2);">+0.0001 BB/сек</div>
+        <div style="text-align:center; font-size:13px; color:var(--text2);">+0.0010 BB/сек</div>
     </div>
 
     <!-- ВКЛ.2: ПЕРЕДАЧА -->
@@ -405,6 +405,7 @@
             <label style="font-size:10px; color:var(--p); margin-top:15px;">СУМА</label>
             <input type="number" id="transfer-amount" placeholder="0.0000" min="0.0001" step="0.0001">
             <button class="btn" onclick="transferCoins()" style="margin-top:15px;">ВІДПРАВИТИ</button>
+            <div class="feature-note" style="margin-top:10px;">Комісія за переказ: 5% (мін. 0.0001 BB).</div>
         </div>
     </div>
 
@@ -964,7 +965,7 @@
                     <button class="btn" onclick="bbFeatures.placeExchangeOrder()">Створити заявку</button>
                     <button class="btn secondary-btn" onclick="bbFeatures.refreshExchangeView()">Оновити списки</button>
                 </div>
-                <div class="hub-note">Оберіть, що ви віддаєте, і що хочете отримати. Для угод із BB вкажіть суму.</div>
+                <div class="hub-note">Оберіть, що ви віддаєте, і що хочете отримати. Для угод із BB вкажіть суму. BB-сторона угоди оплачує комісію 5% (мін. 0.0001 BB).</div>
             </div>
             <div class="hub-card">
                 <h4>📊 Статистика біржі</h4>
@@ -1324,6 +1325,30 @@
 
     function num(value, fallback = 0) {
         return Number.isFinite(Number(value)) ? Number(value) : fallback;
+    }
+
+    const MINING_REWARD_PER_SECOND = 0.0010;
+    const BB_TRANSACTION_FEE_RATE = 0.05;
+    const BB_TRANSACTION_MIN_FEE = 0.0001;
+
+    function roundBbAmount(value) {
+        return Number(num(value, 0).toFixed(4));
+    }
+
+    function calculateBbTransactionFee(amount) {
+        const normalizedAmount = roundBbAmount(amount);
+        if (normalizedAmount <= 0) return 0;
+        return roundBbAmount(Math.max(BB_TRANSACTION_MIN_FEE, normalizedAmount * BB_TRANSACTION_FEE_RATE));
+    }
+
+    function getBbTransactionBreakdown(amount) {
+        const normalizedAmount = roundBbAmount(amount);
+        const fee = calculateBbTransactionFee(normalizedAmount);
+        return {
+            amount: normalizedAmount,
+            fee,
+            total: roundBbAmount(normalizedAmount + fee)
+        };
     }
 
     function clamp(value, min, max) {
@@ -2256,25 +2281,34 @@
             return;
         }
 
-        const price = num(item.requestedPrice, 0);
-        const purchaseResult = await adjustUserBalanceFirebase(gameState.user, -price);
+        const { amount: price, fee, total } = getBbTransactionBreakdown(num(item.requestedPrice, 0));
+        const purchaseResult = await adjustUserBalanceFirebase(gameState.user, -total);
         if (!purchaseResult.success) {
-            alert('Недостатньо BB для покупки.');
+            alert(`Недостатньо BB для покупки. Потрібно ${total.toFixed(4)} BB з урахуванням комісії ${fee.toFixed(4)} BB.`);
             return;
         }
 
         workshopStateEx.ownedItemIds[itemId] = true;
-        await adjustUserBalanceFirebase(item.createdBy, price);
+        const sellerCredit = await adjustUserBalanceFirebase(item.createdBy, price);
+        if (!sellerCredit.success) {
+            await adjustUserBalanceFirebase(gameState.user, total);
+            delete workshopStateEx.ownedItemIds[itemId];
+            alert('Не вдалося зарахувати BB автору. Покупку скасовано.');
+            return;
+        }
         const saveSuccess = await saveWorkshopStateEx();
         if (!saveSuccess) {
-            alert('Покупку виконано, але не вдалося оновити вашу колекцію.');
+            await adjustUserBalanceFirebase(gameState.user, total);
+            await adjustUserBalanceFirebase(item.createdBy, -price);
+            delete workshopStateEx.ownedItemIds[itemId];
+            alert('Не вдалося оновити вашу колекцію. Покупку скасовано.');
             return;
         }
 
         gameState.balance = purchaseResult.balance;
         updateCachedUser(gameState.user, { balance: purchaseResult.balance });
         updateHeader();
-        showGameNotification(`🛍️ Ви придбали "${item.name}"`);
+        showGameNotification(`🛍️ Ви придбали "${item.name}" за ${price.toFixed(4)} BB + комісія ${fee.toFixed(4)} BB`);
         renderWorkshopTab();
     }
 
@@ -2342,6 +2376,7 @@
                                 <span>${escapeHtml(workshopTypeLabels[item.type] || item.type)}</span>
                                 <span>Автор: ${escapeHtml(item.creatorDisplayName || item.createdBy || '—')}</span>
                                 <span>Ціна: ${num(item.requestedPrice, 0).toFixed(2)} BB</span>
+                                <span>Комісія: ${calculateBbTransactionFee(num(item.requestedPrice, 0)).toFixed(4)} BB</span>
                             </div>
                         </div>
                         <span class="workshop-badge approved">На вітрині</span>
@@ -2964,7 +2999,7 @@
                     clearInterval(mineInterval);
                     return;
                 }
-                gameState.balance += 0.0001;
+                gameState.balance = roundBbAmount(gameState.balance + MINING_REWARD_PER_SECOND);
                 updateHeader();
                 
                 // Оновити Firebase кожні 5 секунд
@@ -3018,17 +3053,25 @@
             return;
         }
 
-        if (amount > gameState.balance) {
-            alert('Недостатньо коштів!');
+        if (recipient === gameState.user) {
+            alert('Не можна переказувати BB самому собі.');
             return;
         }
 
-        const success = await transferCoinsFirebase(gameState.user, recipient, amount);
+        const breakdown = getBbTransactionBreakdown(amount);
+
+        if (breakdown.total > gameState.balance) {
+            alert(`Недостатньо коштів! Потрібно ${breakdown.total.toFixed(4)} BB з урахуванням комісії ${breakdown.fee.toFixed(4)} BB.`);
+            return;
+        }
+
+        const result = await transferCoinsFirebase(gameState.user, recipient, breakdown.amount, breakdown.fee);
         
-        if (success) {
-            gameState.balance -= amount;
+        if (result?.success) {
+            gameState.balance = result.senderBalance;
+            updateCachedUser(gameState.user, { balance: result.senderBalance });
             updateHeader();
-            showGameNotification(`💳 Передано ${amount.toFixed(4)} BB`);
+            showGameNotification(`💳 Передано ${breakdown.amount.toFixed(4)} BB (комісія ${breakdown.fee.toFixed(4)} BB)`);
             document.getElementById('transfer-user').value = '';
             document.getElementById('transfer-amount').value = '';
         }

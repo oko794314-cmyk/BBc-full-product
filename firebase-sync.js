@@ -486,9 +486,12 @@ async function sendGameInvitationFirebase(fromUser, toUser, bet) {
 /**
  * 💳 ПЕРЕДАЧА МОНЕТ
  */
-async function transferCoinsFirebase(fromUser, toUser, amount) {
+async function transferCoinsFirebase(fromUser, toUser, amount, feeOverride) {
     try {
         const db = firebase.database();
+        const normalizedAmount = Number(firebaseNumber(amount, 0).toFixed(4));
+        const fee = Number(firebaseNumber(feeOverride, typeof calculateBbTransactionFee === 'function' ? calculateBbTransactionFee(normalizedAmount) : 0).toFixed(4));
+        const totalAmount = Number((normalizedAmount + fee).toFixed(4));
         
         // Завантажити дані обох користувачів
         const fromSnapshot = await db.ref(`users/${fromUser}`).once('value');
@@ -500,40 +503,55 @@ async function transferCoinsFirebase(fromUser, toUser, amount) {
         if (!fromData || !toData) {
             throw new Error('Користувач не знайдений');
         }
+
+        if (normalizedAmount <= 0) {
+            throw new Error('Сума повинна бути більше 0');
+        }
         
         // Перевірити баланс
-        if (fromData.balance < amount) {
+        if (firebaseNumber(fromData.balance, 0) < totalAmount) {
             throw new Error('Недостатньо коштів');
         }
         
-        // Виконати передачу
-        fromData.balance -= amount;
-        toData.balance += amount;
+        const newFromBalance = Number((firebaseNumber(fromData.balance, 0) - totalAmount).toFixed(4));
+        const newToBalance = Number((firebaseNumber(toData.balance, 0) + normalizedAmount).toFixed(4));
         
-        // Зберегти зміни
-        await db.ref(`users/${fromUser}/balance`).set(fromData.balance);
-        await db.ref(`users/${toUser}/balance`).set(toData.balance);
+        await db.ref().update({
+            [`users/${fromUser}/balance`]: newFromBalance,
+            [`users/${fromUser}/balanceUpdatedAt`]: firebase.database.ServerValue.TIMESTAMP,
+            [`users/${toUser}/balance`]: newToBalance,
+            [`users/${toUser}/balanceUpdatedAt`]: firebase.database.ServerValue.TIMESTAMP
+        });
         
         // Записати транзакцію в історію (non-critical — помилка не скасовує передачу)
         try {
             await db.ref(`transactions`).push({
                 from: fromUser,
                 to: toUser,
-                amount: amount,
+                amount: normalizedAmount,
+                fee: fee,
+                totalAmount: totalAmount,
                 timestamp: firebase.database.ServerValue.TIMESTAMP
             });
         } catch (txError) {
             console.warn('⚠️ Помилка запису транзакції (передача все одно виконана):', txError);
         }
         
-        console.log(`💳 Передача ${amount} від ${fromUser} до ${toUser}`);
+        console.log(`💳 Передача ${normalizedAmount} від ${fromUser} до ${toUser} (комісія ${fee})`);
         updateSyncIndicator(true);
-        return true;
+        return {
+            success: true,
+            amount: normalizedAmount,
+            fee,
+            totalAmount,
+            senderBalance: newFromBalance,
+            recipientBalance: newToBalance
+        };
         
     } catch (error) {
         console.error('❌ Помилка передачі:', error);
         updateSyncIndicator(false);
-        return false;
+        return { success: false, amount: 0, fee: 0, totalAmount: 0, senderBalance: null, recipientBalance: null };
     }
 }
 
