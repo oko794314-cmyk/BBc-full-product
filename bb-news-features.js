@@ -1326,22 +1326,11 @@
             return;
         }
 
-        // Escrow: deduct BB after the order is confirmed in the DB.
-        // If escrow deduction fails, remove the order so it cannot be fulfilled.
-        if (payload.offer.type === 'bb') {
-            const escrowFee = getExchangeBbFee(order, payload.bbAmount);
-            const escrowTotal = Number((payload.bbAmount + escrowFee).toFixed(4));
-            const escrowResult = await adjustUserBalanceFirebase(gameState.user, -escrowTotal);
-            if (!escrowResult.success) {
-                await ref.remove().catch(() => {});
-                alert(`Не вдалося заблокувати BB для заявки. Потрібно ${escrowTotal.toFixed(4)} BB з комісією ${escrowFee.toFixed(4)} BB.`);
-                return;
-            }
-            gameState.balance = escrowResult.balance;
-            updateCachedUser(gameState.user, { balance: escrowResult.balance });
-            updateHeader();
-            await ref.update({ bbEscrowed: true });
-        }
+        // BB is NOT deducted at order creation.
+        // It is transferred at the moment the order is fulfilled (see fulfillOrder legacy path).
+        // If the creator's balance is insufficient at fulfillment time, transferCoins will
+        // fail and the order will not execute. Fees are applied at that point via
+        // getBbTransactionBreakdown inside transferCoins.
         const amountInput = document.getElementById('exchange-order-bb-amount');
         if (amountInput) amountInput.value = '';
         await appendLocalNotification({ type: 'exchange', level: 'info', title: '💹 Нова заявка на біржі', message: summary });
