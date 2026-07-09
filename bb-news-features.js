@@ -1327,7 +1327,10 @@
         }
 
         // BB is NOT deducted at order creation.
-        // It will be transferred at the moment the order is fulfilled (see fulfillOrder).
+        // It is transferred at the moment the order is fulfilled (see fulfillOrder legacy path).
+        // If the creator's balance is insufficient at fulfillment time, transferCoins will
+        // fail and the order will not execute. Fees are applied at that point via
+        // getBbTransactionBreakdown inside transferCoins.
         const amountInput = document.getElementById('exchange-order-bb-amount');
         if (amountInput) amountInput.value = '';
         await appendLocalNotification({ type: 'exchange', level: 'info', title: '💹 Нова заявка на біржі', message: summary });
