@@ -1490,6 +1490,7 @@
         // If creator offers an asset, creator receives BB (income) and executor spends BB (expense).
         const creatorDirection = offer.type === 'bb' ? 'expense' : 'income';
         const executorDirection = offer.type === 'bb' ? 'income' : 'expense';
+        // Only the BB payer covers the fee: creator when offering BB, executor when giving BB.
         const creatorAmount = offer.type === 'bb' ? Number((trade.amount + trade.fee).toFixed(4)) : trade.amount;
         const executorAmount = want.type === 'bb' ? Number((trade.amount + trade.fee).toFixed(4)) : trade.amount;
         await Promise.all([
@@ -1515,7 +1516,7 @@
         const target = state.orders.find(item => item.id === orderId);
         const needsRefund = !!(target && target.bbEscrowed && target.offer?.type === 'bb' && target.user === gameState?.user);
         const bbAmount = needsRefund ? num(target.bbAmount, 0) : 0;
-        const bbFee = needsRefund ? num(target.bbFee, typeof calculateBbTransactionFee === 'function' ? calculateBbTransactionFee(bbAmount) : 0) : 0;
+        const bbFee = needsRefund ? getExchangeBbFee(target, bbAmount) : 0;
 
         // Cancel the order in the database first. Only refund the escrowed BB after
         // the cancellation is confirmed, to prevent double-spending.

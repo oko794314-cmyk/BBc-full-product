@@ -1331,8 +1331,8 @@
     const BB_TRANSACTION_FEE_RATE_DECIMAL = 0.05;
     const BB_TRANSACTION_MIN_FEE = 0.0001;
 
-    function roundBbAmount(value) {
-        return Number(num(value, 0).toFixed(4));
+    function roundBbAmount(bbAmount) {
+        return Number(num(bbAmount, 0).toFixed(4));
     }
 
     function calculateBbTransactionFee(amount) {
