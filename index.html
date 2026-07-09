@@ -2291,17 +2291,39 @@
         workshopStateEx.ownedItemIds[itemId] = true;
         const sellerCredit = await adjustUserBalanceFirebase(item.createdBy, price);
         if (!sellerCredit.success) {
-            await adjustUserBalanceFirebase(gameState.user, total);
-            delete workshopStateEx.ownedItemIds[itemId];
-            alert('Не вдалося зарахувати BB автору. Покупку скасовано.');
+            const refundResult = await adjustUserBalanceFirebase(gameState.user, total);
+            if (refundResult.success) {
+                gameState.balance = refundResult.balance;
+                updateCachedUser(gameState.user, { balance: refundResult.balance });
+                delete workshopStateEx.ownedItemIds[itemId];
+            } else {
+                gameState.balance = purchaseResult.balance;
+                updateCachedUser(gameState.user, { balance: purchaseResult.balance });
+            }
+            updateHeader();
+            alert(refundResult.success
+                ? 'Не вдалося зарахувати BB автору. Покупку скасовано.'
+                : 'Не вдалося зарахувати BB автору й повернути кошти покупцю. Перевірте баланс вручну.');
             return;
         }
         const saveSuccess = await saveWorkshopStateEx();
         if (!saveSuccess) {
-            await adjustUserBalanceFirebase(gameState.user, total);
-            await adjustUserBalanceFirebase(item.createdBy, -price);
-            delete workshopStateEx.ownedItemIds[itemId];
-            alert('Не вдалося оновити вашу колекцію. Покупку скасовано.');
+            const buyerRefund = await adjustUserBalanceFirebase(gameState.user, total);
+            const sellerRollback = await adjustUserBalanceFirebase(item.createdBy, -price);
+            if (buyerRefund.success) {
+                gameState.balance = buyerRefund.balance;
+                updateCachedUser(gameState.user, { balance: buyerRefund.balance });
+            } else {
+                gameState.balance = purchaseResult.balance;
+                updateCachedUser(gameState.user, { balance: purchaseResult.balance });
+            }
+            if (buyerRefund.success && sellerRollback.success) {
+                delete workshopStateEx.ownedItemIds[itemId];
+            }
+            updateHeader();
+            alert(buyerRefund.success && sellerRollback.success
+                ? 'Не вдалося оновити вашу колекцію. Покупку скасовано.'
+                : 'Не вдалося повністю скасувати покупку після помилки збереження. Перевірте баланс вручну.');
             return;
         }
 

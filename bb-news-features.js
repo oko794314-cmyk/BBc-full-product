@@ -1329,7 +1329,7 @@
         // Escrow: deduct BB after the order is confirmed in the DB.
         // If escrow deduction fails, remove the order so it cannot be fulfilled.
         if (payload.offer.type === 'bb') {
-            const escrowFee = num(order.bbFee, 0);
+            const escrowFee = getExchangeBbFee(order, payload.bbAmount);
             const escrowTotal = Number((payload.bbAmount + escrowFee).toFixed(4));
             const escrowResult = await adjustUserBalanceFirebase(gameState.user, -escrowTotal);
             if (!escrowResult.success) {
