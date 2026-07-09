@@ -1328,7 +1328,7 @@
     }
 
     const MINING_REWARD_PER_SECOND = 0.0010;
-    const BB_TRANSACTION_FEE_RATE = 0.05;
+    const BB_TRANSACTION_FEE_RATE_DECIMAL = 0.05;
     const BB_TRANSACTION_MIN_FEE = 0.0001;
 
     function roundBbAmount(value) {
@@ -1338,7 +1338,7 @@
     function calculateBbTransactionFee(amount) {
         const normalizedAmount = roundBbAmount(amount);
         if (normalizedAmount <= 0) return 0;
-        return roundBbAmount(Math.max(BB_TRANSACTION_MIN_FEE, normalizedAmount * BB_TRANSACTION_FEE_RATE));
+        return roundBbAmount(Math.max(BB_TRANSACTION_MIN_FEE, normalizedAmount * BB_TRANSACTION_FEE_RATE_DECIMAL));
     }
 
     function getBbTransactionBreakdown(amount) {

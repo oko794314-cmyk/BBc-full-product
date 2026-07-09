@@ -207,6 +207,17 @@
         return options;
     }
 
+    function getExchangeBbFee(order, amount) {
+        if (typeof calculateBbTransactionFee !== 'function') return 0;
+        if (order?.offer?.type === 'bb') {
+            return num(order.bbFee, calculateBbTransactionFee(amount));
+        }
+        if (order?.want?.type === 'bb') {
+            return calculateBbTransactionFee(amount);
+        }
+        return 0;
+    }
+
     function getDesiredOrderAssets() {
         const options = [{ value: 'bb:', label: '💰 BB Coin' }];
         if (typeof carsCatalog !== 'undefined' && Array.isArray(carsCatalog)) {
@@ -1345,9 +1356,7 @@
         const offer = target.offer;
         const want = target.want;
         const bbAmount = num(target.bbAmount, 0);
-        const bbFee = target.offer?.type === 'bb' && typeof calculateBbTransactionFee === 'function'
-            ? num(target.bbFee, calculateBbTransactionFee(bbAmount))
-            : (target.want?.type === 'bb' && typeof calculateBbTransactionFee === 'function' ? calculateBbTransactionFee(bbAmount) : 0);
+        const bbFee = getExchangeBbFee(target, bbAmount);
         if (!offer || !want || !executor) return;
         if (want.type !== 'bb' && !hasCurrentUserAsset(want)) {
             alert('Для виконання заявки у вас має бути потрібний предмет.');

@@ -486,11 +486,21 @@ async function sendGameInvitationFirebase(fromUser, toUser, bet) {
 /**
  * 💳 ПЕРЕДАЧА МОНЕТ
  */
+function resolveTransferFee(amount, feeOverride) {
+    const normalizedAmount = Number(firebaseNumber(amount, 0).toFixed(4));
+    const defaultFee = typeof calculateBbTransactionFee === 'function'
+        ? calculateBbTransactionFee(normalizedAmount)
+        : 0;
+    return {
+        amount: normalizedAmount,
+        fee: Number(firebaseNumber(feeOverride, defaultFee).toFixed(4))
+    };
+}
+
 async function transferCoinsFirebase(fromUser, toUser, amount, feeOverride) {
     try {
         const db = firebase.database();
-        const normalizedAmount = Number(firebaseNumber(amount, 0).toFixed(4));
-        const fee = Number(firebaseNumber(feeOverride, typeof calculateBbTransactionFee === 'function' ? calculateBbTransactionFee(normalizedAmount) : 0).toFixed(4));
+        const { amount: normalizedAmount, fee } = resolveTransferFee(amount, feeOverride);
         const totalAmount = Number((normalizedAmount + fee).toFixed(4));
         
         // Завантажити дані обох користувачів
@@ -506,6 +516,10 @@ async function transferCoinsFirebase(fromUser, toUser, amount, feeOverride) {
 
         if (normalizedAmount <= 0) {
             throw new Error('Сума повинна бути більше 0');
+        }
+
+        if (fromUser === toUser) {
+            throw new Error('Не можна переказувати BB самому собі');
         }
         
         // Перевірити баланс

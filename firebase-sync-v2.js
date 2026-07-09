@@ -159,22 +159,33 @@ async function sendFriendRequestFirebaseV2(fromUser, toUser) {
 /**
  * 💳 ПЕРЕДАЧА МОНЕТ
  */
+function resolveTransferFeeV2(amount, feeOverride) {
+    const normalizedAmount = Number((Number(amount) || 0).toFixed(4));
+    const defaultFee = typeof calculateBbTransactionFee === 'function'
+        ? calculateBbTransactionFee(normalizedAmount)
+        : 0;
+    return {
+        amount: normalizedAmount,
+        fee: Number((Number.isFinite(Number(feeOverride)) ? Number(feeOverride) : defaultFee).toFixed(4))
+    };
+}
+
 async function transferCoinsFirebaseV2(fromUser, toUser, amount, feeOverride) {
     try {
         if (!firebaseSyncState.db) {
             throw new Error('Firebase не ініціалізований');
         }
 
-        const normalizedAmount = Number((Number(amount) || 0).toFixed(4));
-        const fee = Number((Number.isFinite(Number(feeOverride))
-            ? Number(feeOverride)
-            : (typeof calculateBbTransactionFee === 'function' ? calculateBbTransactionFee(normalizedAmount) : 0)
-        ).toFixed(4));
+        const { amount: normalizedAmount, fee } = resolveTransferFeeV2(amount, feeOverride);
         const totalAmount = Number((normalizedAmount + fee).toFixed(4));
 
         // Перевірки
         if (normalizedAmount <= 0) {
             throw new Error('Сума повинна бути > 0');
+        }
+
+        if (fromUser === toUser) {
+            throw new Error('Не можна переказувати BB самому собі');
         }
 
         // Завантажити дані обох користувачів
