@@ -48,7 +48,7 @@
         .c { aspect-ratio: 1; background: #161A1E; border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 900; border-radius: 10px; cursor: pointer; }
         .c:hover { border-color: var(--p); transform: scale(1.05); box-shadow: 0 0 10px rgba(240,185,11,0.3); }
 
-        nav { position: fixed; bottom: 0; width: 100%; display: grid; grid-template-columns: repeat(15, minmax(80px, 1fr)); background: #161A1E; border-top: 1px solid var(--border); padding: 10px 0 var(--app-nav-safe-bottom); z-index: 50; box-shadow: 0 -4px 24px rgba(0,0,0,0.6); overflow-x: auto; }
+        nav { position: fixed; bottom: 0; width: 100%; display: grid; grid-template-columns: repeat(18, minmax(80px, 1fr)); background: #161A1E; border-top: 1px solid var(--border); padding: 10px 0 var(--app-nav-safe-bottom); z-index: 50; box-shadow: 0 -4px 24px rgba(0,0,0,0.6); overflow-x: auto; }
         .tab { text-align: center; color: var(--text2); font-size: 22px; cursor: pointer; transition: all 0.3s; min-width: 78px; padding: 4px 0; }
         .tab.active { color: var(--p); animation: tabPulse 0.4s ease; }
         @keyframes tabPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.2); } }
@@ -313,6 +313,70 @@
         /* ===== MINOR DESIGN TWEAKS ===== */
         .nav-tab { transition:color .2s, border-color .2s, box-shadow .2s; }
         .nav-tab.active { box-shadow:0 2px 10px rgba(7,255,255,0.18); border-radius:8px 8px 0 0; }
+
+        /* ===== USDT BADGE ===== */
+        .usdt-badge { font-size:11px; color:#26A17B; font-weight:900; margin-top:2px; }
+
+        /* ===== WORK / PROFESSION ===== */
+        .job-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px; }
+        .job-card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:16px; transition:border-color .2s; }
+        .job-card.active-job { border-color:var(--g); box-shadow:0 0 14px rgba(14,203,129,0.12); }
+        .job-icon { font-size:2.2rem; margin-bottom:8px; }
+        .job-name { font-size:13px; font-weight:900; color:var(--p); margin-bottom:4px; }
+        .job-meta { font-size:11px; color:var(--text2); line-height:1.6; }
+        .job-xp-bar { height:5px; background:#111; border-radius:999px; margin-top:6px; overflow:hidden; }
+        .job-xp-fill { height:100%; background:var(--g); border-radius:999px; transition:width .4s; }
+        .work-btn { width:100%; padding:14px; border:none; border-radius:10px; font-weight:900; font-size:14px; cursor:pointer; font-family:'Orbitron',sans-serif; text-transform:uppercase; transition:all .2s; }
+        .work-btn.ready { background:var(--g); color:#000; }
+        .work-btn.busy { background:#111; color:#555; border:1px solid #333; cursor:not-allowed; }
+        #work-cooldown-bar { height:6px; background:#111; border-radius:999px; margin-top:8px; overflow:hidden; display:none; }
+        #work-cooldown-fill { height:100%; background:var(--p); border-radius:999px; transition:width .5s linear; }
+
+        /* ===== BANK ===== */
+        .loan-card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:16px; margin-bottom:10px; }
+        .loan-card.overdue { border-color:var(--r); box-shadow:0 0 10px rgba(246,70,93,0.15); }
+        .loan-stat-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:8px; margin-bottom:12px; }
+        .bank-subtabs { display:flex; gap:4px; margin-bottom:15px; border-bottom:1px solid var(--border); }
+        .bank-subtab { padding:10px 14px; font-size:12px; color:var(--text2); cursor:pointer; border-bottom:2px solid transparent; transition:.2s; text-transform:uppercase; letter-spacing:1px; font-weight:700; }
+        .bank-subtab.active { color:var(--p); border-bottom-color:var(--p); }
+        .bank-panel { display:none; }
+        .bank-panel.active { display:block; }
+
+        /* ===== STOCKS / BUSINESS ===== */
+        .stocks-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; }
+        .stock-card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px; }
+        .stock-price-up { color:var(--g); }
+        .stock-price-down { color:var(--r); }
+        .business-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; }
+        .business-card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px; }
+        .business-card.owned { border-color:var(--gold); box-shadow:0 0 10px rgba(240,185,11,0.12); }
+        .stocks-subtabs { display:flex; gap:4px; margin-bottom:15px; border-bottom:1px solid var(--border); }
+        .stocks-subtab { padding:10px 14px; font-size:12px; color:var(--text2); cursor:pointer; border-bottom:2px solid transparent; transition:.2s; text-transform:uppercase; letter-spacing:1px; font-weight:700; }
+        .stocks-subtab.active { color:var(--p); border-bottom-color:var(--p); }
+        .stocks-panel { display:none; }
+        .stocks-panel.active { display:block; }
+
+        /* ===== MINES GAME ===== */
+        .mines-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; max-width:300px; margin:16px auto; }
+        .mine-cell { aspect-ratio:1; background:var(--card); border:2px solid var(--border); border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:2rem; cursor:pointer; transition:all .2s; }
+        .mine-cell:hover:not([disabled]) { border-color:var(--p); transform:scale(1.05); box-shadow:0 0 12px rgba(240,185,11,0.3); }
+        .mine-cell.revealed-gem { border-color:var(--g); background:rgba(14,203,129,0.1); }
+        .mine-cell.revealed-mine { border-color:var(--r); background:rgba(246,70,93,0.1); }
+        .mine-cell[disabled] { cursor:not-allowed; }
+
+        /* ===== TOURNAMENT ===== */
+        .bracket-wrap { overflow-x:auto; padding-bottom:10px; }
+        .bracket-stage-label { font-size:10px; color:var(--text2); letter-spacing:2px; text-transform:uppercase; margin-bottom:8px; }
+        .bracket-match { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:10px; margin-bottom:8px; }
+        .bracket-player { padding:5px 8px; border-radius:6px; font-size:12px; font-weight:700; margin:2px 0; }
+        .bracket-player.winner { background:rgba(14,203,129,0.15); color:var(--g); border:1px solid rgba(14,203,129,0.3); }
+        .bracket-player.loser { opacity:0.4; }
+        .tournament-item { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:12px; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
+        .tournament-item.my-tournament { border-color:rgba(240,185,11,0.4); }
+
+        /* ===== WEEKLY QUEST ===== */
+        .weekly-quest-card { background:linear-gradient(135deg, rgba(240,185,11,0.08), rgba(14,203,129,0.05)); border:1px solid rgba(240,185,11,0.35); border-radius:14px; padding:16px; margin-bottom:12px; }
+        .promo-badge { display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:999px; background:rgba(240,185,11,0.15); border:1px solid rgba(240,185,11,0.4); color:var(--gold); font-size:12px; font-weight:900; letter-spacing:1px; font-family:monospace; }
     </style>
 </head>
 <body>
@@ -378,6 +442,7 @@
         <div style="text-align:center;">
             <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;">BB Баланс</div>
             <b id="h-b" style="font-size:18px;color:var(--g);font-weight:900;">0.0000</b>
+            <div id="h-usdt" class="usdt-badge">💵 USDT: 0.00</div>
             <div id="h-p" style="font-size:11px;color:var(--gold);margin-top:2px;">🏆 0</div>
         </div>
         <img id="h-a" class="av" src="https://api.dicebear.com/7.x/avataaars/svg?seed=default" alt="avatar" onclick="openAvatarModal()">
@@ -389,6 +454,7 @@
             <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;">BB Баланс</div>
             <h1 id="v-bal" style="text-align:center; font-size:3.2rem; margin:10px 0 4px; font-weight:900; color:var(--g);">0.0000</h1>
             <div style="font-size:12px;color:var(--text2);">BB Coin</div>
+            <div id="v-usdt" style="font-size:14px;color:#26A17B;font-weight:900;margin-top:4px;">💵 0.00 USDT</div>
         </div>
         <div id="mbtn" class="orb" onclick="toggleMine()">START<br>MINING</div>
         <div style="text-align:center; font-size:13px; color:var(--text2);">+0.0010 BB/сек</div>
@@ -419,6 +485,8 @@
             <div class="casino-subtab" onclick="switchCasinoTab('slots')" id="cs-slots">🎰 Слоти</div>
             <div class="casino-subtab" onclick="switchCasinoTab('rps')" id="cs-rps">✊ КНП (PvP)</div>
             <div class="casino-subtab" onclick="switchCasinoTab('rps-online')" id="cs-rps-online">🌐 КНП Online</div>
+            <div class="casino-subtab" onclick="switchCasinoTab('tournament')" id="cs-tournament">🏆 Турнір</div>
+            <div class="casino-subtab" onclick="switchCasinoTab('mines')" id="cs-mines">💣 Міни</div>
         </div>
 
         <!-- Рулетка -->
@@ -618,6 +686,58 @@
                 </div>
             </div>
 
+        </div>
+
+        <!-- Турнір КНП -->
+        <div id="casino-tournament" style="display:none;">
+            <div class="glass">
+                <p style="font-size:12px; color:var(--p); margin:0 0 10px; font-weight:900; letter-spacing:1px;">🏆 ТУРНІР КНП</p>
+                <div id="tournament-my-status"></div>
+                <div id="tournament-create-section">
+                    <input type="text" id="tournament-name-input" placeholder="Назва турніру..." style="margin-bottom:8px;">
+                    <input type="password" id="tournament-pass-input" placeholder="Пароль (не обов'язково)" style="margin-bottom:8px;">
+                    <button class="btn" onclick="createTournament()" style="margin-bottom:12px;">➕ СТВОРИТИ ТУРНІР</button>
+                </div>
+            </div>
+            <div class="glass">
+                <p style="font-size:11px; color:var(--text2); margin:0 0 10px; letter-spacing:1px; text-transform:uppercase;">ВІДКРИТІ ТУРНІРИ</p>
+                <div id="tournament-list"></div>
+                <button class="btn secondary-btn" onclick="loadTournaments()" style="margin-top:10px; font-size:11px;">🔄 ОНОВИТИ</button>
+            </div>
+            <div id="tournament-bracket-section" style="display:none;">
+                <div class="glass">
+                    <p style="font-size:12px; color:var(--p); margin:0 0 12px; font-weight:900;">🏟️ СІТКА ТУРНІРУ</p>
+                    <div id="tournament-title-display" style="font-size:14px; color:var(--gold); margin-bottom:8px;"></div>
+                    <div id="tournament-bracket"></div>
+                    <div id="tournament-match-area" style="display:none; margin-top:15px;">
+                        <div class="glass" style="text-align:center; background:rgba(240,185,11,0.05); border-color:rgba(240,185,11,0.3);">
+                            <p style="margin:0 0 8px; font-size:11px; color:var(--gold); letter-spacing:2px;">ВАШ МАТ</p>
+                            <div id="tournament-match-vs" style="font-size:13px; color:var(--text); margin-bottom:12px;"></div>
+                            <div style="display:flex; gap:8px; justify-content:center;">
+                                <button class="rps-choice-btn" onclick="tournamentChoose('rock')">✊<br><small style="font-size:8px;">КАМІНЬ</small></button>
+                                <button class="rps-choice-btn" onclick="tournamentChoose('scissors')">✌️<br><small style="font-size:8px;">НОЖИЦІ</small></button>
+                                <button class="rps-choice-btn" onclick="tournamentChoose('paper')">🖐️<br><small style="font-size:8px;">ПАПІР</small></button>
+                            </div>
+                            <div id="tournament-match-result" style="margin-top:10px; font-size:13px; font-weight:900;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Гра Міни -->
+        <div id="casino-mines" style="display:none;">
+            <div class="glass" style="text-align:center;">
+                <p style="margin:0 0 6px; font-size:12px; color:var(--p); letter-spacing:1px; font-weight:900;">💣 МІНИ</p>
+                <div style="font-size:12px; color:var(--text2); margin-bottom:12px;">9 клітинок • 3 міни • Відкрий всі 6 💎 → x10</div>
+                <div style="display:flex; gap:8px; align-items:center; justify-content:center; margin-bottom:12px;">
+                    <input type="number" id="mines-bet" placeholder="СТАВКА BB" min="0.001" step="0.001" style="max-width:180px;">
+                    <button class="btn" id="mines-start-btn" onclick="startMinesGame()" style="width:auto; padding:10px 18px;">▶ СТАРТ</button>
+                </div>
+                <div id="mines-status" style="font-size:13px; font-weight:900; min-height:20px; margin-bottom:8px;"></div>
+                <div class="mines-grid" id="mines-grid"></div>
+                <div id="mines-result" style="margin-top:12px; font-size:14px; font-weight:900; min-height:22px;"></div>
+            </div>
         </div>
 
     </div><!-- /tab3 Casino -->
@@ -1070,6 +1190,17 @@
         <h3 style="margin-top:0;">🏅 ДОСЯГНЕННЯ</h3>
         <div id="achievements-summary" class="market-stats" style="margin-bottom:12px;"></div>
         <div id="achievements-list" class="achievement-grid" style="margin-bottom:15px;"></div>
+        <div class="glass" style="margin-bottom:12px;">
+            <h4 style="margin:0 0 10px; color:var(--gold);">🗓️ Тижневий квест</h4>
+            <div id="weekly-quest-container"></div>
+        </div>
+        <div class="glass" style="margin-bottom:12px;">
+            <h4 style="margin:0 0 10px; color:var(--gold);">🎁 Активувати промокод</h4>
+            <div style="display:flex; gap:8px;">
+                <input type="text" id="promo-code-input" placeholder="Введіть промокод..." style="flex:1; text-transform:uppercase;">
+                <button class="btn" style="width:auto; padding:10px 16px;" onclick="usePromoCode(document.getElementById('promo-code-input').value)">АКТИВУВАТИ</button>
+            </div>
+        </div>
         <div class="glass">
             <h4 style="margin:0 0 10px; color:var(--gold);">🎯 Квести</h4>
             <div id="quests-list"></div>
@@ -1085,6 +1216,155 @@
                 <button class="btn secondary-btn" style="width:auto;" onclick="bbFeatures.renderNotificationCenter()">ОНОВИТИ</button>
             </div>
             <div id="notifications-list" class="list-stack"></div>
+        </div>
+    </div>
+
+    <!-- ВКЛ.16: РОБОТА -->
+    <div id="tab16" class="view">
+        <h3 style="margin-top:0;">💼 РОБОТА</h3>
+        <div class="glass">
+            <div class="feature-stat-grid">
+                <div class="feature-stat">
+                    <div class="feature-stat-label">ПОТОЧНА ПРОФЕСІЯ</div>
+                    <div id="work-current-job" class="feature-stat-value">—</div>
+                </div>
+                <div class="feature-stat">
+                    <div class="feature-stat-label">ДОСВІД РОБОТИ</div>
+                    <div id="work-xp-display" class="feature-stat-value">0 XP</div>
+                </div>
+                <div class="feature-stat">
+                    <div class="feature-stat-label">ЗАРОБЛЕНО USDT</div>
+                    <div id="work-earned-usdt" class="feature-stat-value" style="color:#26A17B;">0.00</div>
+                </div>
+                <div class="feature-stat">
+                    <div class="feature-stat-label">НАСТУПНА РОБОТА</div>
+                    <div id="work-next-time" class="feature-stat-value">—</div>
+                </div>
+            </div>
+            <div style="margin-top:12px;">
+                <button id="work-do-btn" class="work-btn ready" onclick="doWork()">⚒️ ПРАЦЮВАТИ</button>
+                <div id="work-cooldown-bar"><div id="work-cooldown-fill" style="width:0%;"></div></div>
+            </div>
+        </div>
+        <h4 style="color:var(--gold); margin:15px 0 8px;">🎓 ОБЕРІТЬ ПРОФЕСІЮ</h4>
+        <div class="job-grid" id="jobs-list"></div>
+    </div>
+
+    <!-- ВКЛ.17: БАНК -->
+    <div id="tab17" class="view">
+        <h3 style="margin-top:0;">🏦 БАНК</h3>
+        <div class="bank-subtabs">
+            <div class="bank-subtab active" onclick="switchBankTab('loans')">💳 Кредити</div>
+            <div class="bank-subtab" onclick="switchBankTab('history')">📋 Історія</div>
+            <div class="bank-subtab" onclick="switchBankTab('stats')">📊 Статистика</div>
+        </div>
+
+        <!-- Панель кредитів -->
+        <div id="bank-panel-loans" class="bank-panel active">
+            <div class="loan-stat-grid">
+                <div class="feature-stat">
+                    <div class="feature-stat-label">АКТИВНІ КРЕДИТИ</div>
+                    <div id="bank-active-loans-count" class="feature-stat-value">0</div>
+                </div>
+                <div class="feature-stat">
+                    <div class="feature-stat-label">ЗАГАЛЬНИЙ БОРГ</div>
+                    <div id="bank-total-debt" class="feature-stat-value" style="color:var(--r);">0.00</div>
+                </div>
+                <div class="feature-stat">
+                    <div class="feature-stat-label">КРЕДИТНИЙ ЛІМІТ BB</div>
+                    <div id="bank-bb-limit" class="feature-stat-value">500 BB</div>
+                </div>
+                <div class="feature-stat">
+                    <div class="feature-stat-label">КРЕДИТНИЙ ЛІМІТ USDT</div>
+                    <div id="bank-usdt-limit" class="feature-stat-value" style="color:#26A17B;">200 USDT</div>
+                </div>
+            </div>
+            <div class="glass">
+                <h4 style="margin:0 0 10px; color:var(--gold);">💳 Взяти кредит</h4>
+                <select id="loan-currency" style="margin-bottom:8px;">
+                    <option value="bb">BB Coin</option>
+                    <option value="usdt">USDT</option>
+                </select>
+                <input type="number" id="loan-amount" placeholder="Сума..." min="1" step="0.01" style="margin-bottom:8px;">
+                <div style="font-size:11px; color:var(--text2); margin-bottom:8px;">Відсоток: <b style="color:var(--p);">5% на тиждень</b> | Прострочення: штраф <b style="color:var(--r);">+20%</b></div>
+                <input type="date" id="loan-return-date" style="margin-bottom:8px;">
+                <button class="btn" onclick="takeLoan()">ОТРИМАТИ КРЕДИТ</button>
+            </div>
+            <h4 style="color:var(--gold); margin:15px 0 8px;">📃 Мої кредити</h4>
+            <div id="active-loans-list"></div>
+        </div>
+
+        <!-- Панель історії -->
+        <div id="bank-panel-history" class="bank-panel">
+            <div class="glass">
+                <input type="text" id="bank-history-search" placeholder="Пошук..." oninput="renderBankHistory()" style="margin-bottom:10px;">
+                <select id="bank-history-filter" onchange="renderBankHistory()" style="margin-bottom:10px;">
+                    <option value="all">Всі операції</option>
+                    <option value="loan">Кредити</option>
+                    <option value="repay">Погашення</option>
+                    <option value="penalty">Штрафи</option>
+                    <option value="work">Робота</option>
+                </select>
+                <div id="bank-history-list" class="list-stack"></div>
+            </div>
+        </div>
+
+        <!-- Панель статистики -->
+        <div id="bank-panel-stats" class="bank-panel">
+            <div id="bank-stats-grid" class="market-stats" style="margin-bottom:12px;"></div>
+            <div class="glass">
+                <h4 style="margin:0 0 10px; color:var(--gold);">📅 Витрати за період</h4>
+                <select id="bank-stats-period" onchange="renderBankStats()" style="margin-bottom:10px;">
+                    <option value="7">Останні 7 днів</option>
+                    <option value="30">Останні 30 днів</option>
+                    <option value="all">Весь час</option>
+                </select>
+                <div id="bank-stats-chart"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ВКЛ.18: АКЦІЇ ТА БІЗНЕС -->
+    <div id="tab18" class="view">
+        <h3 style="margin-top:0;">📈 АКЦІЇ ТА БІЗНЕС</h3>
+        <div class="stocks-subtabs">
+            <div class="stocks-subtab active" onclick="switchStocksTab('stocks')">📊 Акції</div>
+            <div class="stocks-subtab" onclick="switchStocksTab('business')">🏢 Бізнес</div>
+            <div class="stocks-subtab" onclick="switchStocksTab('portfolio')">💼 Портфель</div>
+        </div>
+
+        <!-- Акції -->
+        <div id="stocks-panel-stocks" class="stocks-panel active">
+            <div class="glass" style="margin-bottom:12px;">
+                <div class="feature-stat-grid">
+                    <div class="feature-stat">
+                        <div class="feature-stat-label">РИНКОВА ВАРТІСТЬ</div>
+                        <div id="stocks-portfolio-value" class="feature-stat-value">0.00 BB</div>
+                    </div>
+                    <div class="feature-stat">
+                        <div class="feature-stat-label">ПРИБУТОК / ЗБИТОК</div>
+                        <div id="stocks-portfolio-pnl" class="feature-stat-value">0.00 BB</div>
+                    </div>
+                </div>
+            </div>
+            <div class="stocks-grid" id="stocks-list"></div>
+        </div>
+
+        <!-- Бізнес -->
+        <div id="stocks-panel-business" class="stocks-panel">
+            <div class="business-grid" id="business-list"></div>
+        </div>
+
+        <!-- Портфель -->
+        <div id="stocks-panel-portfolio" class="stocks-panel">
+            <div class="glass">
+                <h4 style="margin:0 0 10px; color:var(--gold);">💼 Мій портфель</h4>
+                <div id="my-portfolio-list" class="list-stack"></div>
+            </div>
+            <div class="glass" style="margin-top:12px;">
+                <h4 style="margin:0 0 10px; color:var(--gold);">🏢 Мій бізнес</h4>
+                <div id="my-business-list" class="list-stack"></div>
+            </div>
         </div>
     </div>
 
@@ -1105,6 +1385,9 @@
         <div class="tab" onclick="switchTab(13)">👤<span>Profile</span></div>
         <div class="tab" onclick="switchTab(14)">🏅<span>Awards</span></div>
         <div class="tab" onclick="switchTab(15)">🔔<span>Alerts</span></div>
+        <div class="tab" onclick="switchTab(16)">💼<span>Work</span></div>
+        <div class="tab" onclick="switchTab(17)">🏦<span>Bank</span></div>
+        <div class="tab" onclick="switchTab(18)">📈<span>Stocks</span></div>
     </nav>
 </div>
 
@@ -1175,6 +1458,7 @@
         displayName: null,
         avatar: avatarGallery[0],
         balance: 0,
+        usdt: 0,
         mining: false,
         friends: [],
         friendRequests: [],
@@ -1253,7 +1537,15 @@
         { id: 'casino_r', name: 'Казино', icon: '🎰', price: 900, baseProfit: 65.0, upgradeBase: 340, sellRatio: 0.82 },
         { id: 'stadium', name: 'Стадіон', icon: '🏟️', price: 600, baseProfit: 45.0, upgradeBase: 240, sellRatio: 0.81 },
         { id: 'island', name: 'Острів', icon: '🏝️', price: 1200, baseProfit: 85.0, upgradeBase: 450, sellRatio: 0.85 },
-        { id: 'airport', name: 'Аеропорт', icon: '✈️', price: 2000, baseProfit: 140.0, upgradeBase: 720, sellRatio: 0.86 }
+        { id: 'airport', name: 'Аеропорт', icon: '✈️', price: 2000, baseProfit: 140.0, upgradeBase: 720, sellRatio: 0.86 },
+        { id: 'studio', name: 'Студія', icon: '🎙️', price: 45, baseProfit: 3.2, upgradeBase: 20, sellRatio: 0.72 },
+        { id: 'garage', name: 'Гараж', icon: '🅿️', price: 28, baseProfit: 2.0, upgradeBase: 13, sellRatio: 0.71 },
+        { id: 'lab', name: 'Лабораторія', icon: '🔬', price: 420, baseProfit: 31.0, upgradeBase: 170, sellRatio: 0.82 },
+        { id: 'skyscraper', name: 'Хмарочос', icon: '🏛️', price: 1800, baseProfit: 128.0, upgradeBase: 650, sellRatio: 0.86 },
+        { id: 'resort', name: 'Курорт', icon: '🌴', price: 1500, baseProfit: 108.0, upgradeBase: 560, sellRatio: 0.85 },
+        { id: 'hospital', name: 'Лікарня', icon: '🏥', price: 700, baseProfit: 52.0, upgradeBase: 260, sellRatio: 0.83 },
+        { id: 'university', name: 'Університет', icon: '🎓', price: 950, baseProfit: 68.0, upgradeBase: 360, sellRatio: 0.83 },
+        { id: 'space_station', name: 'Космічна станція', icon: '🛸', price: 5000, baseProfit: 350.0, upgradeBase: 1800, sellRatio: 0.88 }
     ];
 
     const carsCatalog = [
@@ -1271,7 +1563,16 @@
         { id: 'offroad', name: 'Wild Offroad', icon: '🚜', price: 90, basePrestige: 45, upgradeBase: 36, resaleRatio: 0.70 },
         { id: 'van', name: 'Swift Van', icon: '🚌', price: 48, basePrestige: 24, upgradeBase: 20, resaleRatio: 0.69 },
         { id: 'classic', name: 'Retro Classic', icon: '🚗', price: 180, basePrestige: 90, upgradeBase: 68, resaleRatio: 0.73 },
-        { id: 'limo', name: 'Gold Limousine', icon: '🚙', price: 450, basePrestige: 225, upgradeBase: 160, resaleRatio: 0.76 }
+        { id: 'limo', name: 'Gold Limousine', icon: '🚙', price: 450, basePrestige: 225, upgradeBase: 160, resaleRatio: 0.76 },
+        { id: 'moto', name: 'Blaze Moto', icon: '🏍️', price: 38, basePrestige: 18, upgradeBase: 16, resaleRatio: 0.68 },
+        { id: 'yacht', name: 'Sea Yacht', icon: '⛵', price: 880, basePrestige: 440, upgradeBase: 300, resaleRatio: 0.78 },
+        { id: 'jet', name: 'Sky Jet', icon: '✈️', price: 3200, basePrestige: 1600, upgradeBase: 1100, resaleRatio: 0.82 },
+        { id: 'heli', name: 'Storm Helicopter', icon: '🚁', price: 2100, basePrestige: 1050, upgradeBase: 720, resaleRatio: 0.80 },
+        { id: 'bus', name: 'City Bus', icon: '🚌', price: 70, basePrestige: 35, upgradeBase: 28, resaleRatio: 0.69 },
+        { id: 'tractor', name: 'Mega Tractor', icon: '🚜', price: 55, basePrestige: 27, upgradeBase: 22, resaleRatio: 0.68 },
+        { id: 'ambulance', name: 'Rapid Ambulance', icon: '🚑', price: 95, basePrestige: 48, upgradeBase: 38, resaleRatio: 0.71 },
+        { id: 'firetruck', name: 'Fire Storm', icon: '🚒', price: 110, basePrestige: 55, upgradeBase: 44, resaleRatio: 0.71 },
+        { id: 'tank', name: 'Titan Tank', icon: '🛡️', price: 5000, basePrestige: 2500, upgradeBase: 1700, resaleRatio: 0.83 }
     ];
 
     // Profit multiplier applied for every real-estate level after the first.
@@ -2827,6 +3128,7 @@
             displayName: username,
             password: password,
             balance: 0,
+            usdt: 0,
             avatar: avatarGallery[Math.floor(Math.random() * avatarGallery.length)],
             friends: [],
             friendRequests: [],
@@ -2869,6 +3171,7 @@
         gameState.displayName = userData.displayName || username;
         gameState.avatar = userData.avatar || avatarGallery[0];
         gameState.balance = userData.balance || 0;
+        gameState.usdt = userData.usdt || 0;
         gameState.friends = userData.friends || [];
         gameState.friendRequests = userData.friendRequests || [];
         gameState.privateChatMessages = {};
@@ -2931,6 +3234,11 @@
         document.getElementById('h-a').src = gameState.avatar || avatarGallery[0];
         document.getElementById('settings-avatar-preview').src = gameState.avatar || avatarGallery[0];
         document.getElementById('h-p').textContent = `🏆 Престиж: ${Math.round(num(gameState.prestige, 0))}`;
+        const usdtVal = num(gameState.usdt, 0).toFixed(2);
+        const usdtHeader = document.getElementById('h-usdt');
+        if (usdtHeader) usdtHeader.textContent = `💵 USDT: ${usdtVal}`;
+        const usdtMining = document.getElementById('v-usdt');
+        if (usdtMining) usdtMining.textContent = `💵 ${usdtVal} USDT`;
         applyWorkshopAppearance();
     }
 
@@ -2979,9 +3287,11 @@
         document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
         document.querySelectorAll('nav .tab').forEach(t => t.classList.remove('active'));
         
-        const tabMap = {1: 'tab1', 2: 'tab2', 3: 'tab3', 4: 'tab4', 5: 'tab5', 6: 'tab6', 7: 'tab7', 8: 'tab8', 9: 'tab9', 10: 'tab10', 11: 'tab11', 12: 'tab12', 13: 'tab13', 14: 'tab14', 15: 'tab15'};
-        document.getElementById(tabMap[tabNum]).style.display = 'block';
-        document.querySelectorAll('nav .tab')[tabNum - 1].classList.add('active');
+        const tabMap = {1: 'tab1', 2: 'tab2', 3: 'tab3', 4: 'tab4', 5: 'tab5', 6: 'tab6', 7: 'tab7', 8: 'tab8', 9: 'tab9', 10: 'tab10', 11: 'tab11', 12: 'tab12', 13: 'tab13', 14: 'tab14', 15: 'tab15', 16: 'tab16', 17: 'tab17', 18: 'tab18'};
+        const tabEl = document.getElementById(tabMap[tabNum]);
+        if (tabEl) tabEl.style.display = 'block';
+        const tabs = document.querySelectorAll('nav .tab');
+        if (tabs[tabNum - 1]) tabs[tabNum - 1].classList.add('active');
         if (tabNum === 4) {
             updateFriendRequestsList();
             updateFriendsList();
@@ -4285,13 +4595,19 @@
         document.getElementById('casino-slots').style.display    = type === 'slots'    ? 'block' : 'none';
         document.getElementById('casino-rps').style.display      = type === 'rps'      ? 'block' : 'none';
         document.getElementById('casino-rps-online').style.display = type === 'rps-online' ? 'block' : 'none';
+        document.getElementById('casino-tournament').style.display = type === 'tournament' ? 'block' : 'none';
+        document.getElementById('casino-mines').style.display = type === 'mines' ? 'block' : 'none';
         document.getElementById('cs-roulette').classList.toggle('active', type === 'roulette');
         document.getElementById('cs-slots').classList.toggle('active', type === 'slots');
         document.getElementById('cs-rps').classList.toggle('active', type === 'rps');
         document.getElementById('cs-rps-online').classList.toggle('active', type === 'rps-online');
+        document.getElementById('cs-tournament').classList.toggle('active', type === 'tournament');
+        document.getElementById('cs-mines').classList.toggle('active', type === 'mines');
         // При переключенні від КНП — зупинити таймер
         if (type !== 'rps') clearInterval(rpsGame.timer);
         if (type === 'rps-online') rpsOnlineRefreshLobby();
+        if (type === 'tournament') { if (typeof loadTournaments === 'function') loadTournaments(); }
+        if (type === 'mines') { if (typeof initMinesGame === 'function') initMinesGame(); }
     }
 
     // ===== МАГАЗИН =====
@@ -4538,6 +4854,7 @@
         gameState.displayName = null;
         gameState.avatar = avatarGallery[0];
         gameState.balance = 0;
+        gameState.usdt = 0;
         gameState.friends = [];
         gameState.friendRequests = [];
         gameState.privateChatMessages = {};
@@ -4820,6 +5137,7 @@
     })();
 </script>
 <script src="bb-news-features.js"></script>
+<script src="bb-extended-features.js"></script>
 
 </body>
 </html>
