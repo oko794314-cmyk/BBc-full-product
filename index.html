@@ -183,12 +183,14 @@
 
         /* 📰 Новини / Центр акаунта */
         .news-grid { display:grid; grid-template-columns:1fr; gap:12px; }
-        .news-card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:16px; }
+        .news-card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:16px; transition:border-color .2s, box-shadow .2s; }
+        .news-card:hover { border-color:rgba(240,185,11,0.3); }
         .news-card.pinned { border-color:var(--gold); box-shadow:0 0 14px rgba(240,185,11,0.15); }
-        .news-meta { font-size:12px; color:var(--text2); margin-bottom:8px; display:flex; gap:8px; flex-wrap:wrap; }
+        .news-meta { font-size:10px; color:var(--text2); margin-bottom:8px; display:flex; gap:8px; flex-wrap:wrap; text-transform:uppercase; letter-spacing:0.5px; }
         .news-image { width:100%; max-height:180px; object-fit:cover; border-radius:10px; border:1px solid var(--border); margin-top:8px; }
         .market-stats { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
-        .market-stat { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:12px; }
+        .market-stat { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:12px; transition:border-color .2s; }
+        .market-stat:hover { border-color:rgba(240,185,11,0.3); }
         .market-stat-label { font-size:11px; color:var(--text2); margin-bottom:5px; }
         .market-stat-value { font-size:14px; color:var(--p); font-weight:900; word-break:break-word; }
         .mini-tabs { display:flex; gap:6px; flex-wrap:wrap; }
@@ -377,6 +379,66 @@
         /* ===== WEEKLY QUEST ===== */
         .weekly-quest-card { background:linear-gradient(135deg, rgba(240,185,11,0.08), rgba(14,203,129,0.05)); border:1px solid rgba(240,185,11,0.35); border-radius:14px; padding:16px; margin-bottom:12px; }
         .promo-badge { display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:999px; background:rgba(240,185,11,0.15); border:1px solid rgba(240,185,11,0.4); color:var(--gold); font-size:12px; font-weight:900; letter-spacing:1px; font-family:monospace; }
+
+        /* ===== LUCKY BOX ===== */
+        .loot-box-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:14px; }
+        .loot-box-card { border-radius:16px; padding:18px 14px; text-align:center; cursor:pointer; transition:transform .2s, box-shadow .2s; position:relative; overflow:hidden; }
+        .loot-box-card:hover { transform:translateY(-4px) scale(1.03); }
+        .loot-box-card.rarity-common { background:linear-gradient(135deg,#1a1a1a,#2a2a2a); border:2px solid #888; box-shadow:0 4px 14px rgba(136,136,136,0.2); }
+        .loot-box-card.rarity-rare { background:linear-gradient(135deg,#0a1a3a,#0d2255); border:2px solid #3a86ff; box-shadow:0 4px 18px rgba(58,134,255,0.35); }
+        .loot-box-card.rarity-epic { background:linear-gradient(135deg,#1a0040,#2d006a); border:2px solid #a855f7; box-shadow:0 4px 22px rgba(168,85,247,0.45); }
+        .loot-box-card.rarity-legendary { background:linear-gradient(135deg,#2a1000,#5a2a00); border:2px solid #F0B90B; box-shadow:0 4px 26px rgba(240,185,11,0.55); }
+        .loot-box-card.rarity-mythic { background:linear-gradient(135deg,#1a0010,#3a0030); border:2px solid #ff0066; box-shadow:0 0 30px rgba(255,0,102,0.6), 0 4px 20px rgba(255,0,102,0.4); animation:mythicPulse 2s ease-in-out infinite; }
+        @keyframes mythicPulse { 0%,100%{box-shadow:0 0 20px rgba(255,0,102,0.5),0 4px 14px rgba(255,0,102,0.3)} 50%{box-shadow:0 0 40px rgba(255,0,102,0.9),0 4px 24px rgba(255,0,102,0.6)} }
+        .loot-box-icon { font-size:3.2rem; margin-bottom:8px; display:block; filter:drop-shadow(0 0 8px currentColor); }
+        .loot-box-name { font-size:12px; font-weight:900; margin-bottom:4px; text-transform:uppercase; letter-spacing:1px; }
+        .loot-box-rarity-label { font-size:10px; font-weight:900; letter-spacing:2px; text-transform:uppercase; margin-bottom:8px; display:block; }
+        .rarity-common .loot-box-rarity-label { color:#aaa; }
+        .rarity-rare .loot-box-rarity-label { color:#3a86ff; }
+        .rarity-epic .loot-box-rarity-label { color:#a855f7; }
+        .rarity-legendary .loot-box-rarity-label { color:#F0B90B; }
+        .rarity-mythic .loot-box-rarity-label { color:#ff0066; }
+        .loot-box-price { font-size:13px; font-weight:900; margin-top:6px; }
+        .rarity-common .loot-box-price { color:#ddd; }
+        .rarity-rare .loot-box-price { color:#3a86ff; }
+        .rarity-epic .loot-box-price { color:#a855f7; }
+        .rarity-legendary .loot-box-price { color:#F0B90B; }
+        .rarity-mythic .loot-box-price { color:#ff0066; }
+        .loot-box-btn { width:100%; padding:10px; border:none; border-radius:10px; font-size:11px; font-weight:900; cursor:pointer; font-family:'Orbitron',sans-serif; transition:0.2s; margin-top:8px; }
+        .rarity-common .loot-box-btn { background:#555; color:#fff; }
+        .rarity-rare .loot-box-btn { background:#3a86ff; color:#fff; }
+        .rarity-epic .loot-box-btn { background:#a855f7; color:#fff; }
+        .rarity-legendary .loot-box-btn { background:var(--p); color:#000; }
+        .rarity-mythic .loot-box-btn { background:linear-gradient(90deg,#ff0066,#9900ff); color:#fff; }
+        .loot-box-btn:hover { filter:brightness(1.15); }
+        .loot-box-btn:disabled { opacity:0.45; cursor:not-allowed; filter:none; }
+
+        /* Lucky Box Opening Modal */
+        .loot-open-modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:200; align-items:center; justify-content:center; flex-direction:column; gap:20px; }
+        .loot-open-modal.active { display:flex; }
+        .loot-open-anim { font-size:6rem; animation:boxShake 0.6s ease infinite; }
+        @keyframes boxShake { 0%,100%{transform:rotate(-8deg) scale(1.1)} 50%{transform:rotate(8deg) scale(1.2)} }
+        .loot-open-anim.revealed { animation:boxReveal 0.6s ease forwards; }
+        @keyframes boxReveal { 0%{transform:scale(0.5) rotate(0deg); opacity:0} 60%{transform:scale(1.3) rotate(15deg)} 100%{transform:scale(1) rotate(0deg); opacity:1} }
+        .loot-reward-display { background:var(--card); border-radius:20px; padding:24px 32px; text-align:center; border:2px solid var(--p); box-shadow:0 0 40px rgba(240,185,11,0.4); min-width:280px; display:none; }
+        .loot-reward-display.active { display:block; animation:slideIn 0.4s ease; }
+        .loot-reward-icon { font-size:4rem; display:block; margin-bottom:12px; }
+        .loot-reward-name { font-size:16px; font-weight:900; color:var(--p); margin-bottom:8px; }
+        .loot-reward-desc { font-size:13px; color:var(--text2); margin-bottom:16px; }
+
+        /* ===== EXCHANGE BUY/SELL ===== */
+        .market-trade-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:14px; }
+        .market-trade-card { border-radius:14px; padding:18px; border:1px solid var(--border); background:var(--card); }
+        .market-trade-card.buy-card { border-color:rgba(14,203,129,0.4); background:rgba(14,203,129,0.04); }
+        .market-trade-card.sell-card { border-color:rgba(246,70,93,0.4); background:rgba(246,70,93,0.04); }
+        .market-trade-title { font-size:14px; font-weight:900; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+        .market-trade-card.buy-card .market-trade-title { color:var(--g); }
+        .market-trade-card.sell-card .market-trade-title { color:var(--r); }
+        .market-calc { font-size:11px; color:var(--text2); margin-top:4px; min-height:18px; }
+        .market-price-badge { display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:999px; background:rgba(240,185,11,0.1); border:1px solid rgba(240,185,11,0.3); color:var(--p); font-size:13px; font-weight:900; margin-bottom:14px; }
+        .market-balance-row { display:flex; justify-content:space-between; font-size:11px; color:var(--text2); margin-bottom:10px; padding:8px 10px; background:rgba(255,255,255,0.03); border-radius:8px; }
+        .buy-btn-exchange { background:var(--g); color:#000; }
+        .sell-btn-exchange { background:var(--r); color:#fff; }
     </style>
 </head>
 <body>
@@ -392,6 +454,18 @@
 
 <!-- СПОВІЩЕННЯ -->
 <div id="game-notification" class="game-notification"></div>
+
+<!-- LUCKY BOX OPENING MODAL -->
+<div id="loot-open-modal" class="loot-open-modal">
+    <div id="loot-open-anim" class="loot-open-anim">🎁</div>
+    <div id="loot-reward-display" class="loot-reward-display">
+        <span id="loot-reward-icon" class="loot-reward-icon">🎁</span>
+        <div id="loot-reward-name" class="loot-reward-name"></div>
+        <div id="loot-reward-desc" class="loot-reward-desc"></div>
+        <button class="btn" onclick="closeLootModal()" style="margin-top:8px;">Забрати нагороду</button>
+    </div>
+    <button id="loot-open-btn" class="btn" style="margin-top:0; background:linear-gradient(90deg,var(--p),#cc8800); color:#000; max-width:280px;" onclick="doOpenLootBox()">🎲 ВІДКРИТИ БОКс</button>
+</div>
 
 <!-- МОДАЛЬ ЗАПИТУ НА ГРУ (КНП Online) -->
 <div id="ttt-request-modal" style="display:none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--card); border: 2px solid var(--g); border-radius: 12px; padding: 20px; z-index: 100; width: 90%; max-width: 320px;">
@@ -867,9 +941,11 @@
             <button class="shop-cat-btn" data-cat="titles" onclick="shopSwitchCat('titles')">🏷️ Титули</button>
             <button class="shop-cat-btn" data-cat="exclusive" onclick="shopSwitchCat('exclusive')">💎 Ексклюзив</button>
             <button class="shop-cat-btn" data-cat="seasonal" onclick="shopSwitchCat('seasonal')">🎄 Сезонне</button>
+            <button class="shop-cat-btn" data-cat="lootbox" onclick="shopSwitchCat('lootbox')">🎁 Lucky Box</button>
             <button class="shop-cat-btn" data-cat="creator" onclick="shopSwitchCat('creator')">🎨 Авторське</button>
         </div>
         <div id="shop-grid" class="shop-grid"></div>
+        <div id="shop-loot-grid" class="loot-box-grid" style="display:none;"></div>
     </div>
 
     <!-- ВКЛ.7: НОВИНИ -->
@@ -1072,10 +1148,39 @@
 
     <!-- ВКЛ.11: БІРЖА -->
     <div id="tab11" class="view">
-        <h3 style="margin-top:0;">💹 БІРЖА</h3>
+        <h3 style="margin-top:0;">💹 БІРЖА BB/USDT</h3>
+
+        <!-- Швидка купівля / продаж за ринковою ціною -->
+        <div class="glass" style="margin-bottom:14px;">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap;">
+                <span style="font-size:13px; font-weight:900; color:var(--text);">⚡ Торгівля за ринком</span>
+                <span id="market-current-price" class="market-price-badge">1 BB = 1.000000 USDT</span>
+            </div>
+            <div class="market-balance-row">
+                <span>💵 USDT: <b id="market-usdt-balance">0.00</b></span>
+                <span>💰 BB: <b id="market-bb-balance">0.0000</b></span>
+            </div>
+            <div class="market-trade-grid">
+                <div class="market-trade-card buy-card">
+                    <div class="market-trade-title">📈 Купити BB</div>
+                    <input type="number" id="market-buy-bb-amount" min="0.0001" step="0.0001" placeholder="Кількість BB"
+                        oninput="bbFeatures.renderMarketBuySell()">
+                    <div class="market-calc" id="market-buy-calc"></div>
+                    <button id="market-buy-btn" class="btn buy-btn-exchange" style="margin-top:10px;" onclick="bbFeatures.marketBuyBB()">КУПИТИ BB</button>
+                </div>
+                <div class="market-trade-card sell-card">
+                    <div class="market-trade-title">📉 Продати BB</div>
+                    <input type="number" id="market-sell-bb-amount" min="0.0001" step="0.0001" placeholder="Кількість BB"
+                        oninput="bbFeatures.renderMarketBuySell()">
+                    <div class="market-calc" id="market-sell-calc"></div>
+                    <button id="market-sell-btn" class="btn sell-btn-exchange" style="margin-top:10px;" onclick="bbFeatures.marketSellBB()">ПРОДАТИ BB</button>
+                </div>
+            </div>
+        </div>
+
         <div class="hub-grid">
             <div class="hub-card">
-                <h4>📝 Нова заявка</h4>
+                <h4>📝 Нова заявка (P2P)</h4>
                 <div class="exchange-form-grid">
                     <select id="exchange-order-offer"></select>
                     <select id="exchange-order-want"></select>
@@ -4736,7 +4841,16 @@
         document.querySelectorAll('.shop-cat-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.cat === cat);
         });
-        shopRender();
+        const isLootbox = cat === 'lootbox';
+        const gridEl = document.getElementById('shop-grid');
+        const lootGridEl = document.getElementById('shop-loot-grid');
+        if (gridEl) gridEl.style.display = isLootbox ? 'none' : '';
+        if (lootGridEl) lootGridEl.style.display = isLootbox ? '' : 'none';
+        if (isLootbox) {
+            renderLootBoxes();
+        } else {
+            shopRender();
+        }
     }
 
     function isShopItemEquipped(item) {
@@ -4834,6 +4948,211 @@
         await shopSave();
         shopRender();
     }
+
+    /* =====================================================================
+       LUCKY BOX SYSTEM
+    ===================================================================== */
+    const LOOT_BOXES = [
+        {
+            id: 'box_common', name: 'Звичайний бокс', rarity: 'common', rarityLabel: 'COMMON',
+            icon: '📦', price: 10,
+            lootTable: [
+                { weight: 40, type: 'bb', amount: [5, 15], name: 'BB Монети', icon: '💰', desc: '5–15 BB' },
+                { weight: 30, type: 'frame', itemId: 'frame_neon', name: 'Неонова рамка', icon: '🟢', desc: 'Яскрава зелена рамка' },
+                { weight: 20, type: 'background', itemId: 'bg_space', name: 'Фон Космос', icon: '🌌', desc: 'Зоряне тло' },
+                { weight: 10, type: 'bb', amount: [20, 50], name: 'BB Монети', icon: '💰', desc: '20–50 BB' }
+            ]
+        },
+        {
+            id: 'box_rare', name: 'Рідкісний бокс', rarity: 'rare', rarityLabel: 'RARE',
+            icon: '🔮', price: 50,
+            lootTable: [
+                { weight: 35, type: 'bb', amount: [30, 80], name: 'BB Монети', icon: '💰', desc: '30–80 BB' },
+                { weight: 25, type: 'frame', itemId: 'frame_gold', name: 'Золота рамка', icon: '🟡', desc: 'Розкішна золота рамка' },
+                { weight: 20, type: 'background', itemId: 'bg_neon', name: 'Неоновий Мегаполіс', icon: '🌃', desc: 'Нічне місто' },
+                { weight: 15, type: 'title', itemId: 'title_investor', name: 'Титул ІНВЕСТОР', icon: '📈', desc: 'Для активних трейдерів' },
+                { weight: 5, type: 'bb', amount: [100, 200], name: 'BB Монети', icon: '💰', desc: '100–200 BB' }
+            ]
+        },
+        {
+            id: 'box_epic', name: 'Епічний бокс', rarity: 'epic', rarityLabel: 'EPIC',
+            icon: '💜', price: 200,
+            lootTable: [
+                { weight: 30, type: 'bb', amount: [100, 300], name: 'BB Монети', icon: '💰', desc: '100–300 BB' },
+                { weight: 20, type: 'frame', itemId: 'frame_cyan', name: 'Кіберпанк рамка', icon: '💠', desc: 'Стиль кіберпанк' },
+                { weight: 20, type: 'background', itemId: 'bg_matrix', name: 'Матриця', icon: '💻', desc: 'Зелений код' },
+                { weight: 15, type: 'title', itemId: 'title_boss', name: 'Титул КРИПТО БОС', icon: '💎', desc: 'Ексклюзивний титул' },
+                { weight: 10, type: 'frame', itemId: 'frame_diamond', name: 'Діамантова рамка', icon: '💎', desc: 'Преміум діамантова рамка' },
+                { weight: 5, type: 'bb', amount: [500, 1000], name: 'BB Монети', icon: '💰', desc: '500–1000 BB' }
+            ]
+        },
+        {
+            id: 'box_legendary', name: 'Легендарний бокс', rarity: 'legendary', rarityLabel: 'LEGENDARY',
+            icon: '🌟', price: 1000,
+            lootTable: [
+                { weight: 25, type: 'bb', amount: [500, 2000], name: 'BB Монети', icon: '💰', desc: '500–2000 BB' },
+                { weight: 20, type: 'frame', itemId: 'frame_binance', name: 'Binance рамка', icon: '🟨', desc: 'Фірмова золота Binance' },
+                { weight: 15, type: 'title', itemId: 'title_whale', name: 'Титул КИТ', icon: '🐳', desc: 'Великий трейдер' },
+                { weight: 15, type: 'title', itemId: 'title_diamond', name: 'Титул ДІАМАНТ', icon: '💎', desc: 'Преміум статус' },
+                { weight: 10, type: 'background', itemId: 'bg_lava', name: 'Фон Лава', icon: '🌋', desc: 'Вогняний вулканічний фон' },
+                { weight: 10, type: 'car', name: 'Автомобіль 🚗', icon: '🚗', desc: 'Спортивний автомобіль! Перевірте вкладку Авто.' },
+                { weight: 5, type: 'bb', amount: [3000, 5000], name: 'BB Монети', icon: '💰', desc: '3000–5000 BB' }
+            ]
+        },
+        {
+            id: 'box_mythic', name: 'Містичний бокс', rarity: 'mythic', rarityLabel: 'MYTHIC',
+            icon: '🔴', price: 5000,
+            lootTable: [
+                { weight: 20, type: 'bb', amount: [2000, 8000], name: 'BB Монети', icon: '💰', desc: '2000–8000 BB' },
+                { weight: 20, type: 'title', itemId: 'title_legend', name: 'Титул ЛЕГЕНДА', icon: '👑', desc: 'Вищий ранг' },
+                { weight: 20, type: 'car', name: 'Суперкар 🏎️', icon: '🏎️', desc: 'Найкращий суперкар! Перевірте вкладку Авто.' },
+                { weight: 15, type: 'house', name: 'Будинок 🏠', icon: '🏠', desc: 'Розкішний будинок! Перевірте вкладку Нерухомість.' },
+                { weight: 15, type: 'frame', itemId: 'frame_obsidian', name: 'Обсидіанова рамка', icon: '🖤', desc: 'Темна елітна рамка' },
+                { weight: 10, type: 'bb', amount: [10000, 20000], name: 'BB Монети', icon: '💰', desc: '10 000–20 000 BB' }
+            ]
+        }
+    ];
+
+    let _pendingLootBoxId = null;
+
+    function rollLootItem(lootTable) {
+        const total = lootTable.reduce((s, e) => s + (e.weight || 0), 0);
+        let r = Math.random() * total;
+        for (const entry of lootTable) {
+            r -= entry.weight || 0;
+            if (r <= 0) return entry;
+        }
+        return lootTable[lootTable.length - 1];
+    }
+
+    function renderLootBoxes() {
+        const grid = document.getElementById('shop-loot-grid');
+        if (!grid) return;
+        grid.innerHTML = LOOT_BOXES.map(box => {
+            const canAfford = (gameState.balance || 0) >= box.price;
+            return `
+                <div class="loot-box-card rarity-${box.rarity}">
+                    <span class="loot-box-icon">${box.icon}</span>
+                    <span class="loot-box-rarity-label">${box.rarityLabel}</span>
+                    <div class="loot-box-name">${escapeHtml(box.name)}</div>
+                    <div class="loot-box-price">${box.price} BB</div>
+                    <button class="loot-box-btn" onclick="openLootBoxModal('${box.id}')" ${canAfford ? '' : 'disabled'}>
+                        ${canAfford ? '🎲 Відкрити' : `❌ ${box.price} BB`}
+                    </button>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function openLootBoxModal(boxId) {
+        const box = LOOT_BOXES.find(b => b.id === boxId);
+        if (!box) return;
+        _pendingLootBoxId = boxId;
+        const modal = document.getElementById('loot-open-modal');
+        const anim = document.getElementById('loot-open-anim');
+        const reward = document.getElementById('loot-reward-display');
+        const openBtn = document.getElementById('loot-open-btn');
+        if (!modal) return;
+        anim.textContent = box.icon;
+        anim.className = 'loot-open-anim';
+        reward.classList.remove('active');
+        if (openBtn) openBtn.style.display = '';
+        modal.classList.add('active');
+    }
+
+    async function doOpenLootBox() {
+        if (!_pendingLootBoxId) return;
+        const box = LOOT_BOXES.find(b => b.id === _pendingLootBoxId);
+        if (!box) return;
+        if ((gameState.balance || 0) < box.price) {
+            showGameNotification('❌ Недостатньо BB!');
+            closeLootModal();
+            return;
+        }
+        const openBtn = document.getElementById('loot-open-btn');
+        if (openBtn) openBtn.style.display = 'none';
+
+        // Deduct BB
+        const result = await adjustUserBalanceFirebase(gameState.user, -box.price);
+        if (!result.success) {
+            showGameNotification('❌ Помилка при відкритті боксу!');
+            closeLootModal();
+            return;
+        }
+        gameState.balance = result.balance;
+        updateCachedUser(gameState.user, { balance: result.balance });
+        updateHeader();
+
+        // Shake animation
+        const anim = document.getElementById('loot-open-anim');
+        anim.className = 'loot-open-anim';
+        await new Promise(r => setTimeout(r, 1200));
+
+        // Roll the item
+        const item = rollLootItem(box.lootTable);
+        let rewardName = item.name;
+        let rewardDesc = item.desc;
+        let rewardIcon = item.icon;
+
+        if (item.type === 'bb') {
+            const min = item.amount[0], max = item.amount[1];
+            const bbGain = Math.floor(Math.random() * (max - min + 1)) + min;
+            const bbRes = await adjustUserBalanceFirebase(gameState.user, bbGain);
+            if (bbRes.success) { gameState.balance = bbRes.balance; updateCachedUser(gameState.user, { balance: bbRes.balance }); }
+            rewardName = `+${bbGain} BB Монет`;
+            rewardDesc = `Ви отримали ${bbGain} BB Coin!`;
+            rewardIcon = '💰';
+        } else if (item.type === 'frame' && item.itemId) {
+            if (!shopState.owned.includes(item.itemId)) shopState.owned.push(item.itemId);
+            await shopSave();
+        } else if (item.type === 'background' && item.itemId) {
+            if (!shopState.owned.includes(item.itemId)) shopState.owned.push(item.itemId);
+            await shopSave();
+        } else if (item.type === 'title' && item.itemId) {
+            if (!shopState.owned.includes(item.itemId)) shopState.owned.push(item.itemId);
+            await shopSave();
+        } else if (item.type === 'car') {
+            if (typeof addCar === 'function') {
+                addCar({ name: box.rarity === 'mythic' ? 'Суперкар (Lucky Box)' : 'Авто (Lucky Box)', icon: item.icon, fromLootBox: true });
+            }
+        } else if (item.type === 'house') {
+            if (typeof addProperty === 'function') {
+                addProperty({ name: 'Будинок (Lucky Box)', icon: item.icon, fromLootBox: true });
+            }
+        }
+
+        updateHeader();
+
+        // Record in Firebase for history
+        try {
+            await firebase.database().ref(`users/${gameState.user}/lootBoxHistory`).push({
+                boxId: box.id, boxName: box.name, rarity: box.rarity,
+                reward: { type: item.type, name: rewardName, icon: rewardIcon },
+                openedAt: firebase.database.ServerValue.TIMESTAMP
+            });
+        } catch (_e) {}
+
+        // Show reward
+        anim.textContent = rewardIcon;
+        anim.className = 'loot-open-anim revealed';
+        const rewardEl = document.getElementById('loot-reward-display');
+        document.getElementById('loot-reward-icon').textContent = rewardIcon;
+        document.getElementById('loot-reward-name').textContent = rewardName;
+        document.getElementById('loot-reward-desc').textContent = rewardDesc;
+        rewardEl.classList.add('active');
+        showGameNotification(`🎉 ${rewardName} з боксу ${box.rarityLabel}!`);
+    }
+
+    function closeLootModal() {
+        const modal = document.getElementById('loot-open-modal');
+        if (modal) modal.classList.remove('active');
+        _pendingLootBoxId = null;
+        if (shopState.activeCat === 'lootbox') renderLootBoxes();
+    }
+
+    window.openLootBoxModal = openLootBoxModal;
+    window.doOpenLootBox = doOpenLootBox;
+    window.closeLootModal = closeLootModal;
 
     function logout() {
         // Clear typing and set offline before cleanup
