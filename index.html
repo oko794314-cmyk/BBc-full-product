@@ -464,7 +464,7 @@
         <div id="loot-reward-desc" class="loot-reward-desc"></div>
         <button class="btn" onclick="closeLootModal()" style="margin-top:8px;">Забрати нагороду</button>
     </div>
-    <button id="loot-open-btn" class="btn" style="margin-top:0; background:linear-gradient(90deg,var(--p),#cc8800); color:#000; max-width:280px;" onclick="doOpenLootBox()">🎲 ВІДКРИТИ БОКс</button>
+    <button id="loot-open-btn" class="btn" style="margin-top:0; background:linear-gradient(90deg,var(--p),#cc8800); color:#000; max-width:280px;" onclick="doOpenLootBox()">🎲 ВІДКРИТИ БОКС</button>
 </div>
 
 <!-- МОДАЛЬ ЗАПИТУ НА ГРУ (КНП Online) -->
@@ -5113,11 +5113,11 @@
             await shopSave();
         } else if (item.type === 'car') {
             if (typeof addCar === 'function') {
-                addCar({ name: box.rarity === 'mythic' ? 'Суперкар (Lucky Box)' : 'Авто (Lucky Box)', icon: item.icon, fromLootBox: true });
+                try { addCar({ name: box.rarity === 'mythic' ? 'Суперкар (Lucky Box)' : 'Авто (Lucky Box)', icon: item.icon, fromLootBox: true }); } catch (_e) {}
             }
         } else if (item.type === 'house') {
             if (typeof addProperty === 'function') {
-                addProperty({ name: 'Будинок (Lucky Box)', icon: item.icon, fromLootBox: true });
+                try { addProperty({ name: 'Будинок (Lucky Box)', icon: item.icon, fromLootBox: true }); } catch (_e) {}
             }
         }
 

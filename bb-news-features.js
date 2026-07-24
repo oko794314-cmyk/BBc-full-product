@@ -1157,12 +1157,14 @@
     /* ──────────────────────────────────────────────────────
        AUTO-NEWS: publish system news for market events
     ────────────────────────────────────────────────────── */
+    const AUTO_NEWS_THROTTLE_MS = 60 * 60 * 1000; // 1 hour per type
+    const AUTO_NEWS_PRICE_RESET_MS = 4 * 60 * 60 * 1000; // 4h baseline reset
+    const AUTO_NEWS_PRICE_CHANGE_THRESHOLD = 15; // % change to trigger news
     const autoNewsThrottle = {};
 
     async function maybePublishAutoNews(type, title, text, pinned = false) {
         const now = Date.now();
-        const throttleMs = 60 * 60 * 1000; // 1 hour throttle per type
-        if (autoNewsThrottle[type] && now - autoNewsThrottle[type] < throttleMs) return;
+        if (autoNewsThrottle[type] && now - autoNewsThrottle[type] < AUTO_NEWS_THROTTLE_MS) return;
         autoNewsThrottle[type] = now;
         try {
             await getDb().ref('newsPosts').push({
@@ -1182,14 +1184,15 @@
 
     function checkMarketAutoNews(currentPrice) {
         const now = Date.now();
-        if (!_lastAutoNewsPrice || now - _lastAutoNewsPriceAt > 4 * 60 * 60 * 1000) {
+        if (!_lastAutoNewsPrice || now - _lastAutoNewsPriceAt > AUTO_NEWS_PRICE_RESET_MS) {
             _lastAutoNewsPrice = currentPrice;
             _lastAutoNewsPriceAt = now;
             return;
         }
         if (_lastAutoNewsPrice <= 0) return;
         const pct = ((currentPrice - _lastAutoNewsPrice) / _lastAutoNewsPrice) * 100;
-        if (pct <= -15) {
+        if (!Number.isFinite(pct)) return;
+        if (pct <= -AUTO_NEWS_PRICE_CHANGE_THRESHOLD) {
             const drop = Math.abs(pct).toFixed(1);
             maybePublishAutoNews('market_crash',
                 `📉 Ринок впав на ${drop}%`,
@@ -1197,7 +1200,7 @@
             );
             _lastAutoNewsPrice = currentPrice;
             _lastAutoNewsPriceAt = now;
-        } else if (pct >= 15) {
+        } else if (pct >= AUTO_NEWS_PRICE_CHANGE_THRESHOLD) {
             const rise = pct.toFixed(1);
             maybePublishAutoNews('market_pump',
                 `📈 Ринок виріс на ${rise}%`,
@@ -1244,18 +1247,31 @@
         const btn = document.getElementById('market-buy-btn');
         if (btn) btn.disabled = true;
         try {
-            const newUsdt = Math.max(0, Math.round((currentUsdt - usdtCost) * 1e6) / 1e6);
-            await getDb().ref(`users/${gameState.user}/usdt`).set(newUsdt);
-            gameState.usdt = newUsdt;
+            // Use a transaction to atomically deduct USDT to prevent race conditions
+            let transactionSuccess = false;
+            let newUsdtValue = 0;
+            await getDb().ref(`users/${gameState.user}/usdt`).transaction(currentUsdtVal => {
+                const current = num(currentUsdtVal, 0);
+                if (current < usdtCost) { return; } // abort transaction
+                newUsdtValue = Math.max(0, Math.round((current - usdtCost) * 1e6) / 1e6);
+                transactionSuccess = true;
+                return newUsdtValue;
+            });
+            if (!transactionSuccess) {
+                alert(`Недостатньо USDT. Потрібно: ${usdtCost.toFixed(4)} USDT`);
+                return;
+            }
+            gameState.usdt = newUsdtValue;
             const bbResult = await adjustUserBalanceFirebase(gameState.user, bbAmount);
             if (!bbResult.success) {
-                await getDb().ref(`users/${gameState.user}/usdt`).set(currentUsdt);
+                // Rollback USDT via transaction
+                await getDb().ref(`users/${gameState.user}/usdt`).transaction(v => Math.round((num(v, 0) + usdtCost) * 1e6) / 1e6);
                 gameState.usdt = currentUsdt;
                 alert('Помилка при купівлі BB. Спробуйте ще раз.');
                 return;
             }
             gameState.balance = bbResult.balance;
-            updateCachedUser(gameState.user, { balance: bbResult.balance, usdt: newUsdt });
+            updateCachedUser(gameState.user, { balance: bbResult.balance, usdt: newUsdtValue });
             if (typeof updateHeader === 'function') updateHeader();
 
             const impact = Math.min(PRICE_IMPACT_MAX, PRICE_IMPACT_PER_UNIT * bbAmount);
@@ -1316,8 +1332,11 @@
             const bbResult = await adjustUserBalanceFirebase(gameState.user, -bbAmount);
             if (!bbResult.success) { alert('Помилка при продажу BB.'); return; }
             gameState.balance = bbResult.balance;
-            const newUsdt = Math.round((num(gameState.usdt, 0) + usdtGain) * 1e6) / 1e6;
-            await getDb().ref(`users/${gameState.user}/usdt`).set(newUsdt);
+            let newUsdt = 0;
+            await getDb().ref(`users/${gameState.user}/usdt`).transaction(v => {
+                newUsdt = Math.round((num(v, 0) + usdtGain) * 1e6) / 1e6;
+                return newUsdt;
+            });
             gameState.usdt = newUsdt;
             updateCachedUser(gameState.user, { balance: bbResult.balance, usdt: newUsdt });
             if (typeof updateHeader === 'function') updateHeader();
