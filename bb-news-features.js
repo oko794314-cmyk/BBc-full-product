@@ -613,10 +613,19 @@
         root.innerHTML = sorted.map(item => {
             const date = item?.createdAt ? new Date(item.createdAt).toLocaleString('uk-UA') : '--';
             const image = item?.image ? `<img class="news-image" src="${escapeText(item.image)}" alt="news image">` : '';
+            const isAuto = !!item?.auto;
+            const isMarketUp = isAuto && item?.title?.includes('📈');
+            const isMarketDown = isAuto && item?.title?.includes('📉');
+            const isTournament = item?.title?.includes('🏆') || item?.type === 'tournament_result';
+            let accentColor = 'var(--p)';
+            let badgeIcon = item?.pinned ? '📌 Закріплено' : '📰 Оновлення';
+            if (isMarketUp) { accentColor = 'var(--g)'; badgeIcon = '📈 Ринок'; }
+            if (isMarketDown) { accentColor = 'var(--r)'; badgeIcon = '📉 Ринок'; }
+            if (isTournament) { accentColor = 'var(--gold)'; badgeIcon = '🏆 Турнір'; }
             return `
-                <article class="news-card ${item?.pinned ? 'pinned' : ''}">
-                    <div class="news-meta"><span>${item?.pinned ? '📌 Закріплено' : '📰 Оновлення'}</span><span>👤 ${escapeText(item?.author || 'Адміністрація')}</span><span>🕒 ${escapeText(date)}</span></div>
-                    <div style="font-size:13px; font-weight:900; color:var(--p); margin-bottom:6px;">${escapeText(item?.title || 'Без заголовка')}</div>
+                <article class="news-card ${item?.pinned ? 'pinned' : ''}" style="${(isAuto || isTournament) ? `border-left:3px solid ${accentColor};` : ''}">
+                    <div class="news-meta"><span>${badgeIcon}</span><span>👤 ${escapeText(item?.author || 'Адміністрація')}</span><span>🕒 ${escapeText(date)}</span></div>
+                    <div style="font-size:13px; font-weight:900; color:${accentColor}; margin-bottom:6px;">${escapeText(item?.title || 'Без заголовка')}</div>
                     <div style="font-size:11px; line-height:1.45; color:#ddd; white-space:pre-wrap;">${escapeText(item?.text || '')}</div>
                     ${image}
                 </article>
@@ -835,8 +844,8 @@
             }
         });
 
-        const bodyW = Math.max(4, Math.min(14, xStep * 0.72));
-        const wickW = Math.max(1, Math.min(2, bodyW * 0.2));
+        const bodyW = Math.max(6, Math.min(22, xStep * 0.82));
+        const wickW = Math.max(1.5, Math.min(3, bodyW * 0.18));
         candles.forEach((candle, i) => {
             const cx = padLeft + i * xStep + xStep / 2;
             const up = candle.close >= candle.open;
@@ -1143,6 +1152,249 @@
         document.getElementById('news-image').value = '';
         document.getElementById('news-pinned').checked = false;
         await appendLocalNotification({ type: 'news', level: 'info', title: '📰 Новина опублікована', message: title });
+    }
+
+    /* ──────────────────────────────────────────────────────
+       AUTO-NEWS: publish system news for market events
+    ────────────────────────────────────────────────────── */
+    const AUTO_NEWS_THROTTLE_MS = 60 * 60 * 1000; // 1 hour per type
+    const AUTO_NEWS_PRICE_RESET_MS = 4 * 60 * 60 * 1000; // 4h baseline reset
+    const AUTO_NEWS_PRICE_CHANGE_THRESHOLD = 15; // % change to trigger news
+    const autoNewsThrottle = {};
+
+    async function maybePublishAutoNews(type, title, text, pinned = false) {
+        const now = Date.now();
+        if (autoNewsThrottle[type] && now - autoNewsThrottle[type] < AUTO_NEWS_THROTTLE_MS) return;
+        autoNewsThrottle[type] = now;
+        try {
+            await getDb().ref('newsPosts').push({
+                title,
+                text,
+                author: '🤖 Система',
+                image: null,
+                pinned: pinned || false,
+                auto: true,
+                createdAt: firebase.database.ServerValue.TIMESTAMP
+            });
+        } catch (_e) {}
+    }
+
+    let _lastAutoNewsPrice = 0;
+    let _lastAutoNewsPriceAt = 0;
+
+    function checkMarketAutoNews(currentPrice) {
+        const now = Date.now();
+        if (!_lastAutoNewsPrice || now - _lastAutoNewsPriceAt > AUTO_NEWS_PRICE_RESET_MS) {
+            _lastAutoNewsPrice = currentPrice;
+            _lastAutoNewsPriceAt = now;
+            return;
+        }
+        if (_lastAutoNewsPrice <= 0) return;
+        const pct = ((currentPrice - _lastAutoNewsPrice) / _lastAutoNewsPrice) * 100;
+        if (!Number.isFinite(pct)) return;
+        if (pct <= -AUTO_NEWS_PRICE_CHANGE_THRESHOLD) {
+            const drop = Math.abs(pct).toFixed(1);
+            maybePublishAutoNews('market_crash',
+                `📉 Ринок впав на ${drop}%`,
+                `Ціна BB Coin різко знизилась на ${drop}% і зараз становить ${currentPrice.toFixed(6)} USDT. Будьте обережні при торгівлі — ринок нестабільний.`
+            );
+            _lastAutoNewsPrice = currentPrice;
+            _lastAutoNewsPriceAt = now;
+        } else if (pct >= AUTO_NEWS_PRICE_CHANGE_THRESHOLD) {
+            const rise = pct.toFixed(1);
+            maybePublishAutoNews('market_pump',
+                `📈 Ринок виріс на ${rise}%`,
+                `Ціна BB Coin зросла на ${rise}% і зараз становить ${currentPrice.toFixed(6)} USDT. Чудовий час для трейдерів! 🚀`
+            );
+            _lastAutoNewsPrice = currentPrice;
+            _lastAutoNewsPriceAt = now;
+        }
+    }
+
+    async function publishTournamentResultsNews(tournamentData) {
+        if (!tournamentData || !tournamentData.title) return;
+        const winners = tournamentData.winners || {};
+        const winnerLines = Object.entries(winners)
+            .sort((a, b) => (a[1].place || 99) - (b[1].place || 99))
+            .slice(0, 5)
+            .map(([user, info]) => `${info.place || '?'}. ${user} — ${info.prize || 0} BB`)
+            .join('\n');
+        const text = winnerLines
+            ? `Турнір "${tournamentData.title}" завершився!\n\nТоп гравці:\n${winnerLines}`
+            : `Турнір "${tournamentData.title}" завершився! Дякуємо всім учасникам!`;
+        await maybePublishAutoNews('tournament_end_' + (tournamentData.id || ''),
+            `🏆 Завершення турніру: ${tournamentData.title}`,
+            text,
+            true
+        );
+    }
+
+    /* ──────────────────────────────────────────────────────
+       BUY / SELL BB AT MARKET PRICE (USDT ↔ BB)
+    ────────────────────────────────────────────────────── */
+    async function marketBuyBB() {
+        if (!gameState?.user) { alert('Увійдіть в акаунт.'); return; }
+        const bbAmountInput = document.getElementById('market-buy-bb-amount');
+        const bbAmount = num(bbAmountInput?.value, 0);
+        if (bbAmount <= 0) { alert('Вкажіть кількість BB для купівлі.'); return; }
+        const currentPrice = Math.max(MIN_PRICE, num(state.market.currentPrice, 1));
+        const usdtCost = Number((bbAmount * currentPrice).toFixed(6));
+        const currentUsdt = num(gameState.usdt, 0);
+        if (currentUsdt < usdtCost) {
+            alert(`Недостатньо USDT. Потрібно: ${usdtCost.toFixed(4)} USDT, у вас: ${currentUsdt.toFixed(4)} USDT`);
+            return;
+        }
+        const btn = document.getElementById('market-buy-btn');
+        if (btn) btn.disabled = true;
+        try {
+            // Use a transaction to atomically deduct USDT to prevent race conditions
+            let transactionSuccess = false;
+            let newUsdtValue = 0;
+            await getDb().ref(`users/${gameState.user}/usdt`).transaction(currentUsdtVal => {
+                const current = num(currentUsdtVal, 0);
+                if (current < usdtCost) { return; } // abort transaction
+                newUsdtValue = Math.max(0, Math.round((current - usdtCost) * 1e6) / 1e6);
+                transactionSuccess = true;
+                return newUsdtValue;
+            });
+            if (!transactionSuccess) {
+                alert(`Недостатньо USDT. Потрібно: ${usdtCost.toFixed(4)} USDT`);
+                return;
+            }
+            gameState.usdt = newUsdtValue;
+            const bbResult = await adjustUserBalanceFirebase(gameState.user, bbAmount);
+            if (!bbResult.success) {
+                // Rollback USDT via transaction
+                await getDb().ref(`users/${gameState.user}/usdt`).transaction(v => Math.round((num(v, 0) + usdtCost) * 1e6) / 1e6);
+                gameState.usdt = currentUsdt;
+                alert('Помилка при купівлі BB. Спробуйте ще раз.');
+                return;
+            }
+            gameState.balance = bbResult.balance;
+            updateCachedUser(gameState.user, { balance: bbResult.balance, usdt: newUsdtValue });
+            if (typeof updateHeader === 'function') updateHeader();
+
+            const impact = Math.min(PRICE_IMPACT_MAX, PRICE_IMPACT_PER_UNIT * bbAmount);
+            const newPrice = Math.max(MIN_PRICE, currentPrice * (1 + impact));
+            const tradeRef = getDb().ref('marketTrades').push();
+            const trade = {
+                id: tradeRef.key,
+                buyer: gameState.user,
+                seller: 'market',
+                amount: Number(bbAmount.toFixed(4)),
+                fee: 0,
+                price: Number(newPrice.toFixed(6)),
+                offer: { type: 'usdt' },
+                want: { type: 'bb' },
+                summary: `Купівля ${bbAmount.toFixed(4)} BB за ${usdtCost.toFixed(4)} USDT`,
+                executionType: 'market-buy',
+                timestamp: Date.now()
+            };
+            await tradeRef.set(trade);
+            await Promise.all([
+                getDb().ref('market').update({
+                    currentPrice: trade.price,
+                    totalVolume: num(state.market.totalVolume, 0) + trade.amount,
+                    completedTrades: num(state.market.completedTrades, 0) + 1,
+                    lastUpdated: trade.timestamp,
+                    lastTradeAt: trade.timestamp
+                }),
+                updateCandleHistory(trade)
+            ]);
+            await addProgress({ totalDeals: 1, totalBought: bbAmount });
+            await appendLocalTransaction({ direction: 'income', amount: bbAmount, source: 'market-buy', reason: 'Купівля BB за USDT', details: `${bbAmount.toFixed(4)} BB за ${usdtCost.toFixed(4)} USDT @ ${currentPrice.toFixed(6)}` });
+            checkMarketAutoNews(newPrice);
+            if (bbAmountInput) bbAmountInput.value = '';
+            showGameNotification(`✅ Куплено ${bbAmount.toFixed(4)} BB за ${usdtCost.toFixed(4)} USDT!`);
+            renderMarketBuySell();
+        } catch (e) {
+            alert('Помилка: ' + e.message);
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    }
+
+    async function marketSellBB() {
+        if (!gameState?.user) { alert('Увійдіть в акаунт.'); return; }
+        const bbAmountInput = document.getElementById('market-sell-bb-amount');
+        const bbAmount = num(bbAmountInput?.value, 0);
+        if (bbAmount <= 0) { alert('Вкажіть кількість BB для продажу.'); return; }
+        const currentPrice = Math.max(MIN_PRICE, num(state.market.currentPrice, 1));
+        const usdtGain = Number((bbAmount * currentPrice).toFixed(6));
+        const currentBB = num(gameState.balance, 0);
+        if (currentBB < bbAmount) {
+            alert(`Недостатньо BB. Потрібно: ${bbAmount.toFixed(4)} BB, у вас: ${currentBB.toFixed(4)} BB`);
+            return;
+        }
+        const btn = document.getElementById('market-sell-btn');
+        if (btn) btn.disabled = true;
+        try {
+            const bbResult = await adjustUserBalanceFirebase(gameState.user, -bbAmount);
+            if (!bbResult.success) { alert('Помилка при продажу BB.'); return; }
+            gameState.balance = bbResult.balance;
+            let newUsdt = 0;
+            await getDb().ref(`users/${gameState.user}/usdt`).transaction(v => {
+                newUsdt = Math.round((num(v, 0) + usdtGain) * 1e6) / 1e6;
+                return newUsdt;
+            });
+            gameState.usdt = newUsdt;
+            updateCachedUser(gameState.user, { balance: bbResult.balance, usdt: newUsdt });
+            if (typeof updateHeader === 'function') updateHeader();
+
+            const impact = Math.min(PRICE_IMPACT_MAX, PRICE_IMPACT_PER_UNIT * bbAmount);
+            const newPrice = Math.max(MIN_PRICE, currentPrice * (1 - impact));
+            const tradeRef = getDb().ref('marketTrades').push();
+            const trade = {
+                id: tradeRef.key,
+                buyer: 'market',
+                seller: gameState.user,
+                amount: Number(bbAmount.toFixed(4)),
+                fee: 0,
+                price: Number(newPrice.toFixed(6)),
+                offer: { type: 'bb' },
+                want: { type: 'usdt' },
+                summary: `Продаж ${bbAmount.toFixed(4)} BB за ${usdtGain.toFixed(4)} USDT`,
+                executionType: 'market-sell',
+                timestamp: Date.now()
+            };
+            await tradeRef.set(trade);
+            await Promise.all([
+                getDb().ref('market').update({
+                    currentPrice: trade.price,
+                    totalVolume: num(state.market.totalVolume, 0) + trade.amount,
+                    completedTrades: num(state.market.completedTrades, 0) + 1,
+                    lastUpdated: trade.timestamp,
+                    lastTradeAt: trade.timestamp
+                }),
+                updateCandleHistory(trade)
+            ]);
+            await addProgress({ totalDeals: 1, totalSold: bbAmount });
+            await appendLocalTransaction({ direction: 'expense', amount: bbAmount, source: 'market-sell', reason: 'Продаж BB за USDT', details: `${bbAmount.toFixed(4)} BB за ${usdtGain.toFixed(4)} USDT @ ${currentPrice.toFixed(6)}` });
+            checkMarketAutoNews(newPrice);
+            if (bbAmountInput) bbAmountInput.value = '';
+            showGameNotification(`✅ Продано ${bbAmount.toFixed(4)} BB, отримано ${usdtGain.toFixed(4)} USDT!`);
+            renderMarketBuySell();
+        } catch (e) {
+            alert('Помилка: ' + e.message);
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    }
+
+    function renderMarketBuySell() {
+        const priceEl = document.getElementById('market-current-price');
+        const buyCalcEl = document.getElementById('market-buy-calc');
+        const sellCalcEl = document.getElementById('market-sell-calc');
+        const usdtBalEl = document.getElementById('market-usdt-balance');
+        const bbBalEl = document.getElementById('market-bb-balance');
+        const currentPrice = Math.max(MIN_PRICE, num(state.market.currentPrice, 1));
+        if (priceEl) priceEl.textContent = `1 BB = ${currentPrice.toFixed(6)} USDT`;
+        if (usdtBalEl) usdtBalEl.textContent = `${num(gameState?.usdt, 0).toFixed(2)} USDT`;
+        if (bbBalEl) bbBalEl.textContent = `${num(gameState?.balance, 0).toFixed(4)} BB`;
+        const buyAmt = num(document.getElementById('market-buy-bb-amount')?.value, 0);
+        if (buyCalcEl) buyCalcEl.textContent = buyAmt > 0 ? `≈ ${(buyAmt * currentPrice).toFixed(4)} USDT` : '';
+        const sellAmt = num(document.getElementById('market-sell-bb-amount')?.value, 0);
+        if (sellCalcEl) sellCalcEl.textContent = sellAmt > 0 ? `≈ ${(sellAmt * currentPrice).toFixed(4)} USDT` : '';
     }
 
     function getOrderInputs() {
@@ -1596,6 +1848,7 @@
             state.market = { ...state.market, ...(snap.val() || {}) };
             renderExchangeStats();
             renderCandles();
+            renderMarketBuySell();
         });
         state.tradeListener = db.ref('marketTrades').limitToLast(MAX_TRADE_RECORDS).on('value', snap => {
             const raw = snap.val() || {};
@@ -1669,7 +1922,7 @@
 
     function handleExtendedTabOpen(tabNum) {
         if (tabNum === 7) renderNews();
-        if (tabNum === 11) renderExchangeHub();
+        if (tabNum === 11) { renderExchangeHub(); renderMarketBuySell(); }
         if (tabNum === 12) renderBalanceHub();
         if (tabNum === 13) renderProfileHub();
         if (tabNum === 14) renderAchievementsHub();
@@ -1820,6 +2073,10 @@
         renderBalanceHub,
         renderNotificationCenter,
         selectCandle,
-        addProgress
+        addProgress,
+        marketBuyBB,
+        marketSellBB,
+        renderMarketBuySell,
+        publishTournamentResultsNews
     };
 })();
