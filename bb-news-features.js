@@ -1002,14 +1002,16 @@
             </div>
         `;
         const profileStats = [
-            ['Баланс', `${num(gameState?.balance, 0).toFixed(4)} BB`],
+            ['Баланс BB', `${num(gameState?.balance, 0).toFixed(4)} BB`],
+            ['Баланс USDT', `${num(gameState?.usdt, 0).toFixed(2)} USDT`],
             ['Загальний прибуток', `${num(state.accountHub.stats.totalProfit, 0).toFixed(4)} BB`],
             ['Кількість угод', String(Math.round(num(state.accountHub.stats.totalTrades, 0)))],
             ['Квести', String(Math.round(num(state.accountHub.stats.questsCompleted, 0)))],
-            ['Турніри', String(Math.round(num(state.accountHub.stats.tournamentsWon, 0)))],
+            ['Турніри виграно', String(Math.round(num(state.accountHub.stats.tournamentsWon, 0)))],
             ['Престиж', String(Math.round(num(gameState?.prestige, 0)))],
             ['Подарунки', `${Math.round(num(state.accountHub.stats.giftsSent, 0))}/${Math.round(num(state.accountHub.stats.giftsReceived, 0))}`],
-            ['Майно', String(getOwnedAssetCount())]
+            ['Майно', String(getOwnedAssetCount())],
+            ['Професія', (function(){ try { return typeof window.extFeatures?.getCurrentProfession === 'function' ? `${window.extFeatures.getCurrentProfession()?.icon || ''} ${window.extFeatures.getCurrentProfession()?.name || '—'}` : '—'; } catch(_) { return '—'; } })()]
         ];
         statsRoot.innerHTML = profileStats.map(([label, value]) => `<div class="profile-stat-card"><span class="hub-note">${label}</span><b>${value}</b></div>`).join('');
         const assets = [
