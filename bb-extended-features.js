@@ -51,7 +51,7 @@
         { id: 'programmer',  name: 'Програміст',   icon: '🖥️', reward: 1.20, cooldown: 90,    xpGain: 10, xpRequired: 50,  desc: 'Потрібно 50 XP. Гарний заробіток.' },
         { id: 'designer',    name: 'Дизайнер',     icon: '🎨', reward: 1.00, cooldown: 90,    xpGain: 8,  xpRequired: 50,  desc: 'Потрібно 50 XP. Творча робота.' },
         { id: 'trader',      name: 'Трейдер',      icon: '📊', reward: 2.50, cooldown: 120,   xpGain: 15, xpRequired: 150, desc: 'Потрібно 150 XP. Висока виплата.' },
-        { id: 'doctor',      name: 'Лікар',        icon: '🏥', reward: 3.00, cooldown: 180,   xpGain: 20, xpRequired: 300, desc: 'Потрібно 300 XP. Дуже поважна профессія.' },
+        { id: 'doctor',      name: 'Лікар',        icon: '🏥', reward: 3.00, cooldown: 180,   xpGain: 20, xpRequired: 300, desc: 'Потрібно 300 XP. Дуже поважна професія.' },
         { id: 'lawyer',      name: 'Юрист',        icon: '⚖️', reward: 4.00, cooldown: 240,   xpGain: 25, xpRequired: 500, desc: 'Потрібно 500 XP. Елітний заробіток.' },
         { id: 'engineer',    name: 'Інженер',      icon: '⚙️', reward: 2.00, cooldown: 120,   xpGain: 12, xpRequired: 200, desc: 'Потрібно 200 XP.' },
         { id: 'chef',        name: 'Шеф-кухар',   icon: '👨‍🍳', reward: 1.50, cooldown: 90,    xpGain: 8,  xpRequired: 100, desc: 'Потрібно 100 XP.' },
@@ -230,9 +230,8 @@
                 await appendBankRecord({ type: 'penalty', currency: loan.currency, amount: penalty, note: `Штраф по кредиту #${lid.slice(-4)}`, ts: now });
                 showGN(`⚠️ Штраф: +${penalty.toFixed(2)} ${loan.currency.toUpperCase()} по кредиту!`);
                 // Try auto-repay
-                if (loan.currency === 'bb' && getBalance() >= loan.remaining) {
-                    await autoRepayLoan(lid);
-                } else if (loan.currency === 'usdt' && getUsdt() >= loan.remaining) {
+                if ((loan.currency === 'bb' && getBalance() >= loan.remaining) ||
+                    (loan.currency === 'usdt' && getUsdt() >= loan.remaining)) {
                     await autoRepayLoan(lid);
                 }
                 changed = true;
@@ -614,7 +613,7 @@
         if (typeof db !== 'undefined') {
             await db().ref('newsPosts').push({
                 title: `🏆 Турнір "${esc(t.name)}" розпочато!`,
-                text: `Організатор: ${esc(u)} • Гравці: ${players.length} • Відкриттям турніру визначений переможець`,
+                text: `Організатор: ${esc(u)} • Гравці: ${players.length} • Переможець буде визначений після завершення турніру`,
                 type: 'tournament',
                 createdAt: Date.now(),
                 author: u
@@ -853,8 +852,17 @@
         // Mark completed
         await db().ref(`weeklyCompleted/${wk}/${username}`).set(Date.now());
 
-        // Generate unique promo code
-        const promoCode = `WEEKLY-${wk}-${Math.random().toString(36).toUpperCase().slice(2, 8)}`;
+        // Generate unique promo code with collision checking
+        let promoCode;
+        let attempts = 0;
+        do {
+            const part1 = Math.random().toString(36).toUpperCase().slice(2, 6);
+            const part2 = Math.random().toString(36).toUpperCase().slice(2, 6);
+            promoCode = `WEEKLY-${wk}-${part1}${part2}`;
+            const existing = await db().ref(`promoCodes/${promoCode}`).once('value');
+            if (!existing.exists()) break;
+            attempts++;
+        } while (attempts < 5);
         const rewards = ['10 BB', '50 USDT', '20 BB', '100 BB', 'Рамка золота'];
         const reward = rewards[Math.floor(Math.random() * rewards.length)];
         await db().ref(`weeklyTop3/${wk}/${username}`).set({ promoCode, reward, completedAt: Date.now() });
@@ -977,7 +985,11 @@
     function getStockPrice(stockId) {
         const stock = STOCKS_CATALOG.find(s => s.id === stockId);
         if (!stock) return 0;
-        // Pseudo-random price based on hourly seed
+        // Pseudo-random price that changes every hour.
+        // seed = current hour as integer; two large co-prime multipliers (1_000_003 and
+        // 9_999_991) mix the seed with each character of the stock ID so that each stock
+        // follows a distinct price path. The modulus 10_000 normalises the result to a
+        // [0, 1) range used to apply the stock's volatility factor.
         const seed = Math.floor(Date.now() / (3600 * 1000));
         let price = stock.basePrice;
         for (let i = 0; i < stockId.length; i++) {
