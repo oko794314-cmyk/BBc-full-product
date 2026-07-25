@@ -57,6 +57,7 @@
         { id: 'chef',        name: 'Шеф-кухар',   icon: '👨‍🍳', reward: 1.50, cooldown: 90,    xpGain: 8,  xpRequired: 100, desc: 'Потрібно 100 XP.' },
         { id: 'pilot',       name: 'Пілот',        icon: '✈️', reward: 5.00, cooldown: 360,   xpGain: 30, xpRequired: 800, desc: 'Потрібно 800 XP. Найкращий заробіток.' },
         { id: 'tiler',       name: 'Плиточник',    icon: '🪟', reward: 1.80, cooldown: 90,    xpGain: 10, xpRequired: 80,  desc: 'Потрібно 80 XP. Укладати плитку.' },
+        { id: 'tax_agent',   name: 'Податківець',  icon: '🏛️', reward: 3.50, cooldown: 180,   xpGain: 18, xpRequired: 400, desc: 'Потрібно 400 XP. Нерухомість та податки.' },
         { id: 'entrepreneur',name: 'Підприємець',  icon: '🤵', reward: 8.00, cooldown: 480,   xpGain: 40, xpRequired: 1500,desc: 'Потрібно 1500 XP. Максимальна виплата.' }
     ];
 
@@ -186,6 +187,132 @@
         if (ov) ov.style.display = 'none';
     }
 
+    function ensureProfessionSceneStyles() {
+        if (document.getElementById('work-prof-scene-style')) return;
+        const styleEl = document.createElement('style');
+        styleEl.id = 'work-prof-scene-style';
+        styleEl.textContent = `
+            .work-prof-scene{
+                position:relative;
+                overflow:hidden;
+                min-height:136px;
+                margin:10px 0 14px;
+                padding:14px 16px 12px;
+                border-radius:18px;
+                border:1px solid rgba(240,185,11,.25);
+                background:
+                    radial-gradient(circle at top right, rgba(240,185,11,.22), transparent 34%),
+                    linear-gradient(135deg, rgba(30,32,38,.98), rgba(11,14,17,.98));
+                box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 14px 34px rgba(0,0,0,.28);
+            }
+            .work-prof-scene::after{
+                content:'';
+                position:absolute;
+                inset:-30% auto auto 72%;
+                width:120px;
+                height:120px;
+                border-radius:50%;
+                background:rgba(255,255,255,.06);
+                filter:blur(8px);
+            }
+            .work-prof-scene-main{
+                position:relative;
+                z-index:1;
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                width:88px;
+                height:88px;
+                margin:6px auto 10px;
+                border-radius:24px;
+                background:rgba(255,255,255,.06);
+                border:1px solid rgba(255,255,255,.08);
+                font-size:48px;
+                animation:work-prof-bob 2.6s ease-in-out infinite;
+            }
+            .work-prof-scene-float{
+                position:absolute;
+                z-index:0;
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                width:44px;
+                height:44px;
+                border-radius:14px;
+                background:rgba(255,255,255,.05);
+                color:#fff;
+                font-size:22px;
+                animation:work-prof-float 3.2s ease-in-out infinite;
+                box-shadow:0 10px 20px rgba(0,0,0,.15);
+            }
+            .work-prof-scene-float.spin{ animation-name:work-prof-spin; animation-duration:5.8s; animation-timing-function:linear; }
+            .work-prof-scene-caption{
+                position:relative;
+                z-index:1;
+                text-align:center;
+                color:var(--text2);
+                font-size:12px;
+                line-height:1.45;
+            }
+            @keyframes work-prof-bob {
+                0%,100%{ transform:translateY(0) scale(1); }
+                50%{ transform:translateY(-7px) scale(1.04); }
+            }
+            @keyframes work-prof-float {
+                0%,100%{ transform:translateY(0) rotate(0deg); }
+                50%{ transform:translateY(-10px) rotate(4deg); }
+            }
+            @keyframes work-prof-spin {
+                from{ transform:rotate(0deg); }
+                to{ transform:rotate(360deg); }
+            }
+            .work-tax-grid{
+                display:grid;
+                gap:8px;
+                margin:12px 0;
+            }
+            .work-tax-card{
+                display:flex;
+                align-items:center;
+                justify-content:space-between;
+                gap:10px;
+                padding:10px 12px;
+                border-radius:12px;
+                background:#11151a;
+                border:1px solid var(--border);
+            }
+        `;
+        document.head.appendChild(styleEl);
+    }
+
+    function getProfessionScene(jobId, caption = '') {
+        ensureProfessionSceneStyles();
+        const scenes = {
+            freelancer: { main: '💻', floats: ['📩', '🧾', '⭐'], caption: 'Нові замовлення прилітають щохвилини.' },
+            programmer: { main: '🖥️', floats: ['</>', '0', '1'], caption: 'Код, логіка та швидкі рішення.' },
+            designer: { main: '🎨', floats: ['🟡', '🔷', '✨'], caption: 'Форма, колір і креатив у русі.' },
+            trader: { main: '📈', floats: ['💹', '🪙', '📊'], caption: 'Слідкуй за графіком і лови момент.' },
+            doctor: { main: '🏥', floats: ['💊', '🩺', '❤️'], caption: 'Швидко постав діагноз і допоможи.' },
+            pilot: { main: '✈️', floats: ['☁️', '🧭', '🌤️'], caption: 'Тримай курс і обходь перешкоди.' },
+            engineer: { main: '⚙️', floats: ['🔩', '🛠️', '⚙️'], caption: 'Налаштуй механізм без помилок.' },
+            chef: { main: '👨‍🍳', floats: ['🥕', '🍅', '🥦'], caption: 'Свіжі інгредієнти — головний секрет страви.' },
+            tiler: { main: '🪟', floats: ['🧱', '📐', '✨'], caption: 'Підбери правильний візерунок до кладки.' },
+            tax_agent: { main: '🏛️', floats: ['🏠', '🧾', '💰'], caption: 'Збір податків залежить від твоєї нерухомості.' },
+            entrepreneur: { main: '🤵', floats: ['🏪', '📦', '💼'], caption: 'Бізнес любить влучні рішення.' }
+        };
+        const scene = scenes[jobId];
+        if (!scene) return '';
+        return `
+            <div class="work-prof-scene">
+                <div class="work-prof-scene-float" style="top:14px;left:16px;animation-delay:-0.4s;">${scene.floats[0] || '✨'}</div>
+                <div class="work-prof-scene-float spin" style="top:22px;right:18px;">${scene.floats[1] || '⭐'}</div>
+                <div class="work-prof-scene-float" style="left:24px;bottom:12px;animation-delay:-1.1s;">${scene.floats[2] || '💡'}</div>
+                <div class="work-prof-scene-main">${scene.main}</div>
+                <div class="work-prof-scene-caption">${caption || scene.caption}</div>
+            </div>
+        `;
+    }
+
     let _workMiniGameState = {};
 
     window.doWork = async function() {
@@ -196,23 +323,31 @@
         openWorkMiniGame(prof.id);
     };
 
-    async function finishWork(penalties = 0) {
+    async function finishWork(penalties = 0, options = {}) {
         closeMiniGameOverlay();
         const { prof, u } = _workMiniGameState;
         if (!prof || !u) return;
-        const penaltyAmount = Math.min(penalties * 0.10, prof.reward * 0.5);
-        const actualReward = Math.max(0.01, prof.reward - penaltyAmount);
+        const rewardOverride = Number(options.rewardOverride);
+        const baseReward = Number.isFinite(rewardOverride) ? rewardOverride : prof.reward;
+        const penaltyAmount = Math.min(penalties * 0.10, baseReward * 0.5);
+        const actualReward = Math.max(0.01, baseReward - penaltyAmount);
         extState.work.xp += prof.xpGain;
         extState.work.lastWorkAt = Date.now();
         extState.work.totalEarned = n(extState.work.totalEarned, 0) + actualReward;
         await saveWorkState();
         await adjustUsdt(u, actualReward);
-        await appendBankRecord({ type: 'work', currency: 'usdt', amount: actualReward, note: `Робота: ${prof.name}${penalties > 0 ? ` (штраф -${penaltyAmount.toFixed(2)})` : ''}`, ts: Date.now() });
+        await appendBankRecord({
+            type: 'work',
+            currency: 'usdt',
+            amount: actualReward,
+            note: `${options.recordNote || `Робота: ${prof.name}`}${penalties > 0 ? ` (штраф -${penaltyAmount.toFixed(2)})` : ''}`,
+            ts: Date.now()
+        });
         await incrementWeeklyProgress(u, 'weeklyWorkCount');
         await incrementWeeklyProgress(u, 'weeklyUsdtEarned', actualReward);
-        const msg = penalties > 0
+        const msg = options.successMessage || (penalties > 0
             ? `💵 +${actualReward.toFixed(2)} USDT (штраф -${penaltyAmount.toFixed(2)} за ${penalties} помилок)`
-            : `💵 +${actualReward.toFixed(2)} USDT за роботу ${prof.icon}`;
+            : `💵 +${actualReward.toFixed(2)} USDT за роботу ${prof.icon}`);
         showGN(msg);
         renderWorkTab();
         startWorkCooldownTick();
@@ -230,6 +365,7 @@
             case 'chef':         startChefGame(); break;
             case 'lawyer':       startLawyerGame(); break;
             case 'tiler':        startTilerGame(); break;
+            case 'tax_agent':    startTaxAgentGame(); break;
             case 'freelancer':   startFreelancerGame(); break;
             default:             finishWork(0); break;
         }
@@ -245,6 +381,7 @@
             openMiniGameOverlay(`
                 <h3 style="color:var(--p);margin:0 0 4px;">🖥️ Програміст</h3>
                 <p style="color:var(--text2);font-size:12px;margin:0 0 12px;">Завдання ${idx + 1}/${numbers.length} • Помилки: ${errors}</p>
+                ${getProfessionScene('programmer')}
                 <div style="text-align:center;margin:20px 0;">
                     <div style="font-size:4rem;font-weight:900;color:#fff;">${num}</div>
                 </div>
@@ -279,6 +416,7 @@
             openMiniGameOverlay(`
                 <h3 style="color:var(--p);margin:0 0 4px;">🎨 Дизайнер</h3>
                 <p style="color:var(--text2);font-size:12px;margin:0 0 12px;">Замовлення ${idx + 1}/${orders.length} • Помилки: ${errors}</p>
+                ${getProfessionScene('designer')}
                 <p style="margin:0 0 12px;">Клієнт хоче: <b style="color:${o.color};">${o.shape} (${o.size})</b></p>
                 <div style="display:grid;gap:8px;">
                     ${['Квадрат', 'Коло', 'Прямокутник'].map(s =>
@@ -308,6 +446,7 @@
             openMiniGameOverlay(`
                 <h3 style="color:var(--p);margin:0 0 4px;">📊 Трейдер</h3>
                 <p style="color:var(--text2);font-size:12px;margin:0 0 12px;">Угод закрито: ${trades}/3 • Помилки: ${errors}</p>
+                ${getProfessionScene('trader')}
                 <div style="background:#111;border-radius:10px;padding:16px;text-align:center;margin-bottom:12px;">
                     <div style="font-size:2.5rem;font-weight:900;color:#fff;">$${current}</div>
                     <div style="font-size:12px;color:var(--text2);margin-top:4px;">${trend}</div>
@@ -356,6 +495,7 @@
             openMiniGameOverlay(`
                 <h3 style="color:var(--p);margin:0 0 4px;">🏥 Лікар</h3>
                 <p style="color:var(--text2);font-size:12px;margin:0 0 12px;">Пацієнт ${idx + 1}/${cases.length} • Помилки: ${errors}</p>
+                ${getProfessionScene('doctor')}
                 <div style="background:#111;border-radius:10px;padding:16px;text-align:center;margin-bottom:12px;">
                     <div style="font-size:1.5rem;">${c.symptom}</div>
                     <div style="font-size:12px;color:var(--text2);margin-top:4px;">Оберіть лікування:</div>
@@ -380,6 +520,7 @@
         openMiniGameOverlay(`
             <h3 style="color:var(--p);margin:0 0 4px;">✈️ Пілот</h3>
             <p style="color:var(--text2);font-size:12px;margin:0 0 8px;">Торкайтеся/клікайте, щоб летіти. Не врізайтесь у перешкоди!</p>
+            ${getProfessionScene('pilot')}
             <canvas id="pilot-canvas" width="360" height="280" style="border-radius:10px;display:block;margin:0 auto;touch-action:none;"></canvas>
             <div id="pilot-status" style="text-align:center;color:var(--text2);font-size:12px;margin-top:8px;"></div>
         `);
@@ -475,6 +616,7 @@
             openMiniGameOverlay(`
                 <h3 style="color:var(--p);margin:0 0 4px;">⚙️ Інженер</h3>
                 <p style="color:var(--text2);font-size:12px;margin:0 0 12px;">Механізм ${idx + 1}/${gears.length} • Помилки: ${errors}</p>
+                ${getProfessionScene('engineer')}
                 <div style="background:#111;border-radius:10px;padding:16px;text-align:center;margin-bottom:12px;">
                     <div style="font-size:1.2rem;">Механізм крутиться <b style="color:var(--p);">${g.speed}</b></div>
                     <div style="font-size:12px;color:var(--text2);margin-top:4px;">Яку шестерню підібрати?</div>
@@ -509,6 +651,7 @@
             openMiniGameOverlay(`
                 <h3 style="color:var(--p);margin:0 0 4px;">🤵 Підприємець</h3>
                 <p style="color:var(--text2);font-size:12px;margin:0 0 12px;">Рішення ${idx + 1}/${decisions.length} • Помилки: ${errors}</p>
+                ${getProfessionScene('entrepreneur')}
                 <div style="background:#111;border-radius:10px;padding:16px;margin-bottom:12px;">
                     <div style="font-size:1rem;">${d.scenario}</div>
                     <div style="font-size:12px;color:var(--text2);margin-top:4px;">Що робити?</div>
@@ -529,35 +672,132 @@
     }
 
     /* ── CHEF: Pick ripe food ── */
+    /* ── CHEF: Animated vegetables slide across screen – tap/click FRESH ones ── */
     function startChefGame() {
-        const rounds = [
-            { items: ['🍎 Стигле яблуко', '🥦 Свіжа броколі', '🍌 Гнилий банан', '🍅 Червоний томат', '🍋 Жовтий лимон'], rotten: ['🍌 Гнилий банан'] },
-            { items: ['🥝 Стиглий ківі', '🍇 Свіжий виноград', '🍊 Зелений апельсин', '🍓 Свіжа полуниця', '🥑 Гниле авокадо'], rotten: ['🍊 Зелений апельсин'] },
-            { items: ['🫐 Чорниця', '🍑 Персик', '🍐 Стигла груша', "🍍 Гнилий ананас", '🍆 Свіжий баклажан'], rotten: ["🍍 Гнилий ананас"] }
+        const ROUNDS = 3;
+        let roundIdx = 0, errors = 0;
+
+        // SVG-based vegetable/fruit art (no emojis, real styled images via inline SVG)
+        const VEGGIES = [
+            // { id, label, svgPath, fresh }
+            { id:'tomato_f',  label:'Томат',    fresh:true,  svg:`<svg viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"><circle cx="30" cy="34" r="22" fill="#e84040"/><ellipse cx="30" cy="34" rx="22" ry="22" fill="#e84040"/><path d="M22 18 Q30 10 38 18" fill="none" stroke="#2d7d2d" stroke-width="3"/><line x1="30" y1="10" x2="30" y2="18" stroke="#2d7d2d" stroke-width="3"/><ellipse cx="24" cy="30" rx="4" ry="6" fill="#f06060" opacity=".4"/></svg>` },
+            { id:'tomato_r',  label:'Гнилий томат', fresh:false, svg:`<svg viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"><circle cx="30" cy="34" r="22" fill="#7a3030"/><path d="M22 18 Q30 10 38 18" fill="none" stroke="#4d4d2d" stroke-width="3"/><line x1="30" y1="10" x2="30" y2="18" stroke="#4d4d2d" stroke-width="3"/><ellipse cx="36" cy="38" rx="7" ry="5" fill="#3a1010" opacity=".7"/><line x1="20" y1="28" x2="40" y2="44" stroke="#3a1010" stroke-width="2" opacity=".6"/></svg>` },
+            { id:'apple_f',   label:'Яблуко',   fresh:true,  svg:`<svg viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"><ellipse cx="30" cy="36" rx="20" ry="20" fill="#cc2222"/><path d="M30 14 Q36 6 44 10" fill="none" stroke="#4d7d2d" stroke-width="3"/><line x1="30" y1="14" x2="30" y2="20" stroke="#5d8d3d" stroke-width="2.5"/><ellipse cx="22" cy="30" rx="4" ry="7" fill="#dd4444" opacity=".4"/></svg>` },
+            { id:'apple_r',   label:'Гниле яблуко', fresh:false, svg:`<svg viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"><ellipse cx="30" cy="36" rx="20" ry="20" fill="#5a1f1f"/><path d="M30 14 Q36 6 44 10" fill="none" stroke="#3d5d1d" stroke-width="3"/><line x1="30" y1="14" x2="30" y2="20" stroke="#5d7d3d" stroke-width="2.5"/><ellipse cx="35" cy="40" rx="8" ry="6" fill="#2a0a0a" opacity=".8"/><path d="M22 30 Q30 38 38 30" fill="none" stroke="#1a0000" stroke-width="2"/></svg>` },
+            { id:'carrot_f',  label:'Морква',   fresh:true,  svg:`<svg viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"><path d="M30 15 L20 50 Q30 55 40 50 Z" fill="#f47c20"/><path d="M30 15 L28 10 M30 15 L26 8 M30 15 L32 8" stroke="#2d7d2d" stroke-width="2.5" fill="none"/><line x1="25" y1="28" x2="35" y2="28" stroke="#e06010" stroke-width="1.5" opacity=".5"/><line x1="23" y1="36" x2="37" y2="36" stroke="#e06010" stroke-width="1.5" opacity=".5"/></svg>` },
+            { id:'carrot_r',  label:'Гнила морква', fresh:false, svg:`<svg viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"><path d="M30 15 L20 50 Q30 55 40 50 Z" fill="#7a4010"/><path d="M30 15 L28 10 M30 15 L26 8 M30 15 L32 8" stroke="#3d4d1d" stroke-width="2.5" fill="none"/><ellipse cx="33" cy="38" rx="6" ry="8" fill="#3a1a00" opacity=".7"/></svg>` },
+            { id:'broccoli_f',label:'Броколі',  fresh:true,  svg:`<svg viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"><rect x="26" y="38" width="8" height="16" rx="3" fill="#5d8d3d"/><circle cx="30" cy="28" r="14" fill="#3d7d1d"/><circle cx="22" cy="26" r="8" fill="#4d8d2d"/><circle cx="38" cy="26" r="8" fill="#4d8d2d"/><circle cx="30" cy="20" r="8" fill="#5d9d3d"/></svg>` },
+            { id:'broccoli_r',label:'Гнила броколі', fresh:false, svg:`<svg viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"><rect x="26" y="38" width="8" height="16" rx="3" fill="#3d4d1d"/><circle cx="30" cy="28" r="14" fill="#2d4d0d"/><circle cx="22" cy="26" r="8" fill="#2a3a1a"/><circle cx="38" cy="26" r="8" fill="#2a3a1a"/><circle cx="30" cy="20" r="8" fill="#1a2d0a"/><ellipse cx="30" cy="26" rx="6" ry="5" fill="#0a1a02" opacity=".5"/></svg>` },
+            { id:'cucumber_f',label:'Огірок',   fresh:true,  svg:`<svg viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"><ellipse cx="30" cy="32" rx="12" ry="20" fill="#4aad2a"/><ellipse cx="30" cy="32" rx="8" ry="16" fill="#5dcc3d" opacity=".5"/><path d="M28 12 L30 8 L32 12" fill="#3d8d1d"/><line x1="20" y1="26" x2="40" y2="26" stroke="#3d8d1d" stroke-width="1" opacity=".4"/><line x1="18" y1="34" x2="42" y2="34" stroke="#3d8d1d" stroke-width="1" opacity=".4"/></svg>` },
+            { id:'cucumber_r',label:'Гнилий огірок', fresh:false, svg:`<svg viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"><ellipse cx="30" cy="32" rx="12" ry="20" fill="#2d5d1a"/><ellipse cx="32" cy="38" rx="7" ry="6" fill="#0d1d05" opacity=".8"/><path d="M28 12 L30 8 L32 12" fill="#1d3d0a"/></svg>` },
+            { id:'pepper_f',  label:'Перець',   fresh:true,  svg:`<svg viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"><path d="M30 18 Q18 20 16 36 Q18 52 30 52 Q42 52 44 36 Q42 20 30 18Z" fill="#e82020"/><path d="M30 18 L32 10 L28 10" stroke="#3d7d1d" stroke-width="2.5" fill="none"/><ellipse cx="24" cy="32" rx="4" ry="8" fill="#f04040" opacity=".3"/></svg>` },
+            { id:'pepper_r',  label:'Гнилий перець', fresh:false, svg:`<svg viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"><path d="M30 18 Q18 20 16 36 Q18 52 30 52 Q42 52 44 36 Q42 20 30 18Z" fill="#6a1010"/><path d="M30 18 L32 10 L28 10" stroke="#2d4d0d" stroke-width="2.5" fill="none"/><ellipse cx="34" cy="40" rx="8" ry="7" fill="#1a0000" opacity=".8"/></svg>` },
         ];
-        let idx = 0, errors = 0;
-        function render() {
-            if (idx >= rounds.length) { finishWork(errors); return; }
-            const r = rounds[idx];
-            openMiniGameOverlay(`
-                <h3 style="color:var(--p);margin:0 0 4px;">👨‍🍳 Шеф-кухар</h3>
-                <p style="color:var(--text2);font-size:12px;margin:0 0 12px;">Раунд ${idx + 1}/${rounds.length} • Помилки: ${errors}</p>
-                <p style="margin:0 0 12px;color:var(--text2);">По столу їдуть продукти. Виберіть <b style="color:var(--r);">зіпсований</b>:</p>
-                <div style="display:grid;gap:6px;">
-                    ${[...r.items].sort(() => Math.random() - 0.5).map(item =>
-                        `<button class="btn mg-food-btn" data-val="${item.replace(/"/g, '&quot;')}" style="padding:10px;text-align:left;">${item}</button>`
-                    ).join('')}
+
+        const ROUND_SETS = [
+            // round 0: pick 3 fresh out of 6
+            [ 'tomato_f','apple_r','carrot_f','broccoli_r','cucumber_f','pepper_r' ],
+            // round 1: pick 2 fresh out of 5
+            [ 'apple_f','tomato_r','carrot_r','pepper_f','cucumber_r' ],
+            // round 2: pick 3 fresh out of 7
+            [ 'tomato_f','apple_f','carrot_r','broccoli_f','cucumber_r','pepper_r','broccoli_r' ],
+        ];
+
+        const ov = document.getElementById('work-minigame-overlay') || (() => {
+            const el = document.createElement('div');
+            el.id = 'work-minigame-overlay';
+            document.body.appendChild(el);
+            return el;
+        })();
+
+        function playRound() {
+            if (roundIdx >= ROUNDS) { ov.innerHTML = ''; ov.style.display = 'none'; finishWork(errors); return; }
+            const ids = [...ROUND_SETS[roundIdx]].sort(() => Math.random() - 0.5);
+            const items = ids.map(id => VEGGIES.find(v => v.id === id));
+            const freshLeft = items.filter(v => v.fresh).length;
+            let picked = 0;
+            let localErrors = 0;
+
+            // Build DOM
+            ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:#0B0E11;display:flex;flex-direction:column;align-items:center;overflow:hidden;';
+            ov.innerHTML = `
+                <div style="padding:16px 20px;width:100%;box-sizing:border-box;display:flex;justify-content:space-between;align-items:center;">
+                    <span style="color:var(--p);font-size:15px;font-weight:900;">👨‍🍳 Шеф-кухар</span>
+                    <span style="color:var(--text2);font-size:12px;">Раунд ${roundIdx+1}/${ROUNDS} • Помилки: ${errors}</span>
                 </div>
-            `);
-            document.querySelectorAll('.mg-food-btn').forEach(btn => {
-                btn.onclick = () => {
-                    if (!r.rotten.includes(btn.dataset.val)) errors++;
-                    idx++;
-                    render();
-                };
+                <p style="color:var(--text2);font-size:13px;margin:0 0 6px;">Вибери <b style="color:var(--g);">свіжі</b> овочі! (<span id="chef-left">${freshLeft}</span> залишилось)</p>
+                <div id="chef-table" style="position:relative;flex:1;width:100%;overflow:hidden;"></div>
+                <div id="chef-msg" style="color:var(--r);font-size:13px;min-height:20px;margin-bottom:6px;"></div>
+            `;
+
+            const table = ov.querySelector('#chef-table');
+            const msgEl = ov.querySelector('#chef-msg');
+            const leftEl = ov.querySelector('#chef-left');
+            let freshRemaining = freshLeft;
+
+            // Animate each item sliding across the table
+            items.forEach((item, i) => {
+                const el = document.createElement('div');
+                const size = 64;
+                const topPct = 10 + (i * (80 / items.length));
+                const delay = i * 0.6; // stagger
+                const duration = 5 + Math.random() * 3; // 5-8s
+                const fromRight = Math.random() > 0.5;
+                el.style.cssText = `
+                    position:absolute;
+                    top:${topPct}%;
+                    width:${size}px;height:${size}px;
+                    cursor:pointer;
+                    animation: chef-slide-${fromRight?'r':'l'} ${duration}s ${delay}s linear infinite;
+                    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5));
+                    ${fromRight ? 'right:0;' : 'left:0;'}
+                `;
+                el.innerHTML = item.svg;
+                el.dataset.fresh = item.fresh ? '1' : '0';
+                el.dataset.label = item.label;
+
+                el.addEventListener('click', () => {
+                    if (el.dataset.done) return;
+                    el.dataset.done = '1';
+                    if (item.fresh) {
+                        freshRemaining--;
+                        leftEl.textContent = freshRemaining;
+                        el.style.animation = 'none';
+                        el.style.opacity = '0.3';
+                        el.style.transform = 'scale(1.3)';
+                        el.style.transition = 'all 0.3s';
+                        msgEl.style.color = 'var(--g)';
+                        msgEl.textContent = `✅ ${item.label} — свіжий!`;
+                        if (freshRemaining <= 0) {
+                            setTimeout(() => { roundIdx++; playRound(); }, 600);
+                        }
+                    } else {
+                        errors++;
+                        localErrors++;
+                        el.style.animation = 'none';
+                        el.style.opacity = '0.3';
+                        el.style.border = '3px solid var(--r)';
+                        el.style.borderRadius = '8px';
+                        msgEl.style.color = 'var(--r)';
+                        msgEl.textContent = `❌ ${item.label} — зіпсований! -1 помилка`;
+                    }
+                });
+                table.appendChild(el);
             });
         }
-        render();
+
+        // Inject keyframes if not present
+        if (!document.getElementById('chef-anim-style')) {
+            const s = document.createElement('style');
+            s.id = 'chef-anim-style';
+            s.textContent = `
+                @keyframes chef-slide-r { 0%{transform:translateX(110vw)} 100%{transform:translateX(-110vw)} }
+                @keyframes chef-slide-l { 0%{transform:translateX(-110vw)} 100%{transform:translateX(110vw)} }
+            `;
+            document.head.appendChild(s);
+        }
+
+        playRound();
     }
 
     /* ── LAWYER: Legal quiz ── */
@@ -566,16 +806,26 @@
             { situation: '👨‍💼 Клієнт підписав контракт не читаючи. Він каже, що умови несправедливі.', correct: 'Консультація та аналіз контракту', options: ['Одразу подати до суду', 'Консультація та аналіз контракту', 'Ігнорувати проблему'] },
             { situation: '🏠 Орендар не платить за квартиру 3 місяці.', correct: 'Надіслати офіційну претензію', options: ['Виселити фізично', 'Надіслати офіційну претензію', 'Знизити оренду'] },
             { situation: '🚗 Клієнт потрапив у ДТП. Другий водій тікає.', correct: 'Зафіксувати все та викликати поліцію', options: ['Догнати другого водія', 'Зафіксувати все та викликати поліцію', 'Самостійно вирішити суперечку'] },
-            { situation: '💼 Роботодавець відмовляється виплачувати зарплату 2 місяці.', correct: 'Подати скаргу в інспекцію праці', options: ['Нічого не робити', 'Подати скаргу в інспекцію праці', 'Звільнитись без виплати'] }
+            { situation: '💼 Роботодавець відмовляється виплачувати зарплату 2 місяці.', correct: 'Подати скаргу в інспекцію праці', options: ['Нічого не робити', 'Подати скаргу в інспекцію праці', 'Звільнитись без виплати'] },
+            { situation: '🏗️ Сусід будує паркан на ділянці клієнта без дозволу.', correct: 'Підготувати заяву до суду про усунення перешкод', options: ['Самостійно зруйнувати паркан', 'Підготувати заяву до суду про усунення перешкод', 'Ігнорувати ситуацію'] },
+            { situation: '📝 Клієнт уклав договір купівлі-продажу, але продавець не передає товар.', correct: 'Вимагати виконання договору або повернення коштів через суд', options: ['Забути про гроші', 'Вимагати виконання договору або повернення коштів через суд', 'Написати в соціальних мережах'] },
+            { situation: '👶 Батьки розлучаються, не можуть домовитись про опіку над дитиною.', correct: 'Звернутись до суду для встановлення порядку виховання', options: ['Вирішити самостійно без будь-яких документів', 'Звернутись до суду для встановлення порядку виховання', 'Відмовитись від дитини'] },
+            { situation: '🏦 Банк незаконно списав кошти з рахунку клієнта.', correct: 'Надіслати претензію до банку та звернутись до НБУ', options: ['Просто закрити рахунок', 'Надіслати претензію до банку та звернутись до НБУ', 'Нічого не робити'] },
+            { situation: '🔑 Клієнт придбав квартиру, але продавець відмовляється виселятись.', correct: 'Підготувати позов про виселення в суд', options: ['Виселити силою', 'Підготувати позов про виселення в суд', 'Продати квартиру ще раз'] },
+            { situation: '📱 Компанія незаконно використовує торгову марку клієнта.', correct: 'Надіслати претензію та подати позов про захист прав інтелектуальної власності', options: ['Змінити свою торгову марку', 'Надіслати претензію та подати позов про захист прав інтелектуальної власності', 'Написати у ЗМІ та чекати'] },
+            { situation: '🚧 Клієнта незаконно затримала поліція без пояснення підстав.', correct: 'Вимагати адвоката та зафіксувати порушення прав', options: ['Підписати всі документи', 'Вимагати адвоката та зафіксувати порушення прав', 'Спробувати втекти'] },
+            { situation: '💊 Лікар поставив неправильний діагноз, що завдало шкоди здоров\'ю клієнта.', correct: 'Зібрати докази та подати позов про відшкодування шкоди', options: ['Просто перейти до іншого лікаря', 'Зібрати докази та подати позов про відшкодування шкоди', 'Подати скаргу в соцмережах'] },
         ];
+        // Pick 5 random cases
+        const selected = [...cases].sort(() => Math.random() - 0.5).slice(0, 5);
         let idx = 0, errors = 0;
         function render() {
-            if (idx >= cases.length) { finishWork(errors); return; }
-            const c = cases[idx];
+            if (idx >= selected.length) { finishWork(errors); return; }
+            const c = selected[idx];
             const opts = [...c.options].sort(() => Math.random() - 0.5);
             openMiniGameOverlay(`
                 <h3 style="color:var(--p);margin:0 0 4px;">⚖️ Юрист</h3>
-                <p style="color:var(--text2);font-size:12px;margin:0 0 12px;">Справа ${idx + 1}/${cases.length} • Помилки: ${errors}</p>
+                <p style="color:var(--text2);font-size:12px;margin:0 0 12px;">Справа ${idx + 1}/${selected.length} • Помилки: ${errors}</p>
                 <div style="background:#111;border-radius:10px;padding:14px;margin-bottom:12px;font-size:13px;line-height:1.5;">
                     ${c.situation}
                 </div>
@@ -595,53 +845,243 @@
         render();
     }
 
-    /* ── TILER: Pick intact tiles ── */
+    /* ── TILER: Canvas pattern puzzle – pick the tile that matches the missing spot ── */
     function startTilerGame() {
-        const rounds = [
-            { tiles: ['🟦 Ціла', '🟦 Ціла', '💔 Тріщина', '🟦 Ціла', '🟦 Ціла'], broken: ['💔 Тріщина'] },
-            { tiles: ['🟦 Ціла', '💔 Скол', '🟦 Ціла', '🟦 Ціла', '💔 Тріщина'], broken: ['💔 Скол', '💔 Тріщина'] },
-            { tiles: ['🟦 Ціла', '🟦 Ціла', '🟦 Ціла', '💔 Тріщина', '🟦 Ціла'], broken: ['💔 Тріщина'] }
+        const ROUNDS = 3;
+        let roundIdx = 0, errors = 0;
+
+        // Pattern definitions: each is a function that draws on a canvas ctx
+        const PATTERNS = [
+            { id:'stripes_h', draw(ctx,x,y,s,c) { ctx.fillStyle=c; ctx.fillRect(x,y,s,s); ctx.strokeStyle='#000'; ctx.lineWidth=2; for(let i=0;i<s;i+=8){ctx.beginPath();ctx.moveTo(x,y+i);ctx.lineTo(x+s,y+i);ctx.stroke();} } },
+            { id:'stripes_v', draw(ctx,x,y,s,c) { ctx.fillStyle=c; ctx.fillRect(x,y,s,s); ctx.strokeStyle='#000'; ctx.lineWidth=2; for(let i=0;i<s;i+=8){ctx.beginPath();ctx.moveTo(x+i,y);ctx.lineTo(x+i,y+s);ctx.stroke();} } },
+            { id:'checker',   draw(ctx,x,y,s,c) { ctx.fillStyle=c; ctx.fillRect(x,y,s,s); const sq=12; for(let r=0;r*sq<s;r++)for(let co=0;co*sq<s;co++){if((r+co)%2===0){ctx.fillStyle='#000';ctx.fillRect(x+co*sq,y+r*sq,Math.min(sq,s-co*sq),Math.min(sq,s-r*sq));}} } },
+            { id:'diagonal',  draw(ctx,x,y,s,c) { ctx.fillStyle=c; ctx.fillRect(x,y,s,s); ctx.strokeStyle='#000'; ctx.lineWidth=2; for(let i=-s;i<2*s;i+=10){ctx.beginPath();ctx.moveTo(x+i,y);ctx.lineTo(x+i+s,y+s);ctx.stroke();} } },
+            { id:'dots',      draw(ctx,x,y,s,c) { ctx.fillStyle=c; ctx.fillRect(x,y,s,s); ctx.fillStyle='#000'; for(let r=6;r<s;r+=12)for(let co=6;co<s;co+=12){ctx.beginPath();ctx.arc(x+co,y+r,3,0,Math.PI*2);ctx.fill();} } },
+            { id:'cross',     draw(ctx,x,y,s,c) { ctx.fillStyle=c; ctx.fillRect(x,y,s,s); ctx.strokeStyle='#000'; ctx.lineWidth=2; for(let r=0;r<s;r+=14)for(let co=0;co<s;co+=14){ctx.beginPath();ctx.moveTo(x+co+2,y+r+7);ctx.lineTo(x+co+12,y+r+7);ctx.moveTo(x+co+7,y+r+2);ctx.lineTo(x+co+7,y+r+12);ctx.stroke();} } },
         ];
-        let idx = 0, errors = 0;
-        function render() {
-            if (idx >= rounds.length) { finishWork(errors); return; }
-            const r = rounds[idx];
-            openMiniGameOverlay(`
-                <h3 style="color:var(--p);margin:0 0 4px;">🪟 Плиточник</h3>
-                <p style="color:var(--text2);font-size:12px;margin:0 0 12px;">Кладка ${idx + 1}/${rounds.length} • Помилки: ${errors}</p>
-                <p style="margin:0 0 12px;color:var(--text2);">Знайдіть і виберіть <b style="color:var(--r);">биту плитку</b>:</p>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-                    ${[...r.tiles].sort(() => Math.random() - 0.5).map(t =>
-                        `<button class="btn mg-tile-btn" data-val="${t.replace(/"/g, '&quot;')}" style="padding:12px;font-size:1.2rem;">${t}</button>`
-                    ).join('')}
+
+        const COLORS = ['#3a7bd5','#e84040','#f0b90b','#3dbb6d','#9b59b6','#e67e22'];
+
+        const GRID_COLS = 4, GRID_ROWS = 4;
+        const TILE_SIZE = 56;
+
+        function genRound() {
+            // Build a 4x4 wall where all tiles share the same pattern
+            const patIdx = Math.floor(Math.random() * PATTERNS.length);
+            const colIdx = Math.floor(Math.random() * COLORS.length);
+            // Missing tile position
+            const missingRow = Math.floor(Math.random() * GRID_ROWS);
+            const missingCol = Math.floor(Math.random() * GRID_COLS);
+            // Three wrong patterns (different from correct)
+            const wrongPats = PATTERNS.filter((_,i) => i !== patIdx)
+                .sort(() => Math.random()-0.5).slice(0,3);
+            return { patIdx, colIdx, missingRow, missingCol, wrongPats };
+        }
+
+        const ov = document.getElementById('work-minigame-overlay') || (() => {
+            const el = document.createElement('div'); el.id='work-minigame-overlay';
+            document.body.appendChild(el); return el;
+        })();
+
+        function playRound() {
+            if (roundIdx >= ROUNDS) { ov.innerHTML=''; ov.style.display='none'; finishWork(errors); return; }
+            const round = genRound();
+            const { patIdx, colIdx, missingRow, missingCol, wrongPats } = round;
+            const pat = PATTERNS[patIdx];
+            const col = COLORS[colIdx];
+
+            ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:#0B0E11;display:flex;flex-direction:column;align-items:center;padding:16px;box-sizing:border-box;overflow-y:auto;';
+            ov.innerHTML = `
+                <div style="width:100%;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                    <span style="color:var(--p);font-size:15px;font-weight:900;">🪟 Плиточник</span>
+                    <span style="color:var(--text2);font-size:12px;">Кладка ${roundIdx+1}/${ROUNDS} • Помилки: ${errors}</span>
                 </div>
-            `);
-            document.querySelectorAll('.mg-tile-btn').forEach(btn => {
-                btn.onclick = () => {
-                    if (!r.broken.includes(btn.dataset.val)) {
+                ${getProfessionScene('tiler')}
+                <p style="color:var(--text2);font-size:13px;margin:0 0 10px;text-align:center;">В стіні відсутня 1 плитка.<br>Підберіть плитку з <b style="color:var(--p);">правильним візерунком</b>:</p>
+                <canvas id="tiler-wall" width="${GRID_COLS*TILE_SIZE}" height="${GRID_ROWS*TILE_SIZE}" style="border:2px solid var(--border);border-radius:8px;margin-bottom:14px;"></canvas>
+                <p style="color:var(--text2);font-size:12px;margin:0 0 8px;">Виберіть потрібну плитку:</p>
+                <div id="tiler-options" style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;"></div>
+                <div id="tiler-msg" style="min-height:20px;margin-top:10px;font-size:13px;"></div>
+            `;
+
+            // Draw the wall
+            const wallCanvas = ov.querySelector('#tiler-wall');
+            const ctx = wallCanvas.getContext('2d');
+            for (let r=0; r<GRID_ROWS; r++) {
+                for (let c=0; c<GRID_COLS; c++) {
+                    const x = c*TILE_SIZE, y = r*TILE_SIZE;
+                    if (r === missingRow && c === missingCol) {
+                        // Empty slot
+                        ctx.fillStyle = '#111';
+                        ctx.fillRect(x,y,TILE_SIZE,TILE_SIZE);
+                        ctx.strokeStyle = '#F0B90B';
+                        ctx.lineWidth = 2;
+                        ctx.setLineDash([6,4]);
+                        ctx.strokeRect(x+1,y+1,TILE_SIZE-2,TILE_SIZE-2);
+                        ctx.setLineDash([]);
+                        ctx.fillStyle = '#F0B90B';
+                        ctx.font = 'bold 18px sans-serif';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText('?', x+TILE_SIZE/2, y+TILE_SIZE/2);
+                        ctx.textAlign = 'left';
+                        ctx.textBaseline = 'alphabetic';
+                    } else {
+                        pat.draw(ctx, x, y, TILE_SIZE, col);
+                        ctx.strokeStyle = '#0B0E11';
+                        ctx.lineWidth = 1;
+                        ctx.strokeRect(x,y,TILE_SIZE,TILE_SIZE);
+                    }
+                }
+            }
+
+            // Build options: correct + 3 wrong patterns
+            const options = [
+                { patIdx, correct: true },
+                ...wrongPats.map(wp => ({ patIdx: PATTERNS.indexOf(wp), correct: false }))
+            ].sort(() => Math.random()-0.5);
+
+            const optDiv = ov.querySelector('#tiler-options');
+            const msgEl = ov.querySelector('#tiler-msg');
+
+            options.forEach(opt => {
+                const canvas = document.createElement('canvas');
+                canvas.width = TILE_SIZE;
+                canvas.height = TILE_SIZE;
+                canvas.style.cssText = `cursor:pointer;border:2px solid var(--border);border-radius:6px;transition:border-color 0.2s;`;
+                const octx = canvas.getContext('2d');
+                PATTERNS[opt.patIdx].draw(octx, 0, 0, TILE_SIZE, col);
+                canvas.addEventListener('mouseenter', () => { canvas.style.borderColor = 'var(--p)'; });
+                canvas.addEventListener('mouseleave', () => { canvas.style.borderColor = 'var(--border)'; });
+                canvas.addEventListener('click', () => {
+                    optDiv.querySelectorAll('canvas').forEach(c => c.style.pointerEvents='none');
+                    if (opt.correct) {
+                        canvas.style.borderColor = 'var(--g)';
+                        msgEl.style.color = 'var(--g)';
+                        msgEl.textContent = '✅ Правильно! Плитка підходить!';
+                        // Fill in the missing tile on the wall
+                        pat.draw(ctx, missingCol*TILE_SIZE, missingRow*TILE_SIZE, TILE_SIZE, col);
+                        ctx.strokeStyle = '#0B0E11'; ctx.lineWidth=1;
+                        ctx.strokeRect(missingCol*TILE_SIZE, missingRow*TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                        setTimeout(() => { roundIdx++; playRound(); }, 800);
+                    } else {
                         errors++;
-                        idx++;
-                        render();
-                        return;
+                        canvas.style.borderColor = 'var(--r)';
+                        msgEl.style.color = 'var(--r)';
+                        msgEl.textContent = '❌ Не той візерунок! Спробуй ще.';
+                        // Re-enable other canvases
+                        optDiv.querySelectorAll('canvas').forEach(c => {
+                            if (c !== canvas) c.style.pointerEvents='auto';
+                        });
                     }
-                    btn.disabled = true;
-                    btn.style.opacity = '0.3';
-                    const remaining = Array.from(document.querySelectorAll('.mg-tile-btn:not([disabled])')).filter(b => r.broken.includes(b.dataset.val));
-                    if (remaining.length === 0) {
-                        idx++;
-                        render();
-                    }
-                };
+                });
+                optDiv.appendChild(canvas);
             });
         }
-        render();
+
+        playRound();
+    }
+
+    /* ── TAX AGENT: Collect taxes from owned real estate ── */
+    function startTaxAgentGame() {
+        const TAX_AGENT_BASE_REWARD = 0.25;
+        const TAX_AGENT_LEVEL_BONUS = 0.05;
+        const TAX_AGENT_PRICE_FACTOR = 0.002;
+        // Caps payout from one property so large late-game assets do not make the tax profession overpowered.
+        const TAX_AGENT_PROPERTY_CAP = 2.5;
+        const catalog = typeof realEstateCatalog === 'undefined' ? [] : realEstateCatalog;
+        const state = typeof realEstateState === 'undefined' ? { properties: {} } : realEstateState;
+        const ownedEntries = catalog
+            .filter(definition => state.properties?.[definition.id])
+            .map(definition => {
+                const level = Math.max(1, n(state.properties[definition.id]?.level, 1));
+                // Higher-level and more expensive properties bring a larger tax payment,
+                // but each property is capped to keep the profession balanced.
+                const taxAmount = Number(Math.min(
+                    TAX_AGENT_PROPERTY_CAP,
+                    TAX_AGENT_BASE_REWARD + (level * TAX_AGENT_LEVEL_BONUS) + (n(definition.price, 0) * TAX_AGENT_PRICE_FACTOR)
+                ).toFixed(2));
+                return { definition, level, taxAmount };
+            });
+
+        if (!ownedEntries.length) {
+            openMiniGameOverlay(`
+                <h3 style="color:var(--p);margin:0 0 4px;">🏛️ Податківець</h3>
+                <p style="color:var(--text2);font-size:12px;margin:0 0 12px;">Без міні-гри — просто збір податків з кожної нерухомості.</p>
+                ${getProfessionScene('tax_agent')}
+                <div style="background:#111;border-radius:12px;padding:14px;margin-bottom:12px;font-size:13px;line-height:1.6;">
+                    У тебе ще немає нерухомості, тож податки збирати поки що ні з чого.
+                </div>
+                <button class="btn" id="mg-tax-close" style="width:100%;">ЗРОЗУМІЛО</button>
+            `);
+            document.getElementById('mg-tax-close').onclick = closeMiniGameOverlay;
+            return;
+        }
+
+        const totalReward = Number(ownedEntries.reduce((sum, entry) => sum + entry.taxAmount, 0).toFixed(2));
+        openMiniGameOverlay(`
+            <h3 style="color:var(--p);margin:0 0 4px;">🏛️ Податківець</h3>
+            <p style="color:var(--text2);font-size:12px;margin:0 0 12px;">Тепер тут не міні-гра, а прямий збір податків з кожної нерухомості.</p>
+            ${getProfessionScene('tax_agent', `У портфелі ${ownedEntries.length} обʼєкт(ів). Збери податки й заверши зміну.`)}
+            <div class="work-tax-grid">
+                ${ownedEntries.map(entry => `
+                    <div class="work-tax-card">
+                        <div>
+                            <div style="font-weight:800;color:#fff;">${esc(entry.definition.icon)} ${esc(entry.definition.name)}</div>
+                            <div style="font-size:12px;color:var(--text2);">Рівень ${entry.level}</div>
+                        </div>
+                        <div style="font-weight:900;color:var(--g);">+${entry.taxAmount.toFixed(2)} USDT</div>
+                    </div>
+                `).join('')}
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;background:#111;border-radius:12px;padding:12px 14px;margin-bottom:12px;">
+                <span style="color:var(--text2);font-size:12px;">Разом за зміну</span>
+                <span style="font-size:20px;font-weight:900;color:var(--p);">+${totalReward.toFixed(2)} USDT</span>
+            </div>
+            <button class="btn" id="mg-tax-collect" style="width:100%;">СТЯГНУТИ ПОДАТКИ</button>
+        `);
+        document.getElementById('mg-tax-collect').onclick = () => {
+            finishWork(0, {
+                rewardOverride: totalReward,
+                successMessage: `🏛️ Зібрано податки: +${totalReward.toFixed(2)} USDT з ${ownedEntries.length} об'єктів`,
+                recordNote: 'Податки з нерухомості'
+            });
+        };
     }
 
     /* ── FREELANCER: Random job ── */
     function startFreelancerGame() {
-        const pool = ['programmer', 'designer', 'trader', 'doctor', 'engineer', 'chef', 'lawyer', 'tiler'];
-        const rnd = pool[Math.floor(Math.random() * pool.length)];
-        openWorkMiniGame(rnd);
+        const gigs = [
+            { task: 'Клієнт просить швидкий лендинг.', correct: '🖥️ Верстка', options: ['🖥️ Верстка', '⚖️ Судовий позов', '🏥 Діагностика'] },
+            { task: 'Потрібно терміново намалювати банер.', correct: '🎨 Дизайн', options: ['🎨 Дизайн', '⚙️ Ремонт двигуна', '🏛️ Податкова перевірка'] },
+            { task: 'Замовник хоче підготувати плитку для кухні.', correct: '🪟 Плитка', options: ['🪟 Плитка', '✈️ Політ маршрутом', '📈 Біржова угода'] }
+        ];
+        let idx = 0, errors = 0;
+        function render() {
+            if (idx >= gigs.length) { finishWork(errors); return; }
+            const gig = gigs[idx];
+            const opts = [...gig.options].sort(() => Math.random() - 0.5);
+            openMiniGameOverlay(`
+                <h3 style="color:var(--p);margin:0 0 4px;">💻 Фрілансер</h3>
+                <p style="color:var(--text2);font-size:12px;margin:0 0 12px;">Замовлення ${idx + 1}/${gigs.length} • Помилки: ${errors}</p>
+                ${getProfessionScene('freelancer')}
+                <div style="background:#111;border-radius:10px;padding:16px;margin-bottom:12px;">
+                    <div style="font-size:1rem;">${gig.task}</div>
+                    <div style="font-size:12px;color:var(--text2);margin-top:4px;">Що найкраще підходить?</div>
+                </div>
+                <div style="display:grid;gap:8px;">
+                    ${opts.map(opt => `<button class="btn mg-free-btn" data-val="${opt.replace(/"/g, '&quot;')}" style="padding:12px;text-align:left;">${opt}</button>`).join('')}
+                </div>
+            `);
+            document.querySelectorAll('.mg-free-btn').forEach(btn => {
+                btn.onclick = () => {
+                    if (btn.dataset.val !== gig.correct) errors++;
+                    idx++;
+                    render();
+                };
+            });
+        }
+        render();
     }
 
     function startWorkCooldownTick() {

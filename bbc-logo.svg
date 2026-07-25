@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 280">
+  <defs>
+    <linearGradient id="bbcGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="50%" stop-color="#b0f0eb"/>
+      <stop offset="100%" stop-color="#00e5d1"/>
+    </linearGradient>
+    <linearGradient id="bbcGrad2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#00e5d1" stop-opacity="0.05"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Outer B (left / back) -->
+  <g fill="none" stroke="url(#bbcGrad)" stroke-width="7" stroke-linejoin="round" stroke-linecap="round">
+    <!-- Left vertical bar -->
+    <line x1="52" y1="48" x2="52" y2="232"/>
+    <!-- Top horizontal -->
+    <line x1="52" y1="48" x2="140" y2="48"/>
+    <!-- Top bump -->
+    <path d="M140 48 Q182 48 182 100 Q182 150 140 150"/>
+    <!-- Middle horizontal -->
+    <line x1="52" y1="150" x2="140" y2="150"/>
+    <!-- Bottom bump -->
+    <path d="M140 150 Q192 150 192 192 Q192 232 140 232"/>
+    <!-- Bottom horizontal -->
+    <line x1="52" y1="232" x2="140" y2="232"/>
+  </g>
+
+  <!-- Right B (offset by 40px) -->
+  <g fill="none" stroke="url(#bbcGrad)" stroke-width="7" stroke-linejoin="round" stroke-linecap="round" opacity="0.9">
+    <line x1="92" y1="48" x2="92" y2="232"/>
+    <line x1="92" y1="48" x2="180" y2="48"/>
+    <path d="M180 48 Q222 48 222 100 Q222 150 180 150"/>
+    <line x1="92" y1="150" x2="180" y2="150"/>
+    <path d="M180 150 Q232 150 232 192 Q232 232 180 232"/>
+    <line x1="92" y1="232" x2="180" y2="232"/>
+  </g>
+</svg>

@@ -222,8 +222,9 @@
         @keyframes typingBounce { 0%, 60%, 100% { transform: translateY(0); opacity: 0.7; } 30% { transform: translateY(-7px); opacity: 1; } }
 
         /* ✊ Казино: підвкладки */
-        .casino-subtabs { display:flex; border-bottom:1px solid var(--border); margin-bottom:15px; gap:4px; }
-        .casino-subtab { padding:10px 15px; font-size:12px; color:var(--text2); cursor:pointer; border-bottom:2px solid transparent; transition:0.2s; text-transform:uppercase; letter-spacing:1px; font-weight:700; }
+        .casino-subtabs { display:flex; border-bottom:1px solid var(--border); margin-bottom:15px; gap:4px; overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch; flex-wrap:nowrap; }
+        .casino-subtabs::-webkit-scrollbar { display:none; }
+        .casino-subtab { padding:10px 15px; font-size:12px; color:var(--text2); cursor:pointer; border-bottom:2px solid transparent; transition:0.2s; text-transform:uppercase; letter-spacing:1px; font-weight:700; white-space:nowrap; flex-shrink:0; }
         .casino-subtab.active { color:var(--p); border-bottom-color:var(--p); }
 
         /* ✊ RPS гра */
@@ -660,6 +661,7 @@
 <!-- ЕКРАН ВХОДУ -->
 <div id="auth-scr" style="height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;">
     <div class="glass" style="width:100%; max-width:320px; text-align:center;">
+        <img src="bbc-logo.svg" alt="BBc" style="height:90px;width:auto;margin-bottom:8px;display:block;margin-left:auto;margin-right:auto;" onerror="this.style.display='none'">
         <h2 style="letter-spacing:3px; margin-bottom:30px; font-size:2rem; color:var(--gold);">BB COIN</h2>
         
         <div style="display:flex; gap:10px; margin-bottom:20px;">
@@ -1009,7 +1011,7 @@
         <div id="casino-breakout" style="display:none;">
             <div class="glass" style="text-align:center;">
                 <h4 style="margin:0 0 8px;color:var(--p);">🧱 АРКАНОЇД</h4>
-                <p style="font-size:12px;color:var(--text2);margin:0 0 8px;">Вхід: <b style="color:var(--p);">10 BB</b>. Зламай всі блоки та отримай приз!</p>
+                <p style="font-size:12px;color:var(--text2);margin:0 0 8px;">Вхід: <b style="color:var(--p);">10 BB</b>. Зламай золотий блок та отримай <b id="breakout-prize-preview" style="color:var(--g);">приз!</b></p>
                 <div id="breakout-start-area">
                     <button class="btn" onclick="startBreakoutGame()" style="background:var(--p);color:#000;margin-top:8px;">🎮 ГРАТИ (10 BB)</button>
                 </div>
@@ -1679,6 +1681,62 @@
         </div>
     </div>
 
+    <!-- ВКЛ.19: СПОРТ -->
+    <div id="tab19" class="view">
+        <h3 style="margin-top:0;">⚽ СПОРТ — СТАВКИ</h3>
+        <div class="sport-subtabs" style="display:flex;gap:6px;margin-bottom:14px;border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none;">
+            <div class="sport-stab active" onclick="switchSportTab('matches')" id="sst-matches" style="padding:10px 16px;font-size:12px;color:var(--p);border-bottom:2px solid var(--p);cursor:pointer;white-space:nowrap;font-weight:700;">⚽ Матчі</div>
+            <div class="sport-stab" onclick="switchSportTab('mybets')" id="sst-mybets" style="padding:10px 16px;font-size:12px;color:var(--text2);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;font-weight:700;">🎯 Мої ставки</div>
+        </div>
+
+        <!-- Matches panel -->
+        <div id="sport-panel-matches">
+            <div class="glass" style="margin-bottom:10px;padding:12px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;">Джерело даних:</span>
+                    <span style="font-size:11px;color:var(--g);">● UPL / Пряма трансляція</span>
+                </div>
+            </div>
+            <div id="sport-matches-list" style="display:flex;flex-direction:column;gap:10px;">
+                <div style="text-align:center;color:var(--text2);padding:30px;">⏳ Завантаження матчів...</div>
+            </div>
+        </div>
+
+        <!-- My bets panel -->
+        <div id="sport-panel-mybets" style="display:none;">
+            <div class="glass" style="padding:16px;">
+                <h4 style="margin:0 0 12px;color:var(--gold);">🎯 Мої ставки</h4>
+                <div id="sport-mybets-list" style="display:flex;flex-direction:column;gap:8px;">
+                    <div style="color:var(--text2);font-size:13px;">Ставок ще немає.</div>
+                </div>
+                <div class="feature-stat-grid" style="margin-top:14px;">
+                    <div class="feature-stat">
+                        <div class="feature-stat-label">ВИГРАШ РАЗОМ</div>
+                        <div id="sport-total-won" class="feature-stat-value" style="color:var(--g);">0 BB</div>
+                    </div>
+                    <div class="feature-stat">
+                        <div class="feature-stat-label">ПРОГРАШ РАЗОМ</div>
+                        <div id="sport-total-lost" class="feature-stat-value" style="color:var(--r);">0 BB</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bet Modal -->
+        <div id="sport-bet-modal" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.8);align-items:center;justify-content:center;">
+            <div class="glass" style="width:90%;max-width:320px;padding:20px;">
+                <h4 style="margin:0 0 8px;color:var(--p);" id="sport-bet-title">Ставка</h4>
+                <p style="font-size:12px;color:var(--text2);margin:0 0 14px;" id="sport-bet-desc"></p>
+                <p style="font-size:12px;color:var(--text2);margin:0 0 6px;">Коефіцієнт: <b id="sport-bet-odds" style="color:var(--p);"></b></p>
+                <input type="number" id="sport-bet-amount" placeholder="Сума ставки (BB)" min="1" step="1" style="width:100%;padding:10px;background:#111;border:1px solid var(--border);border-radius:8px;color:#fff;font-size:14px;box-sizing:border-box;margin-bottom:12px;">
+                <div style="display:flex;gap:8px;">
+                    <button class="btn" onclick="confirmSportBet()" style="background:var(--g);color:#000;flex:1;">✅ Ставити</button>
+                    <button class="btn" onclick="closeSportBetModal()" style="flex:1;">❌ Скасувати</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- НАВІГАЦІЯ -->
     <nav class="app-nav">
         <div class="tab active" onclick="switchTab(1)">⛏️<span>Mining</span></div>
@@ -1699,6 +1757,7 @@
         <div class="tab" onclick="switchTab(16)">💼<span>Work</span></div>
         <div class="tab" onclick="switchTab(17)">🏦<span>Bank</span></div>
         <div class="tab" onclick="switchTab(18)">📈<span>Stocks</span></div>
+        <div class="tab" onclick="switchTab(19)">⚽<span>Sport</span></div>
     </nav>
 </div>
 
@@ -3621,7 +3680,7 @@
         document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
         document.querySelectorAll('nav .tab').forEach(t => t.classList.remove('active'));
         
-        const tabMap = {1: 'tab1', 2: 'tab2', 3: 'tab3', 4: 'tab4', 5: 'tab5', 6: 'tab6', 7: 'tab7', 8: 'tab8', 9: 'tab9', 10: 'tab10', 11: 'tab11', 12: 'tab12', 13: 'tab13', 14: 'tab14', 15: 'tab15', 16: 'tab16', 17: 'tab17', 18: 'tab18'};
+        const tabMap = {1: 'tab1', 2: 'tab2', 3: 'tab3', 4: 'tab4', 5: 'tab5', 6: 'tab6', 7: 'tab7', 8: 'tab8', 9: 'tab9', 10: 'tab10', 11: 'tab11', 12: 'tab12', 13: 'tab13', 14: 'tab14', 15: 'tab15', 16: 'tab16', 17: 'tab17', 18: 'tab18', 19: 'tab19'};
         const tabEl = document.getElementById(tabMap[tabNum]);
         if (tabEl) tabEl.style.display = 'block';
         const tabs = document.querySelectorAll('nav .tab');
@@ -3644,6 +3703,9 @@
         }
         if (tabNum === 10) {
             renderCarsTab();
+        }
+        if (tabNum === 19) {
+            initSportTab();
         }
         if (typeof window.handleExtendedTabOpen === 'function') {
             window.handleExtendedTabOpen(tabNum);
@@ -3823,16 +3885,20 @@
         let padX = W / 2 - 40, padW = 80, padH = 12, padY = H - 30;
         let bx = W / 2, by = H - 60, bvx = 3.5, bvy = -4, bR = 8;
         const COLS = 7, ROWS = 5, bW = 44, bH = 18, bPad = 4;
+        const prizeAmt = [20, 30, 40, 50, 75, 100][Math.floor(Math.random() * 6)];
+        const prizeRow = Math.floor(Math.random() * ROWS);
+        const prizeCol = Math.floor(Math.random() * COLS);
         let bricks = [];
         for (let r = 0; r < ROWS; r++) {
             for (let c = 0; c < COLS; c++) {
                 const xOff = (W - (COLS * (bW + bPad) - bPad)) / 2;
+                const isPrize = r === prizeRow && c === prizeCol;
                 bricks.push({
                     x: xOff + c * (bW + bPad),
                     y: 40 + r * (bH + bPad),
                     alive: true,
-                    color: r === 2 && c === 3 ? '#F0B90B' : `hsl(${(r * 40 + c * 20) % 360},70%,55%)`,
-                    prize: r === 2 && c === 3
+                    color: isPrize ? '#F0B90B' : `hsl(${(r * 40 + c * 20) % 360},70%,55%)`,
+                    prize: isPrize
                 });
             }
         }
@@ -3863,9 +3929,9 @@
                 ctx.fill();
                 if (b.prize) {
                     ctx.fillStyle = '#000';
-                    ctx.font = 'bold 11px sans-serif';
+                    ctx.font = 'bold 10px sans-serif';
                     ctx.textAlign = 'center';
-                    ctx.fillText('BB', b.x + bW / 2, b.y + bH - 4);
+                    ctx.fillText(`+${prizeAmt}`, b.x + bW / 2, b.y + bH - 4);
                     ctx.textAlign = 'left';
                 }
             });
@@ -3913,7 +3979,6 @@
             draw();
             if (!running) {
                 cleanup();
-                const prizeAmt = won ? 50 : 0;
                 if (won) {
                     gameState.balance += prizeAmt;
                     await updateMiningBalanceFirebase(gameState.user, gameState.balance);
@@ -3937,6 +4002,9 @@
         document.getElementById('breakout-canvas').style.display = 'none';
         document.getElementById('breakout-start-area').style.display = 'block';
         document.getElementById('breakout-status').innerHTML = '';
+        const nextPrize = [20, 30, 40, 50, 75, 100][Math.floor(Math.random() * 6)];
+        const el = document.getElementById('breakout-prize-preview');
+        if (el) el.textContent = `${nextPrize} BB!`;
     }
 
     // ===== РУЛЕТКА =====
@@ -5941,6 +6009,348 @@
         document.addEventListener('DOMContentLoaded', () => setLanguage(stored));
         // Also try immediately in case DOMContentLoaded already fired
         if (document.readyState !== 'loading') setLanguage(stored);
+    })();
+
+    /* =========================================================
+       SPORT TAB — Ukrainian Premier League matches + Betting
+       Uses football-data.org free API (Ukrainian Premier League = UPL)
+       and TheSportsDB for team logos
+       ========================================================= */
+    (function() {
+        // Fallback Ukrainian club logos from Wikipedia/TheSportsDB
+        const TEAM_LOGOS = {
+            'Шахтар Донецьк':  'https://upload.wikimedia.org/wikipedia/en/thumb/a/a6/FC_Shakhtar_Donetsk.svg/200px-FC_Shakhtar_Donetsk.svg.png',
+            'Динамо Київ':     'https://upload.wikimedia.org/wikipedia/en/thumb/6/64/Dynamo_Kyiv.svg/200px-Dynamo_Kyiv.svg.png',
+            'Металіст 1925':   'https://upload.wikimedia.org/wikipedia/en/thumb/3/35/FC_Metalist_1925_Kharkiv.png/200px-FC_Metalist_1925_Kharkiv.png',
+            'Ворскла':         'https://upload.wikimedia.org/wikipedia/en/thumb/c/cb/FC_Vorskla_Poltava.svg/200px-FC_Vorskla_Poltava.svg.png',
+            'Дніпро-1':        'https://upload.wikimedia.org/wikipedia/en/thumb/3/3d/FC_Dnipro-1.png/200px-FC_Dnipro-1.png',
+            'Зоря':            'https://upload.wikimedia.org/wikipedia/en/thumb/e/e7/FC_Zorya_Luhansk.svg/200px-FC_Zorya_Luhansk.svg.png',
+            'Олександрія':     'https://upload.wikimedia.org/wikipedia/en/thumb/7/7e/FC_Oleksandriia.png/200px-FC_Oleksandriia.png',
+            'Рух':             'https://upload.wikimedia.org/wikipedia/en/thumb/7/76/FC_Rukh_Lviv.png/200px-FC_Rukh_Lviv.png',
+            'Кривбас':         'https://upload.wikimedia.org/wikipedia/en/thumb/c/c9/FK_Kryvbas_Krivoi_Rog.png/200px-FK_Kryvbas_Krivoi_Rog.png',
+            'Чорноморець':     'https://upload.wikimedia.org/wikipedia/en/thumb/a/a1/FK_Chornomorets_Odessa.svg/200px-FK_Chornomorets_Odessa.svg.png',
+            'Минай':           'https://upload.wikimedia.org/wikipedia/en/thumb/5/5c/FC_Mynai.png/200px-FC_Mynai.png',
+            'Полісся':         'https://upload.wikimedia.org/wikipedia/en/thumb/4/4c/FC_Polissya_Zhytomyr.png/200px-FC_Polissya_Zhytomyr.png',
+        };
+
+        function getLogoUrl(name) {
+            if (!name) return '';
+            for (const [key, url] of Object.entries(TEAM_LOGOS)) {
+                if (name.includes(key) || key.includes(name)) return url;
+            }
+            return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=1E2026&color=F0B90B&size=48&bold=true`;
+        }
+
+        // Simulated odds generation based on team ranking / goals
+        function generateOdds(homeGoals, awayGoals, homePos, awayPos) {
+            const base = 1.1;
+            const posDiff = (awayPos - homePos) / 16;
+            let home = +(1.5 + posDiff * 0.8 + Math.random() * 0.3).toFixed(2);
+            let draw = +(3.2 + (Math.random() - 0.5) * 0.4).toFixed(2);
+            let away = +(1.5 - posDiff * 0.8 + Math.random() * 0.3).toFixed(2);
+            home = Math.max(1.15, home);
+            away = Math.max(1.15, away);
+            return { home, draw, away };
+        }
+
+        // sport state
+        window._sportState = window._sportState || {
+            bets: JSON.parse(localStorage.getItem('bbc_sport_bets') || '[]'),
+            currentBet: null,
+            matches: [],
+            standings: [],
+            refreshTimer: null
+        };
+
+        function saveBets() {
+            localStorage.setItem('bbc_sport_bets', JSON.stringify(window._sportState.bets));
+        }
+
+        // Fetch matches from football-data.org (Ukrainian Premier League = UPL).
+        // The free plan (api.football-data.org) allows limited requests without authentication.
+        // If the API returns an error, the tab falls back to simulated Ukrainian club fixtures.
+        // Fallback: simulate with real team names from current UPL season
+        async function fetchMatches() {
+            const API_KEY = ''; // Set to your football-data.org API key to increase the request quota
+            try {
+                const res = await fetch('https://api.football-data.org/v4/competitions/UPL/matches?status=SCHEDULED,IN_PLAY,FINISHED&limit=10', {
+                    headers: API_KEY ? { 'X-Auth-Token': API_KEY } : {}
+                });
+                if (!res.ok) throw new Error('API error');
+                const data = await res.json();
+                return data.matches || [];
+            } catch(e) {
+                return null;
+            }
+        }
+
+        async function fetchStandings() {
+            try {
+                const res = await fetch('https://api.football-data.org/v4/competitions/UPL/standings', {
+                    headers: {}
+                });
+                if (!res.ok) throw new Error();
+                const data = await res.json();
+                return (data.standings?.[0]?.table || []);
+            } catch(e) { return []; }
+        }
+
+        // Fallback simulated matches (real UPL teams, plausible fixtures)
+        function buildFallbackMatches() {
+            const teams = [
+                'Шахтар Донецьк','Динамо Київ','Металіст 1925','Ворскла',
+                'Дніпро-1','Зоря','Олександрія','Рух','Кривбас','Чорноморець','Минай','Полісся'
+            ];
+            const now = Date.now();
+            const matches = [];
+            const usedPairs = new Set();
+            let t = now - 2 * 3600000; // start from 2h ago
+            for (let i = 0; i < 6; i++) {
+                let h, a;
+                do {
+                    h = teams[Math.floor(Math.random() * teams.length)];
+                    a = teams[Math.floor(Math.random() * teams.length)];
+                } while (h === a || usedPairs.has(`${h}-${a}`) || usedPairs.has(`${a}-${h}`));
+                usedPairs.add(`${h}-${a}`);
+                const kickoff = t + i * 1.5 * 3600000;
+                let status, hg = 0, ag = 0;
+                if (kickoff < now - 90*60000) {
+                    status = 'FINISHED';
+                    hg = Math.floor(Math.random() * 4);
+                    ag = Math.floor(Math.random() * 4);
+                } else if (kickoff < now) {
+                    status = 'IN_PLAY';
+                    hg = Math.floor(Math.random() * 3);
+                    ag = Math.floor(Math.random() * 3);
+                } else {
+                    status = 'SCHEDULED';
+                }
+                matches.push({
+                    id: i + 1,
+                    utcDate: new Date(kickoff).toISOString(),
+                    status,
+                    homeTeam: { name: h },
+                    awayTeam: { name: a },
+                    score: { fullTime: { home: hg, away: ag }, halfTime: { home: 0, away: 0 } },
+                    _pos: { home: i + 1, away: teams.length - i }
+                });
+            }
+            return matches;
+        }
+
+        function statusLabel(s) {
+            if (s === 'FINISHED') return '<span style="color:var(--text2);">Завершено</span>';
+            if (s === 'IN_PLAY' || s === 'PAUSED') return '<span style="color:var(--g);font-weight:700;animation:pulse 1s infinite;">● LIVE</span>';
+            if (s === 'SCHEDULED' || s === 'TIMED') return '<span style="color:var(--p);">Заплановано</span>';
+            return `<span style="color:var(--text2);">${s}</span>`;
+        }
+
+        function formatMatchDate(iso) {
+            const d = new Date(iso);
+            return d.toLocaleString('uk-UA', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+        }
+
+        function renderMatchCard(m, standings) {
+            const hn = m.homeTeam?.shortName || m.homeTeam?.name || '?';
+            const an = m.awayTeam?.shortName || m.awayTeam?.name || '?';
+            const hLogo = getLogoUrl(hn);
+            const aLogo = getLogoUrl(an);
+            const hPos = standings.findIndex(s => (s.team?.name || '').includes(hn.split(' ')[0])) + 1 || 8;
+            const aPos = standings.findIndex(s => (s.team?.name || '').includes(an.split(' ')[0])) + 1 || 8;
+            const odds = generateOdds(
+                m.score?.fullTime?.home ?? 0,
+                m.score?.fullTime?.away ?? 0,
+                hPos, aPos
+            );
+            const live = m.status === 'IN_PLAY' || m.status === 'PAUSED';
+            const finished = m.status === 'FINISHED';
+            const scoreHtml = (live || finished)
+                ? `<span style="font-size:22px;font-weight:900;color:${live ? 'var(--g)' : '#fff'};">${m.score.fullTime.home ?? 0} : ${m.score.fullTime.away ?? 0}</span>`
+                : `<span style="color:var(--text2);font-size:13px;">${formatMatchDate(m.utcDate)}</span>`;
+            const canBet = m.status === 'SCHEDULED' || m.status === 'TIMED' || live;
+            return `<div class="glass" style="padding:14px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                    <span style="font-size:11px;color:var(--text2);">🇺🇦 УПЛ</span>
+                    ${statusLabel(m.status)}
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;margin:10px 0;">
+                    <div style="flex:1;text-align:center;">
+                        <img src="${hLogo}" alt="${hn}" style="width:44px;height:44px;object-fit:contain;border-radius:6px;background:#111;" onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(hn)}&background=1E2026&color=F0B90B&size=44&bold=true'">
+                        <div style="font-size:11px;font-weight:700;margin-top:4px;word-break:break-word;">${hn}</div>
+                    </div>
+                    <div style="text-align:center;min-width:60px;">${scoreHtml}</div>
+                    <div style="flex:1;text-align:center;">
+                        <img src="${aLogo}" alt="${an}" style="width:44px;height:44px;object-fit:contain;border-radius:6px;background:#111;" onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(an)}&background=1E2026&color=F0B90B&size=44&bold=true'">
+                        <div style="font-size:11px;font-weight:700;margin-top:4px;word-break:break-word;">${an}</div>
+                    </div>
+                </div>
+                ${canBet ? `
+                <div style="display:flex;gap:6px;margin-top:10px;">
+                    <button class="btn" style="flex:1;padding:8px 4px;font-size:11px;" onclick="openSportBet(${m.id},'home','${hn}',${odds.home})">
+                        П1 <b style="color:var(--p);">x${odds.home}</b>
+                    </button>
+                    <button class="btn" style="flex:1;padding:8px 4px;font-size:11px;" onclick="openSportBet(${m.id},'draw','Нічия',${odds.draw})">
+                        X <b style="color:var(--p);">x${odds.draw}</b>
+                    </button>
+                    <button class="btn" style="flex:1;padding:8px 4px;font-size:11px;" onclick="openSportBet(${m.id},'away','${an}',${odds.away})">
+                        П2 <b style="color:var(--p);">x${odds.away}</b>
+                    </button>
+                </div>
+                ` : `<p style="font-size:11px;color:var(--text2);margin:8px 0 0;text-align:center;">Ставки недоступні для завершених матчів.</p>`}
+            </div>`;
+        }
+
+        async function loadSportMatches() {
+            const listEl = document.getElementById('sport-matches-list');
+            if (!listEl) return;
+            listEl.innerHTML = '<div style="text-align:center;color:var(--text2);padding:30px;">⏳ Завантаження матчів...</div>';
+
+            let raw = await fetchMatches();
+            const standings = await fetchStandings();
+            window._sportState.standings = standings;
+
+            if (!raw || raw.length === 0) {
+                raw = buildFallbackMatches();
+            }
+
+            window._sportState.matches = raw;
+            listEl.innerHTML = raw.map(m => renderMatchCard(m, standings)).join('');
+
+            // Auto-refresh every 60s for live scores
+            clearInterval(window._sportState.refreshTimer);
+            window._sportState.refreshTimer = setInterval(() => {
+                if (document.getElementById('sport-panel-matches')?.style.display !== 'none') {
+                    loadSportMatches();
+                }
+            }, 60000);
+        }
+
+        window.initSportTab = function() {
+            if (document.getElementById('tab19').style.display !== 'none') {
+                loadSportMatches();
+                renderMyBets();
+            }
+        };
+
+        window.switchSportTab = function(tab) {
+            document.getElementById('sport-panel-matches').style.display = tab === 'matches' ? 'block' : 'none';
+            document.getElementById('sport-panel-mybets').style.display = tab === 'mybets' ? 'block' : 'none';
+            document.querySelectorAll('.sport-stab').forEach(el => {
+                const active = el.id === `sst-${tab}`;
+                el.style.color = active ? 'var(--p)' : 'var(--text2)';
+                el.style.borderBottomColor = active ? 'var(--p)' : 'transparent';
+            });
+            if (tab === 'mybets') renderMyBets();
+        };
+
+        window.openSportBet = function(matchId, side, teamName, odds) {
+            if (!gameState.user) { alert('Спочатку увійдіть!'); return; }
+            window._sportState.currentBet = { matchId, side, teamName, odds };
+            document.getElementById('sport-bet-title').textContent = `Ставка: ${teamName}`;
+            document.getElementById('sport-bet-desc').textContent = `Виграш = ставка × ${odds}`;
+            document.getElementById('sport-bet-odds').textContent = `x${odds}`;
+            document.getElementById('sport-bet-amount').value = '';
+            document.getElementById('sport-bet-modal').style.display = 'flex';
+        };
+
+        window.closeSportBetModal = function() {
+            document.getElementById('sport-bet-modal').style.display = 'none';
+        };
+
+        window.confirmSportBet = async function() {
+            const bet = window._sportState.currentBet;
+            if (!bet) return;
+            const amt = parseFloat(document.getElementById('sport-bet-amount').value);
+            if (!amt || amt <= 0) { alert('Введіть суму ставки!'); return; }
+            if (gameState.balance < amt) { alert('Недостатньо BB!'); return; }
+
+            gameState.balance -= amt;
+            if (typeof updateMiningBalanceFirebase === 'function') {
+                await updateMiningBalanceFirebase(gameState.user, gameState.balance);
+            }
+            if (typeof updateHeader === 'function') updateHeader();
+
+            const match = window._sportState.matches.find(m => m.id === bet.matchId);
+            const hn = match?.homeTeam?.shortName || match?.homeTeam?.name || '?';
+            const an = match?.awayTeam?.shortName || match?.awayTeam?.name || '?';
+
+            const record = {
+                id: Date.now(),
+                matchId: bet.matchId,
+                matchLabel: `${hn} vs ${an}`,
+                side: bet.side,
+                teamName: bet.teamName,
+                odds: bet.odds,
+                amount: amt,
+                potential: +(amt * bet.odds).toFixed(2),
+                status: 'pending',
+                placedAt: new Date().toISOString()
+            };
+            window._sportState.bets.unshift(record);
+            saveBets();
+            closeSportBetModal();
+            showGameNotification(`🎯 Ставку ${amt.toFixed(2)} BB на ${bet.teamName} прийнято!`);
+
+            // Simulate result after 5–30 seconds (demo)
+            const delay = 5000 + Math.random() * 25000;
+            setTimeout(async () => {
+                const b = window._sportState.bets.find(b => b.id === record.id);
+                if (!b || b.status !== 'pending') return;
+                // Demo simulation: win probability approximated from odds (lower odds = higher probability).
+                // This is a simplified demo and does not reflect real sports betting mathematics.
+                const winChance = Math.min(0.7, 1 / bet.odds);
+                const won = Math.random() < winChance;
+                b.status = won ? 'won' : 'lost';
+                saveBets();
+                if (won) {
+                    gameState.balance += b.potential;
+                    if (typeof updateMiningBalanceFirebase === 'function') {
+                        await updateMiningBalanceFirebase(gameState.user, gameState.balance);
+                    }
+                    if (typeof updateHeader === 'function') updateHeader();
+                    showGameNotification(`🏆 Ставка виграла! +${b.potential} BB`);
+                } else {
+                    showGameNotification(`😞 Ставка програла. -${b.amount} BB`);
+                }
+                renderMyBets();
+            }, delay);
+        };
+
+        function renderMyBets() {
+            const el = document.getElementById('sport-mybets-list');
+            const wonEl = document.getElementById('sport-total-won');
+            const lostEl = document.getElementById('sport-total-lost');
+            if (!el) return;
+            const bets = window._sportState.bets;
+            if (!bets.length) {
+                el.innerHTML = '<div style="color:var(--text2);font-size:13px;">Ставок ще немає.</div>';
+            } else {
+                el.innerHTML = bets.slice(0, 20).map(b => {
+                    const statusIcon = b.status === 'won' ? '✅' : b.status === 'lost' ? '❌' : '⏳';
+                    const statusCol = b.status === 'won' ? 'var(--g)' : b.status === 'lost' ? 'var(--r)' : 'var(--text2)';
+                    return `<div style="background:#111;border-radius:8px;padding:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                        <div>
+                            <div style="font-size:12px;font-weight:700;">${b.matchLabel}</div>
+                            <div style="font-size:11px;color:var(--text2);">${b.teamName} (x${b.odds})</div>
+                        </div>
+                        <div style="text-align:right;">
+                            <div style="font-size:13px;font-weight:700;color:${statusCol};">${statusIcon} ${b.status === 'won' ? '+'+b.potential : b.status === 'lost' ? '-'+b.amount : '...'} BB</div>
+                            <div style="font-size:10px;color:var(--text2);">${b.amount} BB ставка</div>
+                        </div>
+                    </div>`;
+                }).join('');
+            }
+            const won = bets.filter(b => b.status === 'won').reduce((s, b) => s + b.potential, 0);
+            const lost = bets.filter(b => b.status === 'lost').reduce((s, b) => s + b.amount, 0);
+            if (wonEl) wonEl.textContent = won.toFixed(2) + ' BB';
+            if (lostEl) lostEl.textContent = lost.toFixed(2) + ' BB';
+        }
+
+        // Close bet modal when clicking outside
+        document.getElementById('sport-bet-modal')?.addEventListener('click', function(e) {
+            if (e.target === this) closeSportBetModal();
+        });
+
     })();
 </script>
 <script src="bb-news-features.js"></script>
