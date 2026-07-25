@@ -1139,7 +1139,7 @@
     /* ── FREELANCER: Random job ── */
     function startFreelancerGame() {
         const gigs = [
-            { icon:'🌐', task:'Клієнт просить лендинг — швидко й красиво!', correct:'🖥️ Верстка', options:['🖥️ Верстка','⚖️ Судовий позов','🏥 Діагностика','✈️ Піліт'] },
+            { icon:'🌐', task:'Клієнт просить лендинг — швидко й красиво!', correct:'🖥️ Верстка', options:['🖥️ Верстка','⚖️ Судовий позов','🏥 Діагностика','✈️ Пілот'] },
             { icon:'🎭', task:'Потрібно терміново намалювати банер для соцмереж.', correct:'🎨 Дизайн', options:['🎨 Дизайн','⚙️ Ремонт двигуна','🏛️ Податки','💊 Ліки'] },
             { icon:'🏗️', task:'Замовник хоче плитку на кухні.', correct:'🪟 Плитка', options:['🪟 Плитка','✈️ Рейс','📈 Торги','🩺 Операція'] },
             { icon:'🤖', task:'Потрібен Python скрипт для автоматизації.', correct:'🖥️ Верстка', options:['🖥️ Верстка','⚖️ Юриспруденція','👨‍🍳 Рецепт','🚗 Авто'] },
@@ -1426,9 +1426,14 @@
        Bills are stored in Firebase and shown in Bank → Податки tab.
        Each bill has a "Pay" button that deducts the amount from the player's balance.
     ── */
-    const TAX_INTERVAL_MS = 2 * 24 * 60 * 60 * 1000; // 2 days
-    const TAX_BILL_BASE   = 0.10;  // base USDT per property per level
-    const TAX_BILL_CAP    = 5.00;  // max per bill
+    const TAX_INTERVAL_MS   = 2 * 24 * 60 * 60 * 1000; // 2 real-world days (not game time)
+    const TAX_BILL_BASE     = 0.10;   // base USDT per property per level
+    const TAX_BILL_CAP      = 5.00;   // max USDT per bill
+    const TAX_PRICE_FACTOR  = 0.0005; // property price contribution to tax amount
+    const TAX_MIN_THRESHOLD = 0.01;   // minimum total before flat fee kicks in
+    const TAX_FLAT_MIN      = 0.05;   // minimum flat fee USDT
+    const TAX_FLAT_MAX      = 0.50;   // maximum flat fee USDT
+    const TAX_BALANCE_RATE  = 0.001;  // flat fee as fraction of player balance
 
     function calcTaxBillAmount() {
         const catalog = typeof realEstateCatalog === 'undefined' ? [] : realEstateCatalog;
@@ -1437,10 +1442,10 @@
         catalog.forEach(def => {
             if (!state.properties?.[def.id]) return;
             const level = Math.max(1, n(state.properties[def.id]?.level, 1));
-            total += TAX_BILL_BASE * level * (1 + n(def.price, 0) * 0.0005);
+            total += TAX_BILL_BASE * level * (1 + n(def.price, 0) * TAX_PRICE_FACTOR);
         });
         // If no real estate, use a small flat fee based on balance
-        if (total < 0.01) total = Math.max(0.05, Math.min(0.50, getBalance() * 0.001));
+        if (total < TAX_MIN_THRESHOLD) total = Math.max(TAX_FLAT_MIN, Math.min(TAX_FLAT_MAX, getBalance() * TAX_BALANCE_RATE));
         return Math.min(TAX_BILL_CAP, Math.round(total * 100) / 100);
     }
 

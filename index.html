@@ -6245,7 +6245,7 @@
             openSportBet(mid, side, team, parseFloat(odds));
         };
 
-        function esc2(s) {
+        function escAttr(s) {
             return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         }
 
@@ -6262,9 +6262,9 @@
                 : `<span style="color:var(--text2);font-size:13px;">${formatMatchDate(m.utcDate)}</span>`;
             const canBet = m.status === 'SCHEDULED' || m.status === 'TIMED' || live;
             const leagueLabel = m._league || '⚽ Football';
-            const mid = esc2(String(m.id));
-            const ehn = esc2(hn);
-            const ean = esc2(an);
+            const mid = escAttr(String(m.id));
+            const ehn = escAttr(hn);
+            const ean = escAttr(an);
             return `<div class="glass" style="padding:14px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
                     <span style="font-size:11px;color:var(--text2);">⚽ ${leagueLabel}</span>
