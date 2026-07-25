@@ -1083,7 +1083,8 @@
         const stock = STOCKS_CATALOG.find(s => s.id === stockId);
         const portfolio = extState.stocks.portfolio[stockId];
         if (!stock || !portfolio?.shares) return 0;
-        const price = getStockPrice(stockId, now);
+        // No dividends when price is zero or negative
+        const price = Math.max(0, getStockPrice(stockId, now));
         const value = price * n(portfolio.shares, 0);
         const lastDividendAt = n(portfolio.lastDividendAt, n(portfolio.boughtAt, now));
         const elapsedDays = Math.max(0, now - lastDividendAt) / (24 * 3600 * 1000);
@@ -1109,18 +1110,18 @@
     function getStockPrice(stockId, time = Date.now()) {
         const stock = STOCKS_CATALOG.find(s => s.id === stockId);
         if (!stock) return 0;
-        // Pseudo-random price that changes every 15 minutes.
-        // seed = current interval as integer; two large co-prime multipliers (1_000_003 and
-        // 9_999_991) mix the seed with each character of the stock ID so that each stock
-        // follows a distinct price path. The modulus 10_000 normalises the result to a
-        // [0, 1) range used to apply the stock's volatility factor.
+        // Pseudo-random price that changes every 15 minutes. Uses an additive
+        // formula so that volatile stocks can fall below zero (into the red).
+        // seed = current interval as integer; two large co-prime multipliers mix
+        // the seed with each character of the stock ID so every stock follows a
+        // distinct price path.
         const seed = Math.floor(time / STOCK_PRICE_INTERVAL_MS);
-        let price = stock.basePrice;
+        let offset = 0;
         for (let i = 0; i < stockId.length; i++) {
             const h = (seed * 1000003 + stockId.charCodeAt(i) * 9999991) % 10000;
-            price *= (1 + stock.volatility * (h / 10000 - 0.5));
+            offset += stock.volatility * (h / 10000 - 0.5) * stock.basePrice * 6;
         }
-        return Math.max(0.01, Math.round(price * 100) / 100);
+        return Math.round((stock.basePrice + offset) * 100) / 100;
     }
 
     function getStockTrend(stockId, time = Date.now()) {
@@ -1222,6 +1223,7 @@
         const qty = n(document.getElementById(`stock-qty-${stockId}`)?.value, 0);
         if (qty <= 0) { showGN('❌ Вкажіть кількість'); return; }
         const price = getStockPrice(stockId);
+        if (price <= 0) { showGN('❌ Ціна акції від\'ємна — купівля недоступна'); return; }
         const total = Math.round(price * qty * 100) / 100;
         if (getBalance() < total) { showGN(`❌ Потрібно ${total.toFixed(2)} BB`); return; }
         const r = await adjustUserBalanceFirebase(u, -total);
@@ -1248,7 +1250,8 @@
         const owned = n(extState.stocks.portfolio[stockId]?.shares, 0);
         if (qty <= 0 || qty > owned) { showGN(`❌ У вас є ${owned} акцій`); return; }
         const price = getStockPrice(stockId);
-        const total = Math.round(price * qty * 100) / 100;
+        // If price is negative the seller receives nothing (loss already taken)
+        const total = Math.max(0, Math.round(price * qty * 100) / 100);
         const r = await adjustUserBalanceFirebase(u, total);
         if (!r?.success) { showGN('❌ Помилка'); return; }
         if (typeof gameState !== 'undefined') { gameState.balance = r.balance; updateHeader(); }
@@ -1313,6 +1316,7 @@
             const upgradePrice = isOwned ? Math.round(b.price * ownedLevel * 0.5) : b.price;
             const income = isOwned ? getBusinessDailyIncome(b, ownedLevel, ownedCount) : b.dailyIncome;
             const pending = isOwned ? getBusinessPendingIncome(b, owned, now) : 0;
+            const sellBizPrice = Math.round(b.price * ownedCount * 0.75);
             return `<div class="business-card ${isOwned ? 'owned' : ''}">
                 <div style="font-size:2rem; margin-bottom:6px;">${esc(b.icon)}</div>
                 <div style="font-size:13px; font-weight:900; color:var(--p); margin-bottom:4px;">${esc(b.name)}</div>
@@ -1323,7 +1327,8 @@
                     ${isOwned
                         ? `<button class="btn secondary-btn" style="padding:8px; font-size:11px;" onclick="collectBusinessIncome('${esc(b.id)}')">📥 ЗІБРАТИ</button>
                            <button class="btn" style="padding:8px; font-size:11px;" onclick="buyBusiness('${esc(b.id)}')">КУПИТИ ЩЕ ${b.price} BB</button>
-                           ${ownedLevel < b.maxLevel ? `<button class="btn" style="padding:8px; font-size:11px; background:var(--gold); color:#000;" onclick="upgradeBusiness('${esc(b.id)}')">⬆ ${upgradePrice} BB</button>` : '<span class="pill success" style="font-size:10px;">MAX</span>'}`
+                           ${ownedLevel < b.maxLevel ? `<button class="btn" style="padding:8px; font-size:11px; background:var(--gold); color:#000;" onclick="upgradeBusiness('${esc(b.id)}')">⬆ ${upgradePrice} BB</button>` : '<span class="pill success" style="font-size:10px;">MAX</span>'}
+                           <button class="btn" style="padding:8px; font-size:11px; background:var(--r); color:#fff;" onclick="sellBusiness('${esc(b.id)}')">🏷 ПРОДАТИ (${sellBizPrice} BB)</button>`
                         : `<button class="btn" style="padding:8px; font-size:11px;" onclick="buyBusiness('${esc(b.id)}')">КУПИТИ ${b.price} BB</button>`
                     }
                 </div>
@@ -1405,6 +1410,26 @@
         owned.level = level + 1;
         await saveStocksData();
         showGN(`⬆ ${b.name} покращено до рівня ${level + 1}!`);
+        renderStocksFeatureViews();
+    };
+
+    window.sellBusiness = async function(bId) {
+        const u = getUser(); if (!u) return;
+        const b = BUSINESS_CATALOG.find(x => x.id === bId);
+        const owned = extState.stocks.businesses[bId];
+        if (!b || !owned) return;
+        const count = Math.max(1, n(owned.count, 1));
+        const now = Date.now();
+        // Collect pending income and return 75% of base purchase price per unit
+        const pendingIncome = getBusinessPendingIncome(b, owned, now);
+        const sellPrice = Math.round(b.price * count * 0.75 * 100) / 100;
+        const total = Math.round((sellPrice + pendingIncome) * 10000) / 10000;
+        const r = await adjustUserBalanceFirebase(u, total);
+        if (!r?.success) { showGN('❌ Помилка'); return; }
+        if (typeof gameState !== 'undefined') { gameState.balance = r.balance; updateHeader(); }
+        delete extState.stocks.businesses[bId];
+        await saveStocksData();
+        showGN(`🏷 ${b.icon} ${b.name} продано за ${sellPrice.toFixed(2)} BB + ${pendingIncome.toFixed(4)} BB доходу`);
         renderStocksFeatureViews();
     };
 
