@@ -194,12 +194,12 @@
     const USDT_LOAN_LIMIT_STEP = 100;
     const BANK_HISTORY_LIMIT  = 200;
 
-    function getBankLoanCount() {
-        return extState.bank.history.filter(h => h?.type === 'loan').length;
+    function getBankLoanCount(items = extState.bank.history) {
+        return items.reduce((count, entry) => count + (entry?.type === 'loan' ? 1 : 0), 0);
     }
 
-    function getLoanLimits(extraLoans = 0) {
-        const creditLevel = Math.max(0, getBankLoanCount() + extraLoans);
+    function getLoanLimits(extraLoans = 0, loanCount = getBankLoanCount()) {
+        const creditLevel = Math.max(0, loanCount + extraLoans);
         return {
             bb: BASE_BB_LOAN_LIMIT + (creditLevel * BB_LOAN_LIMIT_STEP),
             usdt: BASE_USDT_LOAN_LIMIT + (creditLevel * USDT_LOAN_LIMIT_STEP),
@@ -218,7 +218,7 @@
     }
 
     function formatBankValue(bbValue, usdtValue, bbDigits = 2, usdtDigits = 2) {
-        return `BB ${n(bbValue).toFixed(bbDigits)}<br><span style="color:#26A17B;">USDT ${n(usdtValue).toFixed(usdtDigits)}</span>`;
+        return `<span style="display:block;">BB ${n(bbValue).toFixed(bbDigits)}</span><span style="display:block; color:#26A17B;">USDT ${n(usdtValue).toFixed(usdtDigits)}</span>`;
     }
 
     function getLoanIssuedAmount(entry) {
@@ -302,7 +302,8 @@
         const currency = document.getElementById('loan-currency')?.value || 'bb';
         const amount   = n(document.getElementById('loan-amount')?.value, 0);
         const dateStr  = document.getElementById('loan-return-date')?.value;
-        const limits = getLoanLimits();
+        const loanCount = getBankLoanCount();
+        const limits = getLoanLimits(0, loanCount);
 
         if (amount <= 0) { showGN('❌ Вкажіть суму'); return; }
         const limit = currency === 'bb' ? limits.bb : limits.usdt;
@@ -329,7 +330,7 @@
         } else {
             await adjustUsdt(u, amount);
         }
-        await appendBankRecord({ type: 'loan', currency, amount, issuedAmount: amount, totalDue, note: `Кредит: ${amount.toFixed(2)} ${currency.toUpperCase()} → погасити ${totalDue.toFixed(2)}`, ts: Date.now() });
+        await appendBankRecord({ type: 'loan', currency, amount: totalDue, issuedAmount: amount, totalDue, note: `Кредит: ${amount.toFixed(2)} ${currency.toUpperCase()} → погасити ${totalDue.toFixed(2)}`, ts: Date.now() });
         showGN(`✅ Отримано ${amount.toFixed(2)} ${currency.toUpperCase()}! Погасити: ${totalDue.toFixed(2)}`);
         renderBankTab();
     };
@@ -368,8 +369,9 @@
 
     function renderBankTab() {
         const loans = Object.entries(extState.bank.loans || {}).filter(([, l]) => l.status === 'active');
-        const limits = getLoanLimits();
-        const nextLimits = getLoanLimits(1);
+        const loanCount = getBankLoanCount();
+        const limits = getLoanLimits(0, loanCount);
+        const nextLimits = getLoanLimits(1, loanCount);
         const countEl = document.getElementById('bank-active-loans-count');
         if (countEl) countEl.textContent = loans.length;
         const debtEl = document.getElementById('bank-total-debt');
@@ -442,8 +444,9 @@
         const days = period === 'all' ? 0 : n(period, 7);
         const since = period === 'all' ? 0 : Date.now() - days * 24 * 3600 * 1000;
         const items = extState.bank.history.filter(h => n(h.ts, 0) >= since);
-        const currentLimits = getLoanLimits();
-        const nextLimits = getLoanLimits(1);
+        const loanCountAll = getBankLoanCount();
+        const currentLimits = getLoanLimits(0, loanCountAll);
+        const nextLimits = getLoanLimits(1, loanCountAll);
         const loanCount = items.filter(h => h?.type === 'loan').length;
         const repaidCount = items.filter(h => h?.type === 'repay').length;
         const penaltyCount = items.filter(h => h?.type === 'penalty').length;
@@ -459,15 +462,15 @@
         const totalWork = items.filter(h => h?.type === 'work').reduce((s, h) => s + n(h.amount), 0);
 
         if (statsEl) statsEl.innerHTML = [
-            ['Видано кредитів', `${loanCount}<span class="bank-upgrade-note">рівень ліміту ${currentLimits.level}</span>`],
-            ['Погашено / штрафи', `${repaidCount} / ${penaltyCount}`],
-            ['Поточний ліміт', formatBankValue(currentLimits.bb, currentLimits.usdt, 0, 0)],
-            ['Наступний ліміт', formatBankValue(nextLimits.bb, nextLimits.usdt, 0, 0)],
+            ['Видано кредитів', `${loanCount}`, `рівень ліміту ${currentLimits.level}`],
+            ['Погашено / штрафи', `${repaidCount} / ${penaltyCount}`, 'кількість операцій'],
+            ['Поточний ліміт', formatBankValue(currentLimits.bb, currentLimits.usdt, 0, 0), 'доступно зараз'],
+            ['Наступний ліміт', formatBankValue(nextLimits.bb, nextLimits.usdt, 0, 0), 'після нового кредиту'],
             ['Видано за період', formatBankValue(issuedTotals.bb, issuedTotals.usdt)],
             ['Активний борг', formatBankValue(activeDebt.bb, activeDebt.usdt)],
             ['Погашено за період', formatBankValue(repaidTotals.bb, repaidTotals.usdt)],
-            ['Штрафи / робота', `${formatBankValue(penaltyTotals.bb, penaltyTotals.usdt)}<span class="bank-upgrade-note">робота: ${totalWork.toFixed(2)} USDT</span>`]
-        ].map(([label, val]) => `<div class="market-stat"><div class="market-stat-label">${label}</div><div class="market-stat-value">${val}</div></div>`).join('');
+            ['Штрафи / робота', formatBankValue(penaltyTotals.bb, penaltyTotals.usdt), `робота: ${totalWork.toFixed(2)} USDT`]
+        ].map(([label, val, note = '']) => `<div class="market-stat"><div class="market-stat-label">${label}</div><div class="market-stat-value">${val}</div>${note ? `<div class="bank-upgrade-note">${note}</div>` : ''}</div>`).join('');
 
         if (!chartEl) return;
         const activityItems = items.filter(h => h?.type === 'loan' || h?.type === 'repay' || h?.type === 'penalty');

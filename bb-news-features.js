@@ -3,7 +3,7 @@
 
     const MIN_PRICE = 0.000001;
     const REQUIRED_BB_SIDE_COUNT = 1;
-    const MAX_CANDLES = 160;
+    const MAX_CANDLES = 100;
     const MAX_TRADE_RECORDS = 800;
     const CHART_PAD_LEFT = 14;
     const CHART_PAD_RIGHT = 84;
