@@ -1273,18 +1273,21 @@
         if (bbAmount <= 0) { alert('Вкажіть кількість BB для купівлі.'); return; }
         const currentPrice = Math.max(MIN_PRICE, num(state.market.currentPrice, 1));
         const usdtCost = Number((bbAmount * currentPrice).toFixed(6));
-        const currentUsdt = num(gameState.usdt, 0);
-        if (currentUsdt < usdtCost) {
-            alert(`Недостатньо USDT. Потрібно: ${usdtCost.toFixed(4)} USDT, у вас: ${currentUsdt.toFixed(4)} USDT`);
-            return;
-        }
         const btn = document.getElementById('market-buy-btn');
         if (btn) btn.disabled = true;
         try {
-            // Sync USDT balance from server before transaction to avoid stale local state.
-            // This also warms the Firebase cache so the transaction callback won't receive null.
+            // Fetch fresh USDT from Firebase first to avoid stale local state causing
+            // false "insufficient funds" errors. This also warms the cache so the
+            // transaction callback below won't receive null.
             const freshSnap = await getDb().ref(`users/${gameState.user}/usdt`).once('value');
             const freshUsdt = num(freshSnap.val(), 0);
+            // Sync local state with the just-fetched value before the pre-check.
+            gameState.usdt = freshUsdt;
+            if (typeof updateHeader === 'function') updateHeader();
+            if (freshUsdt < usdtCost) {
+                alert(`Недостатньо USDT. Потрібно: ${usdtCost.toFixed(4)} USDT, у вас: ${freshUsdt.toFixed(4)} USDT`);
+                return;
+            }
             // Use a transaction to atomically deduct USDT to prevent race conditions
             let transactionSuccess = false;
             let newUsdtValue = 0;

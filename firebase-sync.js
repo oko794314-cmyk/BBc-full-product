@@ -17,6 +17,7 @@ let firebaseState = {
     friendRequestListeners: {},
     gameInvitationListeners: {},
     balanceListeners: {},
+    usdtListeners: {},
     onlineListeners: {},
     typingListeners: {},
     rpsMatchListeners: {},
@@ -617,6 +618,31 @@ function setupBalanceListener(currentUser) {
 }
 
 /**
+ * 💵 СЛУХАЧ USDT БАЛАНСУ
+ */
+function setupUsdtListener(currentUser) {
+    const db = firebase.database();
+    const ref = db.ref(`users/${currentUser}/usdt`);
+
+    if (firebaseState.usdtListeners[currentUser]) {
+        ref.off('value', firebaseState.usdtListeners[currentUser]);
+    }
+
+    const listener = ref.on('value', (snapshot) => {
+        const newUsdt = snapshot.val();
+        if (newUsdt === null || typeof newUsdt !== 'number') return;
+        if (newUsdt !== gameState.usdt) {
+            gameState.usdt = newUsdt;
+            if (typeof updateHeader === 'function') updateHeader();
+        }
+    }, (error) => {
+        console.warn('⚠️ Помилка слухача USDT:', error);
+    });
+
+    firebaseState.usdtListeners[currentUser] = listener;
+}
+
+/**
  * 🟢 ВСТАНОВИТИ ОНЛАЙН-СТАТУС
  */
 function setupOnlinePresence(currentUser) {
@@ -727,6 +753,9 @@ function setupAllListenersOnLogin(currentUser) {
     
     // Баланс — миттєве оновлення після передачі/майнингу
     setupBalanceListener(currentUser);
+
+    // USDT — миттєве оновлення після переказів/операцій
+    setupUsdtListener(currentUser);
     
     // Онлайн-присутність
     setupOnlinePresence(currentUser);
@@ -1308,6 +1337,7 @@ window.sendGameInvitationFirebase = sendGameInvitationFirebase;
 window.transferCoinsFirebase = transferCoinsFirebase;
 window.updateMiningBalanceFirebase = updateMiningBalanceFirebase;
 window.setupBalanceListener = setupBalanceListener;
+window.setupUsdtListener = setupUsdtListener;
 window.setupOnlinePresence = setupOnlinePresence;
 window.setOffline = setOffline;
 window.setupFriendOnlineListener = setupFriendOnlineListener;
