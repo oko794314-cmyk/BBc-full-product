@@ -3,8 +3,13 @@
 
     const MIN_PRICE = 0.000001;
     const REQUIRED_BB_SIDE_COUNT = 1;
-    const MAX_CANDLES = 100;
+    const MAX_CANDLES = 160;
     const MAX_TRADE_RECORDS = 800;
+    const CHART_PAD_LEFT = 14;
+    const CHART_PAD_RIGHT = 84;
+    const CHART_PAD_TOP = 14;
+    const CHART_PAD_BOTTOM = 28;
+    const CHART_CANDLE_STEP = 18;
     const INTERVALS = {
         '1m':  60 * 1000,
         '5m':  5 * 60 * 1000,
@@ -57,6 +62,7 @@
         isAdmin: false,
         knownNewsIds: new Set(),
         selectedCandleIndex: null,
+        chartShouldSnapToEnd: true,
         pendingTournamentWinners: {}
     };
 
@@ -748,22 +754,30 @@
 
     function renderCandles() {
         const canvas = document.getElementById('exchange-candles');
+        const scrollHost = document.getElementById('exchange-candles-scroll');
         const meta = document.getElementById('exchange-candle-meta');
         const livePriceEl = document.getElementById('chart-live-price');
         if (!canvas || !canvas.getContext) return;
         const candles = buildCandles(state.chartInterval);
 
         const dpr = window.devicePixelRatio || 1;
-        const cssW = canvas.clientWidth || 640;
         const cssH = 300;
-        canvas.width = cssW * dpr;
+        const hostWidth = scrollHost?.clientWidth || canvas.clientWidth || 640;
+        const contentWidth = Math.max(hostWidth, (candles.length * CHART_CANDLE_STEP) + CHART_PAD_LEFT + CHART_PAD_RIGHT);
+        const shouldStickToRight = !!scrollHost && (state.chartShouldSnapToEnd || (scrollHost.scrollLeft + scrollHost.clientWidth >= scrollHost.scrollWidth - 24));
+        const previousRatio = scrollHost && scrollHost.scrollWidth > scrollHost.clientWidth
+            ? scrollHost.scrollLeft / Math.max(1, scrollHost.scrollWidth - scrollHost.clientWidth)
+            : 0;
+
+        canvas.style.width = `${contentWidth}px`;
+        canvas.width = contentWidth * dpr;
         canvas.height = cssH * dpr;
+
         const ctx = canvas.getContext('2d');
         ctx.scale(dpr, dpr);
-        const W = cssW;
+        const W = contentWidth;
         const H = cssH;
 
-        // Colors matching Binance
         const BG = '#0B0E11';
         const GRID = 'rgba(132,142,156,0.14)';
         const GRID_LIGHT = 'rgba(132,142,156,0.26)';
@@ -786,9 +800,8 @@
             return;
         }
 
-        const padLeft = 10, padRight = 76, padTop = 14, padBottom = 28;
-        const chartW = W - padLeft - padRight;
-        const chartH = H - padTop - padBottom;
+        const chartW = W - CHART_PAD_LEFT - CHART_PAD_RIGHT;
+        const chartH = H - CHART_PAD_TOP - CHART_PAD_BOTTOM;
         const prices = candles.flatMap(c => [c.low, c.high]);
         const minP = Math.min(...prices);
         const maxP = Math.max(...prices);
@@ -797,7 +810,7 @@
         const visMin = minP - padding;
         const visMax = maxP + padding;
         const visRange = visMax - visMin;
-        const toY = p => padTop + chartH - ((p - visMin) / visRange) * chartH;
+        const toY = p => CHART_PAD_TOP + chartH - ((p - visMin) / visRange) * chartH;
         const priceDecimals = pRange >= 100 ? 2 : pRange >= 10 ? 3 : 4;
         const formatPrice = value => value.toLocaleString('en-US', {
             minimumFractionDigits: priceDecimals,
@@ -806,48 +819,53 @@
 
         const gridLines = 7;
         for (let i = 0; i <= gridLines; i++) {
-            const y = padTop + (chartH / gridLines) * i;
+            const y = CHART_PAD_TOP + (chartH / gridLines) * i;
             ctx.strokeStyle = i === 0 || i === gridLines ? GRID_LIGHT : GRID;
             ctx.lineWidth = i % 2 === 0 ? 1 : 0.5;
-            ctx.beginPath(); ctx.moveTo(padLeft, y); ctx.lineTo(W - padRight, y); ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(CHART_PAD_LEFT, y);
+            ctx.lineTo(W - CHART_PAD_RIGHT, y);
+            ctx.stroke();
             const price = visMax - (visRange / gridLines) * i;
             ctx.fillStyle = TEXT_COLOR;
             ctx.font = '11px monospace';
             ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
-            ctx.fillText(formatPrice(price), W - padRight + 5, y);
+            ctx.fillText(formatPrice(price), W - CHART_PAD_RIGHT + 5, y);
         }
 
         const xStep = chartW / Math.max(candles.length, 1);
-        const labelEvery = Math.max(1, Math.floor(candles.length / 5));
+        const labelEvery = Math.max(1, Math.floor(candles.length / 6));
         candles.forEach((c, i) => {
-            if (i % labelEvery === 0) {
-                const cx = padLeft + i * xStep + xStep / 2;
-                ctx.strokeStyle = GRID;
-                ctx.lineWidth = 0.75;
-                ctx.beginPath(); ctx.moveTo(cx, padTop); ctx.lineTo(cx, padTop + chartH); ctx.stroke();
-                ctx.fillStyle = TEXT_COLOR;
-                ctx.font = '11px monospace';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'top';
-                const d = new Date(c.time);
-                const iv = state.chartInterval;
-                let label;
-                if (iv === '1m' || iv === '5m' || iv === '15m') {
-                    label = `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
-                } else if (iv === '1h' || iv === '4h') {
-                    label = `${d.getDate().toString().padStart(2,'0')}.${(d.getMonth() + 1).toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}:00`;
-                } else {
-                    label = `${d.getDate().toString().padStart(2,'0')}.${(d.getMonth() + 1).toString().padStart(2,'0')}`;
-                }
-                ctx.fillText(label, cx, H - padBottom + 6);
+            if (i % labelEvery !== 0) return;
+            const cx = CHART_PAD_LEFT + i * xStep + xStep / 2;
+            ctx.strokeStyle = GRID;
+            ctx.lineWidth = 0.75;
+            ctx.beginPath();
+            ctx.moveTo(cx, CHART_PAD_TOP);
+            ctx.lineTo(cx, CHART_PAD_TOP + chartH);
+            ctx.stroke();
+            ctx.fillStyle = TEXT_COLOR;
+            ctx.font = '11px monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            const d = new Date(c.time);
+            const iv = state.chartInterval;
+            let label;
+            if (iv === '1m' || iv === '5m' || iv === '15m') {
+                label = `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+            } else if (iv === '1h' || iv === '4h') {
+                label = `${d.getDate().toString().padStart(2,'0')}.${(d.getMonth() + 1).toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}:00`;
+            } else {
+                label = `${d.getDate().toString().padStart(2,'0')}.${(d.getMonth() + 1).toString().padStart(2,'0')}`;
             }
+            ctx.fillText(label, cx, H - CHART_PAD_BOTTOM + 6);
         });
 
-        const bodyW = Math.max(6, Math.min(22, xStep * 0.82));
-        const wickW = Math.max(1.5, Math.min(3, bodyW * 0.18));
+        const bodyW = Math.max(10, Math.min(16, xStep * 0.72));
+        const wickW = Math.max(1.5, Math.min(3, bodyW * 0.16));
         candles.forEach((candle, i) => {
-            const cx = padLeft + i * xStep + xStep / 2;
+            const cx = CHART_PAD_LEFT + i * xStep + xStep / 2;
             const up = candle.close >= candle.open;
             const color = up ? UP : DOWN;
             const colorDim = up ? UP_DIM : DOWN_DIM;
@@ -860,8 +878,14 @@
 
             ctx.strokeStyle = color;
             ctx.lineWidth = wickW;
-            ctx.beginPath(); ctx.moveTo(cx, yHigh); ctx.lineTo(cx, bodyTop); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(cx, bodyTop + bodyH); ctx.lineTo(cx, yLow); ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(cx, yHigh);
+            ctx.lineTo(cx, bodyTop);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(cx, bodyTop + bodyH);
+            ctx.lineTo(cx, yLow);
+            ctx.stroke();
 
             ctx.fillStyle = colorDim;
             ctx.fillRect(cx - bodyW / 2, bodyTop, bodyW, bodyH);
@@ -886,18 +910,21 @@
             ctx.setLineDash([4, 3]);
             ctx.strokeStyle = lineColor;
             ctx.lineWidth = 1;
-            ctx.beginPath(); ctx.moveTo(padLeft, cy); ctx.lineTo(W - padRight, cy); ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(CHART_PAD_LEFT, cy);
+            ctx.lineTo(W - CHART_PAD_RIGHT, cy);
+            ctx.stroke();
             ctx.setLineDash([]);
             const tag = formatPrice(lastCandle.close);
             ctx.fillStyle = lineColor;
             ctx.beginPath();
-            ctx.roundRect(W - padRight + 2, cy - 10, padRight - 4, 20, 3);
+            ctx.roundRect(W - CHART_PAD_RIGHT + 2, cy - 10, CHART_PAD_RIGHT - 4, 20, 3);
             ctx.fill();
             ctx.fillStyle = '#000';
             ctx.font = 'bold 10px monospace';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(tag, W - padRight + (padRight - 4) / 2 + 2, cy);
+            ctx.fillText(tag, W - CHART_PAD_RIGHT + (CHART_PAD_RIGHT - 4) / 2 + 2, cy);
 
             if (livePriceEl) {
                 livePriceEl.textContent = formatPrice(lastCandle.close);
@@ -912,6 +939,12 @@
             const pct = selected.open > 0 ? ((ch / selected.open) * 100).toFixed(2) : '0.00';
             const sign = ch >= 0 ? '+' : '';
             meta.textContent = `${d} | О:${selected.open.toFixed(4)} В:${selected.high.toFixed(4)} Н:${selected.low.toFixed(4)} З:${selected.close.toFixed(4)} | ${sign}${ch.toFixed(4)} (${sign}${pct}%) | Об:${selected.volume.toFixed(2)}`;
+        }
+
+        if (scrollHost) {
+            const maxScroll = Math.max(0, scrollHost.scrollWidth - scrollHost.clientWidth);
+            scrollHost.scrollLeft = shouldStickToRight ? maxScroll : previousRatio * maxScroll;
+            state.chartShouldSnapToEnd = false;
         }
     }
 
@@ -1787,28 +1820,37 @@
         renderTradeHistory();
         renderLargestTrades();
         renderCandles();
-        setupChartClickHandler();
+        setupChartInteractions();
     }
 
-    function setupChartClickHandler() {
+    function setupChartInteractions() {
         const canvas = document.getElementById('exchange-candles');
-        if (!canvas || canvas._clickBound) return;
-        canvas._clickBound = true;
-        canvas.addEventListener('click', (e) => {
-            const rect = canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const candles = buildCandles(state.chartInterval);
-            if (!candles.length) return;
-            const W = rect.width;
-            const padLeft = 10, padRight = 66;
-            const chartW = W - padLeft - padRight;
-            const xStep = chartW / Math.max(candles.length, 1);
-            const idx = Math.floor((x - padLeft) / xStep);
-            if (idx >= 0 && idx < candles.length) {
-                state.selectedCandleIndex = idx;
-                renderCandles();
-            }
-        });
+        const scrollHost = document.getElementById('exchange-candles-scroll');
+        if (canvas && !canvas._clickBound) {
+            canvas._clickBound = true;
+            canvas.addEventListener('click', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const candles = buildCandles(state.chartInterval);
+                if (!candles.length) return;
+                const chartW = rect.width - CHART_PAD_LEFT - CHART_PAD_RIGHT;
+                const xStep = chartW / Math.max(candles.length, 1);
+                const idx = Math.floor((x - CHART_PAD_LEFT) / xStep);
+                if (idx >= 0 && idx < candles.length) {
+                    state.selectedCandleIndex = idx;
+                    state.chartShouldSnapToEnd = idx >= candles.length - 2;
+                    renderCandles();
+                }
+            });
+        }
+        if (scrollHost && !scrollHost._wheelBound) {
+            scrollHost._wheelBound = true;
+            scrollHost.addEventListener('wheel', (e) => {
+                if (Math.abs(e.deltaY) <= Math.abs(e.deltaX) || scrollHost.scrollWidth <= scrollHost.clientWidth) return;
+                e.preventDefault();
+                scrollHost.scrollLeft += e.deltaY;
+            }, { passive: false });
+        }
     }
 
     async function refreshExchangeView() {
@@ -1909,6 +1951,7 @@
         state.isAdmin = false;
         state.knownNewsIds = new Set();
         state.selectedCandleIndex = null;
+        state.chartShouldSnapToEnd = true;
         state.candleHistory = {};
     }
 
@@ -1917,6 +1960,7 @@
         state.chartInterval = interval;
         updateMiniTabState('chart-interval-tabs', 'interval', interval);
         state.selectedCandleIndex = null;
+        state.chartShouldSnapToEnd = true;
         reattachCandleHistoryListener();
     }
 

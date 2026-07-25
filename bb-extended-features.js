@@ -186,10 +186,40 @@
     /* ────────────────────────────────────────────────────── */
     /*  BANK SYSTEM                                           */
     /* ────────────────────────────────────────────────────── */
-    const LOAN_RATE      = 0.05;   // 5% per week
-    const LOAN_PENALTY   = 0.20;   // 20% penalty
-    const BB_LOAN_LIMIT  = 500;
-    const USDT_LOAN_LIMIT = 200;
+    const LOAN_RATE           = 0.05;   // 5% per week
+    const LOAN_PENALTY        = 0.20;   // 20% penalty
+    const BASE_BB_LOAN_LIMIT  = 500;
+    const BASE_USDT_LOAN_LIMIT = 200;
+    const BB_LOAN_LIMIT_STEP  = 250;
+    const USDT_LOAN_LIMIT_STEP = 100;
+    const BANK_HISTORY_LIMIT  = 200;
+
+    function getBankLoanCount() {
+        return extState.bank.history.filter(h => h?.type === 'loan').length;
+    }
+
+    function getLoanLimits(extraLoans = 0) {
+        const creditLevel = Math.max(0, getBankLoanCount() + extraLoans);
+        return {
+            bb: BASE_BB_LOAN_LIMIT + (creditLevel * BB_LOAN_LIMIT_STEP),
+            usdt: BASE_USDT_LOAN_LIMIT + (creditLevel * USDT_LOAN_LIMIT_STEP),
+            level: creditLevel + 1
+        };
+    }
+
+    function getCurrencyTotals(items, type, amountSelector = entry => n(entry.amount)) {
+        return items
+            .filter(entry => entry?.type === type)
+            .reduce((acc, entry) => {
+                const currency = entry.currency === 'usdt' ? 'usdt' : 'bb';
+                acc[currency] += amountSelector(entry);
+                return acc;
+            }, { bb: 0, usdt: 0 });
+    }
+
+    function formatBankValue(bbValue, usdtValue, bbDigits = 2, usdtDigits = 2) {
+        return `BB ${n(bbValue).toFixed(bbDigits)}<br><span style="color:#26A17B;">USDT ${n(usdtValue).toFixed(usdtDigits)}</span>`;
+    }
 
     async function loadBankData() {
         const u = getUser(); if (!u) return;
@@ -212,7 +242,7 @@
         if (!extState.bank.bootstrapped) return;
         const id = uid('bh');
         extState.bank.history.unshift({ id, ...entry });
-        if (extState.bank.history.length > 200) extState.bank.history = extState.bank.history.slice(0, 200);
+        if (extState.bank.history.length > BANK_HISTORY_LIMIT) extState.bank.history = extState.bank.history.slice(0, BANK_HISTORY_LIMIT);
         await saveBankData();
     }
 
@@ -268,9 +298,10 @@
         const currency = document.getElementById('loan-currency')?.value || 'bb';
         const amount   = n(document.getElementById('loan-amount')?.value, 0);
         const dateStr  = document.getElementById('loan-return-date')?.value;
+        const limits = getLoanLimits();
 
         if (amount <= 0) { showGN('❌ Вкажіть суму'); return; }
-        const limit = currency === 'bb' ? BB_LOAN_LIMIT : USDT_LOAN_LIMIT;
+        const limit = currency === 'bb' ? limits.bb : limits.usdt;
         if (amount > limit) { showGN(`❌ Ліміт: ${limit} ${currency.toUpperCase()}`); return; }
         if (!dateStr) { showGN('❌ Оберіть дату повернення'); return; }
         const dueAt = new Date(dateStr).getTime();
@@ -294,7 +325,7 @@
         } else {
             await adjustUsdt(u, amount);
         }
-        await appendBankRecord({ type: 'loan', currency, amount: totalDue, note: `Кредит: ${amount.toFixed(2)} ${currency.toUpperCase()} → погасити ${totalDue.toFixed(2)}`, ts: Date.now() });
+        await appendBankRecord({ type: 'loan', currency, amount, principal: amount, totalDue, note: `Кредит: ${amount.toFixed(2)} ${currency.toUpperCase()} → погасити ${totalDue.toFixed(2)}`, ts: Date.now() });
         showGN(`✅ Отримано ${amount.toFixed(2)} ${currency.toUpperCase()}! Погасити: ${totalDue.toFixed(2)}`);
         renderBankTab();
     };
@@ -333,12 +364,22 @@
 
     function renderBankTab() {
         const loans = Object.entries(extState.bank.loans || {}).filter(([, l]) => l.status === 'active');
+        const limits = getLoanLimits();
+        const nextLimits = getLoanLimits(1);
         const countEl = document.getElementById('bank-active-loans-count');
         if (countEl) countEl.textContent = loans.length;
         const debtEl = document.getElementById('bank-total-debt');
         if (debtEl) {
             const total = loans.reduce((s, [, l]) => s + n(l.remaining), 0);
             debtEl.textContent = `${total.toFixed(2)}`;
+        }
+        const bbLimitEl = document.getElementById('bank-bb-limit');
+        if (bbLimitEl) {
+            bbLimitEl.innerHTML = `${limits.bb.toFixed(0)} BB<span class="bank-upgrade-note">наступний: ${nextLimits.bb.toFixed(0)} BB</span>`;
+        }
+        const usdtLimitEl = document.getElementById('bank-usdt-limit');
+        if (usdtLimitEl) {
+            usdtLimitEl.innerHTML = `${limits.usdt.toFixed(0)} USDT<span class="bank-upgrade-note">наступний: ${nextLimits.usdt.toFixed(0)} USDT</span>`;
         }
         const listEl = document.getElementById('active-loans-list');
         if (!listEl) return;
@@ -393,38 +434,82 @@
     window.renderBankStats = function() {
         const statsEl = document.getElementById('bank-stats-grid');
         const chartEl = document.getElementById('bank-stats-chart');
-        const days = n(document.getElementById('bank-stats-period')?.value, 7);
-        const since = days === 'all' ? 0 : Date.now() - days * 24 * 3600 * 1000;
+        const period = document.getElementById('bank-stats-period')?.value || '7';
+        const days = period === 'all' ? 0 : n(period, 7);
+        const since = period === 'all' ? 0 : Date.now() - days * 24 * 3600 * 1000;
         const items = extState.bank.history.filter(h => n(h.ts, 0) >= since);
-
-        const totalLoans   = items.filter(h => h.type === 'loan').reduce((s, h) => s + n(h.amount), 0);
-        const totalRepaid  = items.filter(h => h.type === 'repay').reduce((s, h) => s + n(h.amount), 0);
-        const totalPenalty = items.filter(h => h.type === 'penalty').reduce((s, h) => s + n(h.amount), 0);
-        const totalWork    = items.filter(h => h.type === 'work').reduce((s, h) => s + n(h.amount), 0);
+        const currentLimits = getLoanLimits();
+        const nextLimits = getLoanLimits(1);
+        const loanCount = items.filter(h => h?.type === 'loan').length;
+        const repaidCount = items.filter(h => h?.type === 'repay').length;
+        const penaltyCount = items.filter(h => h?.type === 'penalty').length;
+        const activeDebt = Object.values(extState.bank.loans || {}).reduce((acc, loan) => {
+            if (loan?.status !== 'active') return acc;
+            const currency = loan.currency === 'usdt' ? 'usdt' : 'bb';
+            acc[currency] += n(loan.remaining);
+            return acc;
+        }, { bb: 0, usdt: 0 });
+        const issuedTotals = getCurrencyTotals(items, 'loan', entry => n(entry.principal, n(entry.amount)));
+        const repaidTotals = getCurrencyTotals(items, 'repay');
+        const penaltyTotals = getCurrencyTotals(items, 'penalty');
+        const totalWork = items.filter(h => h?.type === 'work').reduce((s, h) => s + n(h.amount), 0);
 
         if (statsEl) statsEl.innerHTML = [
-            ['Кредитів', totalLoans.toFixed(2)],
-            ['Погашено',  totalRepaid.toFixed(2)],
-            ['Штрафи',    totalPenalty.toFixed(2)],
-            ['Зароблено (робота)', totalWork.toFixed(2) + ' USDT']
+            ['Видано кредитів', `${loanCount}<span class="bank-upgrade-note">рівень ліміту ${currentLimits.level}</span>`],
+            ['Погашено / штрафи', `${repaidCount} / ${penaltyCount}`],
+            ['Поточний ліміт', formatBankValue(currentLimits.bb, currentLimits.usdt, 0, 0)],
+            ['Наступний ліміт', formatBankValue(nextLimits.bb, nextLimits.usdt, 0, 0)],
+            ['Видано за період', formatBankValue(issuedTotals.bb, issuedTotals.usdt)],
+            ['Активний борг', formatBankValue(activeDebt.bb, activeDebt.usdt)],
+            ['Погашено за період', formatBankValue(repaidTotals.bb, repaidTotals.usdt)],
+            ['Штрафи / робота', `${formatBankValue(penaltyTotals.bb, penaltyTotals.usdt)}<span class="bank-upgrade-note">робота: ${totalWork.toFixed(2)} USDT</span>`]
         ].map(([label, val]) => `<div class="market-stat"><div class="market-stat-label">${label}</div><div class="market-stat-value">${val}</div></div>`).join('');
 
-        if (chartEl) {
-            const byDay = {};
-            items.filter(h => h.type === 'repay' || h.type === 'loan').forEach(h => {
-                const dk = dateKey(n(h.ts));
-                byDay[dk] = (byDay[dk] || 0) + n(h.amount);
-            });
-            const rows = Object.entries(byDay).sort().slice(-14);
-            if (!rows.length) { chartEl.innerHTML = '<div style="color:var(--text2); font-size:12px;">Немає даних</div>'; return; }
-            const max = Math.max(...rows.map(([, v]) => v), 1);
-            chartEl.innerHTML = `<div style="display:flex; gap:4px; align-items:flex-end; height:80px; padding:0 4px;">${
-                rows.map(([dk, v]) => `<div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:2px;">
-                    <div style="width:100%; height:${Math.max(4, Math.round((v/max)*64))}px; background:var(--p); border-radius:4px 4px 0 0;"></div>
-                    <div style="font-size:8px; color:var(--text2); writing-mode:vertical-rl; transform:rotate(180deg);">${dk.slice(5)}</div>
-                </div>`).join('')
-            }</div>`;
+        if (!chartEl) return;
+        const activityItems = items.filter(h => h?.type === 'loan' || h?.type === 'repay' || h?.type === 'penalty');
+        if (!activityItems.length) {
+            chartEl.innerHTML = '<div style="color:var(--text2); font-size:12px;">Немає даних для статистики банку</div>';
+            return;
         }
+
+        const currencyCards = ['bb', 'usdt'].map(currency => {
+            const perDay = {};
+            activityItems.filter(h => (h.currency || 'bb') === currency).forEach(entry => {
+                const key = dateKey(n(entry.ts));
+                if (!perDay[key]) perDay[key] = { loan: 0, repay: 0, penalty: 0 };
+                const amount = entry.type === 'loan' ? n(entry.principal, n(entry.amount)) : n(entry.amount);
+                perDay[key][entry.type] += amount;
+            });
+            const rows = Object.entries(perDay).sort((a, b) => a[0].localeCompare(b[0])).slice(-(period === 'all' ? 20 : Math.max(days, 7)));
+            if (!rows.length) {
+                return `<div class="bank-chart-card"><div class="bank-chart-title">${currency === 'bb' ? 'BB Coin' : 'USDT'}</div><div style="color:var(--text2); font-size:12px;">Немає операцій</div></div>`;
+            }
+            const max = Math.max(...rows.flatMap(([, values]) => [values.loan, values.repay, values.penalty]), 1);
+            return `<div class="bank-chart-card">
+                <div class="bank-chart-title">
+                    <span>${currency === 'bb' ? 'BB Coin' : 'USDT'}</span>
+                    <span style="font-size:10px; color:${currency === 'bb' ? 'var(--p)' : '#26A17B'};">макс. ${max.toFixed(2)}</span>
+                </div>
+                <div class="bank-chart-legend">
+                    <span><i style="background:rgba(14,203,129,0.95);"></i> Видано</span>
+                    <span><i style="background:rgba(240,185,11,0.95);"></i> Погашено</span>
+                    <span><i style="background:rgba(246,70,93,0.95);"></i> Штрафи</span>
+                </div>
+                ${rows.map(([day, values]) => `
+                    <div class="bank-chart-row">
+                        <div class="bank-chart-day">${day.slice(5)}</div>
+                        <div class="bank-chart-bars">
+                            <div class="bank-chart-bar loan" style="height:${Math.max(4, Math.round((values.loan / max) * 44))}px;"></div>
+                            <div class="bank-chart-bar repay" style="height:${Math.max(4, Math.round((values.repay / max) * 44))}px;"></div>
+                            <div class="bank-chart-bar penalty" style="height:${Math.max(4, Math.round((values.penalty / max) * 44))}px;"></div>
+                        </div>
+                        <div class="bank-chart-values">+${values.loan.toFixed(2)}<br>-${values.repay.toFixed(2)}<br>⚠ ${values.penalty.toFixed(2)}</div>
+                    </div>
+                `).join('')}
+            </div>`;
+        }).join('');
+
+        chartEl.innerHTML = `<div class="bank-chart-stack">${currencyCards}</div>`;
     };
 
     /* ────────────────────────────────────────────────────── */
