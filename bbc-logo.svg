@@ -1,39 +1,60 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 280">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 380">
   <defs>
-    <linearGradient id="bbcGrad" x1="0" y1="0" x2="0" y2="1">
+    <linearGradient id="fg" x1="0" y1="0" x2="0.4" y2="1">
       <stop offset="0%" stop-color="#ffffff"/>
-      <stop offset="50%" stop-color="#b0f0eb"/>
-      <stop offset="100%" stop-color="#00e5d1"/>
+      <stop offset="100%" stop-color="#d0d0d0"/>
     </linearGradient>
-    <linearGradient id="bbcGrad2" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.15"/>
-      <stop offset="100%" stop-color="#00e5d1" stop-opacity="0.05"/>
+    <linearGradient id="sg" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#b0b0b0"/>
+      <stop offset="100%" stop-color="#888888"/>
     </linearGradient>
+    <filter id="drop">
+      <feDropShadow dx="3" dy="5" stdDeviation="7" flood-color="#000" flood-opacity="0.8"/>
+    </filter>
   </defs>
 
-  <!-- Outer B (left / back) -->
-  <g fill="none" stroke="url(#bbcGrad)" stroke-width="7" stroke-linejoin="round" stroke-linecap="round">
-    <!-- Left vertical bar -->
-    <line x1="52" y1="48" x2="52" y2="232"/>
-    <!-- Top horizontal -->
-    <line x1="52" y1="48" x2="140" y2="48"/>
-    <!-- Top bump -->
-    <path d="M140 48 Q182 48 182 100 Q182 150 140 150"/>
-    <!-- Middle horizontal -->
-    <line x1="52" y1="150" x2="140" y2="150"/>
-    <!-- Bottom bump -->
-    <path d="M140 150 Q192 150 192 192 Q192 232 140 232"/>
-    <!-- Bottom horizontal -->
-    <line x1="52" y1="232" x2="140" y2="232"/>
-  </g>
+  <!-- Background -->
+  <rect width="280" height="380" fill="#0d0d0d"/>
 
-  <!-- Right B (offset by 40px) -->
-  <g fill="none" stroke="url(#bbcGrad)" stroke-width="7" stroke-linejoin="round" stroke-linecap="round" opacity="0.9">
-    <line x1="92" y1="48" x2="92" y2="232"/>
-    <line x1="92" y1="48" x2="180" y2="48"/>
-    <path d="M180 48 Q222 48 222 100 Q222 150 180 150"/>
-    <line x1="92" y1="150" x2="180" y2="150"/>
-    <path d="M180 150 Q232 150 232 192 Q232 232 180 232"/>
-    <line x1="92" y1="232" x2="180" y2="232"/>
-  </g>
+  <!--
+    BB monogram: two B letters stacked, second rotated 180°.
+    Top B: spine left, bumps right.
+    Bottom B: spine right, bumps left (180° rotation of top B).
+    Overlap in middle creates diamond negative space.
+  -->
+
+  <!-- === TOP B === -->
+  <!-- Left vertical bar -->
+  <rect x="68" y="42" width="28" height="158" rx="2" fill="url(#fg)" filter="url(#drop)"/>
+  <!-- Top horizontal bar -->
+  <rect x="68" y="42" width="88" height="22" rx="4" fill="url(#fg)" filter="url(#drop)"/>
+  <!-- Middle horizontal bar -->
+  <rect x="68" y="118" width="76" height="22" rx="4" fill="url(#fg)" filter="url(#drop)"/>
+  <!-- Bottom of top-B horizontal bar -->
+  <rect x="68" y="178" width="88" height="22" rx="4" fill="url(#fg)" filter="url(#drop)"/>
+  <!-- Top bump (right side, upper) -->
+  <path d="M156,42 Q205,42 205,86 Q205,129 156,140 L156,120 Q182,120 182,86 Q182,64 156,64 Z"
+        fill="url(#fg)" filter="url(#drop)"/>
+  <!-- Bottom bump (right side, lower) of top B -->
+  <path d="M144,140 Q200,140 200,158 Q200,178 144,178 L144,159 Q174,159 174,158 Q174,150 144,150 Z"
+        fill="url(#sg)" filter="url(#drop)"/>
+
+  <!-- === CENTER FOLD === -->
+  <line x1="50" y1="200" x2="230" y2="200" stroke="#000" stroke-width="4" opacity="0.6"/>
+
+  <!-- === BOTTOM B (rotated 180° of top B) === -->
+  <!-- Right vertical bar -->
+  <rect x="184" y="180" width="28" height="158" rx="2" fill="url(#fg)" filter="url(#drop)"/>
+  <!-- Top of bottom-B horizontal bar (at top of bottom section) -->
+  <rect x="124" y="180" width="88" height="22" rx="4" fill="url(#fg)" filter="url(#drop)"/>
+  <!-- Middle horizontal bar -->
+  <rect x="136" y="240" width="76" height="22" rx="4" fill="url(#fg)" filter="url(#drop)"/>
+  <!-- Bottom horizontal bar -->
+  <rect x="124" y="316" width="88" height="22" rx="4" fill="url(#fg)" filter="url(#drop)"/>
+  <!-- Top bump (left side, upper of bottom B) -->
+  <path d="M124,180 Q75,180 75,224 Q75,267 124,278 L124,258 Q98,258 98,224 Q98,202 124,202 Z"
+        fill="url(#fg)" filter="url(#drop)"/>
+  <!-- Lower bump left of bottom B -->
+  <path d="M136,262 Q80,262 80,280 Q80,316 136,316 L136,297 Q106,297 106,280 Q106,272 136,272 Z"
+        fill="url(#sg)" filter="url(#drop)"/>
 </svg>

@@ -373,108 +373,189 @@
 
     /* ── PROGRAMMER: Even/Odd ── */
     function startProgrammerGame() {
-        const numbers = Array.from({ length: 6 }, () => Math.floor(Math.random() * 99) + 1);
-        let idx = 0, errors = 0;
+        const ROUNDS = 8;
+        // Mix of challenges: even/odd, prime, divisible-by-3, binary > decimal
+        function genChallenge() {
+            const type = Math.floor(Math.random() * 3);
+            if (type === 0) {
+                const n = Math.floor(Math.random() * 199) + 2;
+                return {
+                    display: n, label: 'ПАРНЕ чи НЕПАРНЕ?',
+                    a: { text: '2️⃣ ПАРНЕ',  color: 'var(--g)', correct: n % 2 === 0 },
+                    b: { text: '1️⃣ НЕПАРНЕ', color: 'var(--r)', correct: n % 2 !== 0 }
+                };
+            } else if (type === 1) {
+                const n = Math.floor(Math.random() * 90) + 10;
+                const isDiv3 = n % 3 === 0;
+                return {
+                    display: n, label: 'Ділиться на 3?',
+                    a: { text: '✅ ТАК', color: 'var(--g)', correct: isDiv3 },
+                    b: { text: '❌ НІ',  color: 'var(--r)', correct: !isDiv3 }
+                };
+            } else {
+                // Show a small binary number up to 4 bits
+                const n = Math.floor(Math.random() * 14) + 2;
+                const bin = n.toString(2).padStart(4, '0');
+                const isGt8 = n > 8;
+                return {
+                    display: `0b${bin}`, label: 'Це число > 8?',
+                    a: { text: '📈 БІЛЬШЕ 8', color: 'var(--p)', correct: isGt8 },
+                    b: { text: '📉 НЕ БІЛЬШЕ', color: '#555',     correct: !isGt8 }
+                };
+            }
+        }
+        const challenges = Array.from({ length: ROUNDS }, genChallenge);
+        let idx = 0, errors = 0, streak = 0;
         function render() {
-            if (idx >= numbers.length) { finishWork(errors); return; }
-            const num = numbers[idx];
+            if (idx >= ROUNDS) { finishWork(errors); return; }
+            const ch = challenges[idx];
             openMiniGameOverlay(`
-                <h3 style="color:var(--p);margin:0 0 4px;">🖥️ Програміст</h3>
-                <p style="color:var(--text2);font-size:12px;margin:0 0 12px;">Завдання ${idx + 1}/${numbers.length} • Помилки: ${errors}</p>
-                ${getProfessionScene('programmer')}
-                <div style="text-align:center;margin:20px 0;">
-                    <div style="font-size:4rem;font-weight:900;color:#fff;">${num}</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                    <span style="color:var(--p);font-size:15px;font-weight:900;">🖥️ Програміст</span>
+                    <span style="font-size:11px;color:var(--text2);">Рівень ${idx+1}/${ROUNDS} • ❌${errors} • 🔥${streak}</span>
                 </div>
-                <p style="text-align:center;color:var(--text2);margin:0 0 16px;">Це число ПАРНЕ чи НЕПАРНЕ?</p>
+                ${getProfessionScene('programmer')}
+                <div style="background:#0d1117;border:1px solid #30363d;border-radius:12px;padding:20px 10px;text-align:center;margin-bottom:14px;font-family:'Courier New',monospace;">
+                    <div style="font-size:52px;font-weight:900;color:#58a6ff;letter-spacing:2px;">${ch.display}</div>
+                    <div style="font-size:13px;color:#8b949e;margin-top:6px;">${ch.label}</div>
+                </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                    <button class="btn" id="mg-even-btn" style="background:var(--g);color:#000;padding:14px;font-size:15px;">ПАРНЕ</button>
-                    <button class="btn" id="mg-odd-btn" style="background:var(--r);color:#fff;padding:14px;font-size:15px;">НЕПАРНЕ</button>
+                    <button class="btn" id="mg-a-btn" style="background:${ch.a.color};color:#000;padding:16px;font-size:14px;">${ch.a.text}</button>
+                    <button class="btn" id="mg-b-btn" style="background:${ch.b.color};color:${ch.b.color === '#555' ? '#fff' : '#000'};padding:16px;font-size:14px;">${ch.b.text}</button>
                 </div>
             `);
-            document.getElementById('mg-even-btn').onclick = () => check(num % 2 === 0);
-            document.getElementById('mg-odd-btn').onclick = () => check(num % 2 !== 0);
-        }
-        function check(correct) {
-            if (!correct) errors++;
-            idx++;
-            render();
+            function pick(correct) {
+                if (correct) { streak++; } else { errors++; streak = 0; }
+                idx++;
+                render();
+            }
+            document.getElementById('mg-a-btn').onclick = () => pick(ch.a.correct);
+            document.getElementById('mg-b-btn').onclick = () => pick(ch.b.correct);
         }
         render();
     }
 
-    /* ── DESIGNER: Draw frames ── */
+    /* ── DESIGNER: Visual color/shape matching ── */
     function startDesignerGame() {
-        const orders = [
-            { shape: 'Квадрат', color: '#F0B90B', size: 'великий' },
-            { shape: 'Коло', color: '#0ECB81', size: 'малий' },
-            { shape: 'Прямокутник', color: '#F6465D', size: 'середній' }
-        ];
+        const ROUNDS = 5;
+        const SHAPES  = ['circle','square','triangle','diamond','star'];
+        const COLORS  = ['#F0B90B','#0ECB81','#F6465D','#3a7bd5','#e67e22','#9b59b6'];
+        function genRound() {
+            const s = SHAPES[Math.floor(Math.random()*SHAPES.length)];
+            const c = COLORS[Math.floor(Math.random()*COLORS.length)];
+            const wrongShapes = SHAPES.filter(x=>x!==s).sort(()=>Math.random()-.5).slice(0,2);
+            const options = [{ shape:s, color:c }, ...wrongShapes.map(ws=>({ shape:ws, color:c }))].sort(()=>Math.random()-.5);
+            return { shape:s, color:c, options };
+        }
+        const rounds = Array.from({ length: ROUNDS }, genRound);
         let idx = 0, errors = 0;
+        const SHAPE_NAMES = { circle:'Коло', square:'Квадрат', triangle:'Трикутник', diamond:'Ромб', star:'Зірка' };
+        function drawShape(ctx, shape, color, size=60) {
+            ctx.fillStyle = color;
+            const c = size/2;
+            if (shape==='circle') { ctx.beginPath(); ctx.arc(c,c,c*.85,0,Math.PI*2); ctx.fill(); }
+            else if (shape==='square') { const m=c*.15; ctx.fillRect(m,m,size-2*m,size-2*m); }
+            else if (shape==='triangle') { ctx.beginPath(); ctx.moveTo(c,4); ctx.lineTo(size-4,size-4); ctx.lineTo(4,size-4); ctx.closePath(); ctx.fill(); }
+            else if (shape==='diamond') { ctx.beginPath(); ctx.moveTo(c,4); ctx.lineTo(size-4,c); ctx.lineTo(c,size-4); ctx.lineTo(4,c); ctx.closePath(); ctx.fill(); }
+            else if (shape==='star') {
+                ctx.beginPath();
+                for (let i=0;i<10;i++) {
+                    const r = i%2===0 ? c*.85 : c*.4;
+                    const a = (Math.PI/5)*i - Math.PI/2;
+                    i===0 ? ctx.moveTo(c+r*Math.cos(a),c+r*Math.sin(a)) : ctx.lineTo(c+r*Math.cos(a),c+r*Math.sin(a));
+                }
+                ctx.closePath(); ctx.fill();
+            }
+        }
         function render() {
-            if (idx >= orders.length) { finishWork(errors); return; }
-            const o = orders[idx];
+            if (idx >= ROUNDS) { finishWork(errors); return; }
+            const round = rounds[idx];
             openMiniGameOverlay(`
-                <h3 style="color:var(--p);margin:0 0 4px;">🎨 Дизайнер</h3>
-                <p style="color:var(--text2);font-size:12px;margin:0 0 12px;">Замовлення ${idx + 1}/${orders.length} • Помилки: ${errors}</p>
-                ${getProfessionScene('designer')}
-                <p style="margin:0 0 12px;">Клієнт хоче: <b style="color:${o.color};">${o.shape} (${o.size})</b></p>
-                <div style="display:grid;gap:8px;">
-                    ${['Квадрат', 'Коло', 'Прямокутник'].map(s =>
-                        `<button class="btn mg-shape-btn" data-shape="${s}" style="padding:12px;">${s === 'Квадрат' ? '⬛' : s === 'Коло' ? '🔵' : '▬'} ${s}</button>`
-                    ).join('')}
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                    <span style="color:var(--p);font-size:15px;font-weight:900;">🎨 Дизайнер</span>
+                    <span style="font-size:11px;color:var(--text2);">Замовлення ${idx+1}/${ROUNDS} • ❌${errors}</span>
                 </div>
+                ${getProfessionScene('designer')}
+                <div style="text-align:center;margin-bottom:14px;">
+                    <div style="font-size:12px;color:var(--text2);margin-bottom:6px;">Клієнт замовив:</div>
+                    <canvas id="mg-target-canvas" width="80" height="80" style="display:inline-block;border-radius:8px;background:#111;"></canvas>
+                    <div style="font-size:12px;color:var(--p);margin-top:4px;font-weight:700;">${SHAPE_NAMES[round.shape]}</div>
+                </div>
+                <div style="font-size:12px;color:var(--text2);text-align:center;margin-bottom:8px;">Знайди такий самий:</div>
+                <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+                    ${round.options.map((opt,i)=>`<canvas id="mg-opt-${i}" width="70" height="70" style="border:2px solid var(--border);border-radius:8px;background:#111;cursor:pointer;" data-shape="${opt.shape}" data-correct="${opt.shape===round.shape}"></canvas>`).join('')}
+                </div>
+                <div id="mg-shape-msg" style="min-height:20px;text-align:center;margin-top:10px;font-size:13px;"></div>
             `);
-            document.querySelectorAll('.mg-shape-btn').forEach(btn => {
-                btn.onclick = () => {
-                    if (btn.dataset.shape !== o.shape) errors++;
-                    idx++;
-                    render();
-                };
+            // Draw target
+            const tCtx = document.getElementById('mg-target-canvas').getContext('2d');
+            drawShape(tCtx, round.shape, round.color, 80);
+            // Draw options
+            round.options.forEach((opt, i) => {
+                const c = document.getElementById(`mg-opt-${i}`);
+                const ctx = c.getContext('2d');
+                drawShape(ctx, opt.shape, round.color, 70);
+                c.addEventListener('mouseenter', () => { c.style.borderColor = 'var(--p)'; });
+                c.addEventListener('mouseleave', () => { if (c.style.borderColor !== 'var(--g)' && c.style.borderColor !== 'var(--r)') c.style.borderColor = 'var(--border)'; });
+                c.addEventListener('click', () => {
+                    document.querySelectorAll('[id^="mg-opt-"]').forEach(el => el.style.pointerEvents='none');
+                    const correct = opt.shape === round.shape;
+                    c.style.borderColor = correct ? 'var(--g)' : 'var(--r)';
+                    const msg = document.getElementById('mg-shape-msg');
+                    if (correct) { msg.style.color='var(--g)'; msg.textContent='✅ Молодець! Правильна форма!'; }
+                    else { errors++; msg.style.color='var(--r)'; msg.textContent='❌ Не той варіант!'; }
+                    setTimeout(() => { idx++; render(); }, 700);
+                });
             });
         }
         render();
     }
 
-    /* ── TRADER: Buy/Sell ── */
+    /* ── TRADER: Buy/Sell with mini chart ── */
     function startTraderGame() {
-        const prices = [10, 12, 9, 14, 11, 16, 13];
-        let pos = 2, trades = 0, errors = 0, holding = false, buyPrice = 0;
+        const LEN = 9;
+        function genPrices() {
+            const arr = [10 + Math.floor(Math.random()*5)];
+            for (let i=1;i<LEN;i++) arr.push(Math.max(5, Math.min(30, arr[i-1] + (Math.random()*4-2))));
+            return arr.map(v=>Math.round(v*10)/10);
+        }
+        const prices = genPrices();
+        let pos=2, trades=0, errors=0, holding=false, buyPrice=0;
         function render() {
-            if (trades >= 3) { finishWork(errors); return; }
-            const current = prices[pos] || 12;
-            const trend = pos > 0 && prices[pos] > prices[pos - 1] ? '📈 Зростає' : '📉 Падає';
+            if (trades>=4) { finishWork(errors); return; }
+            const current = prices[Math.min(pos, LEN-1)];
+            const prev    = prices[Math.max(0, pos-1)];
+            const trend   = current >= prev ? '📈' : '📉';
+            const trendClr = current >= prev ? 'var(--g)' : 'var(--r)';
+            // Mini ASCII spark chart
+            const visible = prices.slice(Math.max(0,pos-5), pos+1);
+            const mn=Math.min(...visible), mx=Math.max(...visible), rng=mx-mn||1;
+            const bars=['▁','▂','▃','▄','▅','▆','▇','█'];
+            const spark = visible.map(v=>bars[Math.min(7,Math.floor(((v-mn)/rng)*8))]).join('');
             openMiniGameOverlay(`
-                <h3 style="color:var(--p);margin:0 0 4px;">📊 Трейдер</h3>
-                <p style="color:var(--text2);font-size:12px;margin:0 0 12px;">Угод закрито: ${trades}/3 • Помилки: ${errors}</p>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                    <span style="color:var(--p);font-size:15px;font-weight:900;">📊 Трейдер</span>
+                    <span style="font-size:11px;color:var(--text2);">Угод: ${trades}/4 • ❌${errors}</span>
+                </div>
                 ${getProfessionScene('trader')}
-                <div style="background:#111;border-radius:10px;padding:16px;text-align:center;margin-bottom:12px;">
-                    <div style="font-size:2.5rem;font-weight:900;color:#fff;">$${current}</div>
-                    <div style="font-size:12px;color:var(--text2);margin-top:4px;">${trend}</div>
-                    ${holding ? `<div style="font-size:11px;color:var(--g);margin-top:4px;">Куплено за $${buyPrice}</div>` : ''}
+                <div style="background:#111;border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px;">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:6px;">
+                        <span style="font-size:32px;font-weight:900;color:#fff;">$${current.toFixed(1)}</span>
+                        <span style="font-size:20px;">${trend}</span>
+                    </div>
+                    <div style="font-family:monospace;font-size:22px;color:${trendClr};letter-spacing:2px;">${spark}</div>
+                    <div style="font-size:11px;color:var(--text2);margin-top:4px;">Ціновий графік</div>
+                    ${holding ? `<div style="margin-top:6px;font-size:12px;color:var(--g);">📌 Куплено за $${buyPrice.toFixed(1)} → ${current>buyPrice?'<span style="color:var(--g);">+прибуток</span>':'<span style="color:var(--r);">-збиток</span>'}</div>` : ''}
                 </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
-                    <button class="btn" id="mg-buy-btn" style="background:var(--g);color:#000;" ${holding ? 'disabled' : ''}>КУПИТИ</button>
-                    <button class="btn" id="mg-sell-btn" style="background:var(--r);color:#fff;" ${!holding ? 'disabled' : ''}>ПРОДАТИ</button>
-                    <button class="btn" id="mg-next-btn" style="background:#333;color:#fff;">ДАЛІ ⏩</button>
+                    <button class="btn" id="mg-buy-btn" style="background:var(--g);color:#000;" ${holding?'disabled':''}>🟢 КУПИТИ</button>
+                    <button class="btn" id="mg-sell-btn" style="background:var(--r);color:#fff;" ${!holding?'disabled':''}>🔴 ПРОДАТИ</button>
+                    <button class="btn" id="mg-next-btn" style="background:#333;color:#fff;">⏩ ДАЛІ</button>
                 </div>
             `);
-            document.getElementById('mg-buy-btn').onclick = () => {
-                holding = true;
-                buyPrice = current;
-                pos = Math.min(pos + 1, prices.length - 1);
-                render();
-            };
-            document.getElementById('mg-sell-btn').onclick = () => {
-                if (current < buyPrice) errors++;
-                holding = false;
-                trades++;
-                pos = Math.min(pos + 1, prices.length - 1);
-                render();
-            };
-            document.getElementById('mg-next-btn').onclick = () => {
-                pos = Math.min(pos + 1, prices.length - 1);
-                render();
-            };
+            document.getElementById('mg-buy-btn').onclick = () => { holding=true; buyPrice=current; pos=Math.min(pos+1,LEN-1); render(); };
+            document.getElementById('mg-sell-btn').onclick = () => { if(current<buyPrice) errors++; holding=false; trades++; pos=Math.min(pos+1,LEN-1); render(); };
+            document.getElementById('mg-next-btn').onclick = () => { pos=Math.min(pos+1,LEN-1); render(); };
         }
         render();
     }
@@ -482,33 +563,39 @@
     /* ── DOCTOR: Treat patients ── */
     function startDoctorGame() {
         const cases = [
-            { symptom: '🤒 Температура, кашель', correct: '💊 Парацетамол', options: ['💊 Парацетамол', '💉 Інсулін', '🩺 Операція'] },
-            { symptom: '🤕 Головний біль', correct: '💊 Ібупрофен', options: ['💉 Антибіотик', '💊 Ібупрофен', '🩹 Пластир'] },
-            { symptom: '🤢 Нудота, блювота', correct: '💊 Церукал', options: ['💊 Церукал', '💊 Парацетамол', '🩺 Операція'] },
-            { symptom: '🦴 Перелом руки', correct: '🩺 Операція', options: ['💊 Ібупрофен', '🩺 Операція', '💉 Вітамін C'] }
+            { icon:'🤒', symptom:'Температура 38.5°, кашель, нежить', correct:'💊 Парацетамол', options:['💊 Парацетамол','💉 Інсулін','🩺 Операція','🩹 Пластир'] },
+            { icon:'🤕', symptom:'Сильний головний біль, світлочутливість', correct:'💊 Ібупрофен', options:['💉 Антибіотик','💊 Ібупрофен','🩹 Пластир','💊 Парацетамол'] },
+            { icon:'🤢', symptom:'Нудота, блювота, болі в животі', correct:'💊 Церукал', options:['💊 Церукал','💊 Парацетамол','🩺 Операція','💉 Вітамін C'] },
+            { icon:'🦴', symptom:'Перелом руки зі зміщенням', correct:'🩺 Операція', options:['💊 Ібупрофен','🩺 Операція','💉 Вітамін C','🩹 Пластир'] },
+            { icon:'😴', symptom:'Хронічне безсоння, тривожність', correct:'💊 Седативне', options:['💊 Седативне','💉 Антибіотик','🩺 Операція','💊 Парацетамол'] }
         ];
-        let idx = 0, errors = 0;
+        let idx=0, errors=0;
         function render() {
-            if (idx >= cases.length) { finishWork(errors); return; }
-            const c = cases[idx];
-            const opts = [...c.options].sort(() => Math.random() - 0.5);
+            if (idx>=cases.length) { finishWork(errors); return; }
+            const c=cases[idx];
+            const opts=[...c.options].sort(()=>Math.random()-.5);
             openMiniGameOverlay(`
-                <h3 style="color:var(--p);margin:0 0 4px;">🏥 Лікар</h3>
-                <p style="color:var(--text2);font-size:12px;margin:0 0 12px;">Пацієнт ${idx + 1}/${cases.length} • Помилки: ${errors}</p>
-                ${getProfessionScene('doctor')}
-                <div style="background:#111;border-radius:10px;padding:16px;text-align:center;margin-bottom:12px;">
-                    <div style="font-size:1.5rem;">${c.symptom}</div>
-                    <div style="font-size:12px;color:var(--text2);margin-top:4px;">Оберіть лікування:</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                    <span style="color:var(--p);font-size:15px;font-weight:900;">🏥 Лікар</span>
+                    <span style="font-size:11px;color:var(--text2);">Пацієнт ${idx+1}/${cases.length} • ❌${errors}</span>
                 </div>
-                <div style="display:grid;gap:8px;">
-                    ${opts.map(opt => `<button class="btn mg-opt-btn" data-val="${opt.replace(/"/g, '&quot;')}" style="padding:12px;text-align:left;">${opt}</button>`).join('')}
+                ${getProfessionScene('doctor')}
+                <div style="background:#111;border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px;text-align:center;">
+                    <div style="font-size:52px;line-height:1;">${c.icon}</div>
+                    <div style="font-size:13px;color:#fff;font-weight:700;margin-top:8px;">${c.symptom}</div>
+                    <div style="font-size:11px;color:var(--text2);margin-top:4px;">Призначте лікування:</div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                    ${opts.map(opt=>`<button class="btn mg-opt-btn" data-val="${opt.replace(/"/g,'&quot;')}" style="padding:12px;font-size:12px;text-align:center;">${opt}</button>`).join('')}
                 </div>
             `);
             document.querySelectorAll('.mg-opt-btn').forEach(btn => {
                 btn.onclick = () => {
-                    if (btn.dataset.val !== c.correct) errors++;
-                    idx++;
-                    render();
+                    document.querySelectorAll('.mg-opt-btn').forEach(b=>b.disabled=true);
+                    const correct = btn.dataset.val === c.correct;
+                    btn.style.background = correct ? 'var(--g)' : 'var(--r)';
+                    if (!correct) { errors++; document.querySelectorAll('.mg-opt-btn').forEach(b=>{ if(b.dataset.val===c.correct) b.style.background='var(--g)'; }); }
+                    setTimeout(()=>{ idx++; render(); }, 700);
                 };
             });
         }
@@ -1052,32 +1139,39 @@
     /* ── FREELANCER: Random job ── */
     function startFreelancerGame() {
         const gigs = [
-            { task: 'Клієнт просить швидкий лендинг.', correct: '🖥️ Верстка', options: ['🖥️ Верстка', '⚖️ Судовий позов', '🏥 Діагностика'] },
-            { task: 'Потрібно терміново намалювати банер.', correct: '🎨 Дизайн', options: ['🎨 Дизайн', '⚙️ Ремонт двигуна', '🏛️ Податкова перевірка'] },
-            { task: 'Замовник хоче підготувати плитку для кухні.', correct: '🪟 Плитка', options: ['🪟 Плитка', '✈️ Політ маршрутом', '📈 Біржова угода'] }
+            { icon:'🌐', task:'Клієнт просить лендинг — швидко й красиво!', correct:'🖥️ Верстка', options:['🖥️ Верстка','⚖️ Судовий позов','🏥 Діагностика','✈️ Піліт'] },
+            { icon:'🎭', task:'Потрібно терміново намалювати банер для соцмереж.', correct:'🎨 Дизайн', options:['🎨 Дизайн','⚙️ Ремонт двигуна','🏛️ Податки','💊 Ліки'] },
+            { icon:'🏗️', task:'Замовник хоче плитку на кухні.', correct:'🪟 Плитка', options:['🪟 Плитка','✈️ Рейс','📈 Торги','🩺 Операція'] },
+            { icon:'🤖', task:'Потрібен Python скрипт для автоматизації.', correct:'🖥️ Верстка', options:['🖥️ Верстка','⚖️ Юриспруденція','👨‍🍳 Рецепт','🚗 Авто'] },
+            { icon:'📱', task:'Клієнт хоче адаптивний сайт під мобільний.', correct:'🎨 Дизайн', options:['🎨 Дизайн','🏥 Медицина','🪟 Плитка','⚙️ Інженерія'] }
         ];
-        let idx = 0, errors = 0;
+        let idx=0, errors=0;
         function render() {
-            if (idx >= gigs.length) { finishWork(errors); return; }
-            const gig = gigs[idx];
-            const opts = [...gig.options].sort(() => Math.random() - 0.5);
+            if (idx>=gigs.length) { finishWork(errors); return; }
+            const gig=gigs[idx];
+            const opts=[...gig.options].sort(()=>Math.random()-.5);
             openMiniGameOverlay(`
-                <h3 style="color:var(--p);margin:0 0 4px;">💻 Фрілансер</h3>
-                <p style="color:var(--text2);font-size:12px;margin:0 0 12px;">Замовлення ${idx + 1}/${gigs.length} • Помилки: ${errors}</p>
-                ${getProfessionScene('freelancer')}
-                <div style="background:#111;border-radius:10px;padding:16px;margin-bottom:12px;">
-                    <div style="font-size:1rem;">${gig.task}</div>
-                    <div style="font-size:12px;color:var(--text2);margin-top:4px;">Що найкраще підходить?</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                    <span style="color:var(--p);font-size:15px;font-weight:900;">💻 Фрілансер</span>
+                    <span style="font-size:11px;color:var(--text2);">Замовлення ${idx+1}/${gigs.length} • ❌${errors}</span>
                 </div>
-                <div style="display:grid;gap:8px;">
-                    ${opts.map(opt => `<button class="btn mg-free-btn" data-val="${opt.replace(/"/g, '&quot;')}" style="padding:12px;text-align:left;">${opt}</button>`).join('')}
+                ${getProfessionScene('freelancer')}
+                <div style="background:#111;border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px;text-align:center;">
+                    <div style="font-size:44px;line-height:1.1;">${gig.icon}</div>
+                    <div style="font-size:14px;color:#fff;font-weight:700;margin-top:8px;">${gig.task}</div>
+                    <div style="font-size:11px;color:var(--text2);margin-top:4px;">Оберіть потрібний навик:</div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                    ${opts.map(opt=>`<button class="btn mg-free-btn" data-val="${opt.replace(/"/g,'&quot;')}" style="padding:12px;font-size:12px;">${opt}</button>`).join('')}
                 </div>
             `);
-            document.querySelectorAll('.mg-free-btn').forEach(btn => {
-                btn.onclick = () => {
-                    if (btn.dataset.val !== gig.correct) errors++;
-                    idx++;
-                    render();
+            document.querySelectorAll('.mg-free-btn').forEach(btn=>{
+                btn.onclick=()=>{
+                    document.querySelectorAll('.mg-free-btn').forEach(b=>b.disabled=true);
+                    const correct=btn.dataset.val===gig.correct;
+                    btn.style.background=correct?'var(--g)':'var(--r)';
+                    if(!correct){ errors++; document.querySelectorAll('.mg-free-btn').forEach(b=>{ if(b.dataset.val===gig.correct) b.style.background='var(--g)'; }); }
+                    setTimeout(()=>{ idx++; render(); }, 700);
                 };
             });
         }
@@ -1269,12 +1363,16 @@
     };
 
     window.switchBankTab = function(panel) {
-        document.querySelectorAll('.bank-subtab').forEach(t => t.classList.toggle('active', t.textContent.toLowerCase().includes(panel === 'loans' ? 'кредит' : panel === 'history' ? 'історі' : 'статистик')));
+        document.querySelectorAll('.bank-subtab').forEach(t => {
+            const key = panel === 'loans' ? 'кредит' : panel === 'history' ? 'історі' : panel === 'taxes' ? 'податк' : 'статистик';
+            t.classList.toggle('active', t.textContent.toLowerCase().includes(key));
+        });
         document.querySelectorAll('.bank-panel').forEach(p => p.classList.remove('active'));
         const el = document.getElementById(`bank-panel-${panel}`);
         if (el) el.classList.add('active');
         if (panel === 'history') renderBankHistory();
         if (panel === 'stats')   renderBankStats();
+        if (panel === 'taxes')   renderTaxNotifications();
     };
 
     function renderBankTab() {
@@ -1321,6 +1419,133 @@
                 <button class="btn" style="margin-top:8px; padding:8px; font-size:11px;" onclick="repayLoan('${esc(lid)}')">💳 ПОГАСИТИ ${n(loan.remaining).toFixed(2)} ${loan.currency.toUpperCase()}</button>
             </div>`;
         }).join('');
+    }
+
+    /* ── TAX NOTIFICATION SYSTEM ──
+       Generates a tax bill every 2 real days based on the player's real estate.
+       Bills are stored in Firebase and shown in Bank → Податки tab.
+       Each bill has a "Pay" button that deducts the amount from the player's balance.
+    ── */
+    const TAX_INTERVAL_MS = 2 * 24 * 60 * 60 * 1000; // 2 days
+    const TAX_BILL_BASE   = 0.10;  // base USDT per property per level
+    const TAX_BILL_CAP    = 5.00;  // max per bill
+
+    function calcTaxBillAmount() {
+        const catalog = typeof realEstateCatalog === 'undefined' ? [] : realEstateCatalog;
+        const state   = typeof realEstateState   === 'undefined' ? { properties: {} } : realEstateState;
+        let total = 0;
+        catalog.forEach(def => {
+            if (!state.properties?.[def.id]) return;
+            const level = Math.max(1, n(state.properties[def.id]?.level, 1));
+            total += TAX_BILL_BASE * level * (1 + n(def.price, 0) * 0.0005);
+        });
+        // If no real estate, use a small flat fee based on balance
+        if (total < 0.01) total = Math.max(0.05, Math.min(0.50, getBalance() * 0.001));
+        return Math.min(TAX_BILL_CAP, Math.round(total * 100) / 100);
+    }
+
+    async function checkAndGenerateTaxBill() {
+        const u = getUser(); if (!u) return;
+        const snap = await db().ref(`users/${u}/taxBills`).once('value');
+        const bills = snap.val() || {};
+        const now = Date.now();
+        const lastBillTs = Object.values(bills).reduce((mx, b) => Math.max(mx, n(b.createdAt)), 0);
+        if (now - lastBillTs < TAX_INTERVAL_MS) return; // too soon
+
+        const amount = calcTaxBillAmount();
+        const billId = uid('tax');
+        const bill = {
+            id: billId,
+            amount,
+            currency: 'usdt',
+            status: 'pending',
+            createdAt: now,
+            dueAt: now + TAX_INTERVAL_MS,
+            note: `Податок на нерухомість (${new Date(now).toLocaleDateString('uk-UA')})`
+        };
+        await db().ref(`users/${u}/taxBills/${billId}`).set(bill);
+
+        // Show a toast notification
+        showGameNotification(`🏛️ Нове податкове повідомлення: ${amount.toFixed(2)} USDT`);
+
+        // Badge the bank taxes tab
+        const badge = document.getElementById('bank-taxes-badge');
+        if (badge) { badge.style.display = 'block'; badge.textContent = `⚠️ Є несплачені податки!`; }
+        const taxTab = document.getElementById('bank-taxes-tab');
+        if (taxTab && !taxTab.querySelector('.tax-badge')) {
+            const dot = document.createElement('span');
+            dot.className = 'tax-badge';
+            dot.style.cssText = 'display:inline-block;width:8px;height:8px;background:var(--r);border-radius:50%;margin-left:4px;vertical-align:middle;';
+            taxTab.appendChild(dot);
+        }
+    }
+
+    async function loadTaxBills() {
+        const u = getUser(); if (!u) return [];
+        const snap = await db().ref(`users/${u}/taxBills`).once('value');
+        return Object.values(snap.val() || {}).sort((a, b) => n(b.createdAt) - n(a.createdAt));
+    }
+
+    window.payTaxBill = async function(billId) {
+        const u = getUser(); if (!u) return;
+        const snap = await db().ref(`users/${u}/taxBills/${billId}`).once('value');
+        const bill = snap.val();
+        if (!bill || bill.status !== 'pending') { showGameNotification('❌ Рахунок вже сплачено або не знайдено'); return; }
+
+        const currentUsdt = await loadUsdt(u);
+        if (currentUsdt < bill.amount) {
+            showGameNotification(`❌ Недостатньо USDT! Потрібно ${bill.amount.toFixed(2)}, є ${currentUsdt.toFixed(2)}`);
+            return;
+        }
+        await adjustUsdt(u, -bill.amount);
+        await db().ref(`users/${u}/taxBills/${billId}/status`).set('paid');
+        await appendBankRecord({ type: 'tax', currency: 'usdt', amount: bill.amount, note: bill.note, ts: Date.now() });
+        showGameNotification(`✅ Податок ${bill.amount.toFixed(2)} USDT сплачено!`);
+        renderTaxNotifications();
+    };
+
+    function renderTaxNotifications() {
+        const listEl = document.getElementById('bank-taxes-list');
+        if (!listEl) return;
+        listEl.innerHTML = '<div style="color:var(--text2);font-size:13px;text-align:center;padding:20px;">⏳ Завантаження...</div>';
+        loadTaxBills().then(bills => {
+            const badge = document.getElementById('bank-taxes-badge');
+            const pending = bills.filter(b => b.status === 'pending');
+            if (badge) {
+                if (pending.length) { badge.style.display = 'block'; badge.textContent = `⚠️ Несплачено рахунків: ${pending.length}`; }
+                else badge.style.display = 'none';
+            }
+            // Clear dot badge if no pending
+            if (!pending.length) {
+                const taxTab = document.getElementById('bank-taxes-tab');
+                taxTab?.querySelector('.tax-badge')?.remove();
+            }
+            if (!bills.length) {
+                listEl.innerHTML = '<div style="color:var(--text2);font-size:13px;text-align:center;padding:20px;">Податкових повідомлень поки немає.<br>Вони надходять кожні 2 дні.</div>';
+                return;
+            }
+            listEl.innerHTML = bills.map(b => {
+                const isPending = b.status === 'pending';
+                const overdue   = isPending && Date.now() > n(b.dueAt);
+                const dueDate   = new Date(n(b.dueAt)).toLocaleDateString('uk-UA');
+                return `<div style="background:var(--card);border:1px solid ${isPending ? (overdue ? 'var(--r)' : 'rgba(240,185,11,0.4)') : 'var(--border)'};border-radius:14px;padding:14px;margin-bottom:8px;">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+                        <div style="display:flex;gap:10px;align-items:center;">
+                            <span style="font-size:28px;">🏛️</span>
+                            <div>
+                                <div style="font-weight:800;font-size:13px;color:${isPending ? 'var(--p)' : 'var(--text2)'};">${esc(b.note)}</div>
+                                <div style="font-size:11px;color:var(--text2);">Термін: ${dueDate}${overdue ? ' <b style="color:var(--r);">ПРОСТРОЧЕНО</b>' : ''}</div>
+                            </div>
+                        </div>
+                        <div style="text-align:right;">
+                            <div style="font-size:18px;font-weight:900;color:${isPending ? 'var(--r)' : 'var(--text2)'};">${n(b.amount).toFixed(2)} USDT</div>
+                            <div style="font-size:11px;color:${isPending ? 'var(--g)' : 'var(--text2)'};">${isPending ? '⏳ Очікує оплати' : '✅ Сплачено'}</div>
+                        </div>
+                    </div>
+                    ${isPending ? `<button class="btn" style="padding:10px;font-size:12px;" onclick="payTaxBill('${esc(b.id)}')">💳 ОПЛАТИТИ ${n(b.amount).toFixed(2)} USDT</button>` : ''}
+                </div>`;
+            }).join('');
+        });
     }
 
     window.renderBankHistory = function() {
@@ -2415,6 +2640,8 @@
         renderStocksFeatureViews();
         renderWeeklyQuest();
         startWorkCooldownTick();
+        // Check and generate a tax bill if 2+ days have passed since the last one
+        setTimeout(() => checkAndGenerateTaxBill(), 3000);
     }
 
     function onExtLogout() {
