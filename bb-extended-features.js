@@ -1767,8 +1767,91 @@
     /* ────────────────────────────────────────────────────── */
     /*  TOURNAMENT RPS                                        */
     /* ────────────────────────────────────────────────────── */
-    const MAX_PLAYERS = 15;
-    const tournamentState = { activeTournamentId: null, myMatchId: null, bracket: null };
+    const MAX_PLAYERS = 16;
+    const tournamentState = { activeTournamentId: null, myMatchId: null };
+    let _tourneyListenerRef = null;
+    let _tourneyListenerTid = null;
+
+    /* ── Mystery Box prize table ── */
+    const MYSTERY_BOX_PRIZES = [
+        { type: 'coins', label: '50 BB Монет',         amount: 50,  weight: 28 },
+        { type: 'coins', label: '100 BB Монет',        amount: 100, weight: 18 },
+        { type: 'coins', label: '250 BB Монет',        amount: 250, weight: 8  },
+        { type: 'usdt',  label: '1 USDT',              amount: 1,   weight: 24 },
+        { type: 'usdt',  label: '3 USDT',              amount: 3,   weight: 12 },
+        { type: 'frame', label: 'Золота рамка',        itemId: 'frame_gold',    weight: 5 },
+        { type: 'frame', label: 'Діамантова рамка',    itemId: 'frame_diamond', weight: 2 },
+        { type: 'bg',    label: 'Крипто темрява (фон)', itemId: 'bg_crypto',    weight: 5 },
+        { type: 'bg',    label: 'Матриця (фон)',        itemId: 'bg_matrix',    weight: 4 },
+        { type: 'title', label: 'Титул "ЛЕГЕНДА"',     itemId: 'title_legend',  weight: 2 },
+    ];
+
+    function pickPrize() {
+        const total = MYSTERY_BOX_PRIZES.reduce((s, p) => s + p.weight, 0);
+        let r = Math.random() * total;
+        for (const p of MYSTERY_BOX_PRIZES) { r -= p.weight; if (r <= 0) return p; }
+        return MYSTERY_BOX_PRIZES[0];
+    }
+
+    async function awardMysteryBox(username) {
+        const prize = pickPrize();
+        if (prize.type === 'coins') {
+            await db().ref(`users/${username}/balance`).transaction(v => n(v, 0) + prize.amount);
+        } else if (prize.type === 'usdt') {
+            await db().ref(`users/${username}/usdt`).transaction(v => parseFloat((n(v, 0) + prize.amount).toFixed(2)));
+        } else {
+            // frame, bg, title → add to shopData.owned
+            await db().ref(`users/${username}/shopData/owned`).transaction(owned => {
+                const arr = Array.isArray(owned) ? [...owned] : [];
+                if (!arr.includes(prize.itemId)) arr.push(prize.itemId);
+                return arr;
+            });
+        }
+        await db().ref(`users/${username}/pendingMysteryBox`).set({ prize, awardedAt: Date.now() });
+        return prize;
+    }
+
+    async function checkPendingMysteryBox() {
+        const u = getUser(); if (!u) return;
+        const snap = await db().ref(`users/${u}/pendingMysteryBox`).once('value');
+        const box = snap.val();
+        if (!box) return;
+        await db().ref(`users/${u}/pendingMysteryBox`).remove();
+        showMysteryBoxReveal(box.prize);
+    }
+
+    function showMysteryBoxReveal(prize) {
+        const existing = document.getElementById('mystery-box-overlay');
+        if (existing) existing.remove();
+        const ov = document.createElement('div');
+        ov.id = 'mystery-box-overlay';
+        ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:20px;';
+        const typeIcons = { coins: '🪙', usdt: '💵', frame: '🖼️', bg: '🎨', title: '👑' };
+        ov.innerHTML = `
+            <div style="text-align:center;">
+                <div class="loot-open-anim revealed" style="font-size:5rem;">🎁</div>
+                <div style="font-size:20px;font-weight:900;color:var(--gold);margin:16px 0 8px;">🏆 ВИ ВИГРАЛИ ТУРНІР!</div>
+                <div style="font-size:13px;color:var(--text2);margin-bottom:20px;">Ваш приз — Містері Бокс</div>
+                <div style="font-size:3rem;margin:12px 0;">${typeIcons[prize.type] || '🎁'}</div>
+                <div style="font-size:22px;font-weight:900;color:var(--p);margin-bottom:6px;">${esc(prize.label)}</div>
+                <button class="btn" style="margin-top:16px;background:var(--gold);color:#000;padding:12px 32px;font-size:14px;" onclick="document.getElementById('mystery-box-overlay').remove()">ЗАБРАТИ 🎉</button>
+            </div>`;
+        document.body.appendChild(ov);
+        if (prize.type === 'coins' && typeof gameState !== 'undefined') {
+            gameState.balance = (gameState.balance || 0) + prize.amount;
+            if (typeof updateHeader === 'function') updateHeader();
+        } else if (prize.type === 'usdt' && typeof gameState !== 'undefined') {
+            gameState.usdt = parseFloat(((gameState.usdt || 0) + prize.amount).toFixed(2));
+            if (typeof updateHeader === 'function') updateHeader();
+        }
+    }
+
+    /* ── Normalize Firebase bracket (object → array) ── */
+    function normalizeBracket(bracket) {
+        if (!bracket) return [];
+        const toArr = o => Array.isArray(o) ? o : Object.keys(o).sort((a, b) => parseInt(a, 10) - parseInt(b, 10)).map(k => o[k]);
+        return toArr(bracket).map(round => toArr(round).map(m => m || {}));
+    }
 
     window.createTournament = async function() {
         const u = getUser(); if (!u) { showGN('❌ Не залогінено'); return; }
@@ -1783,7 +1866,7 @@
             createdAt: Date.now()
         });
         tournamentState.activeTournamentId = tid;
-        showGN(`✅ Турнір "${name}" створено! Код: ${tid.slice(-6)}`);
+        showGN(`✅ Турнір "${name}" створено!`);
         document.getElementById('tournament-name-input').value = '';
         document.getElementById('tournament-pass-input').value = '';
         loadTournaments();
@@ -1813,14 +1896,14 @@
                 </div>
             </div>`;
         }).join('');
+        // Show mystery box if winner just returned to lobby
+        checkPendingMysteryBox();
     };
 
     window.joinTournament = async function(tid, hasPass) {
         const u = getUser(); if (!u) return;
         let pass = '';
-        if (hasPass) {
-            pass = prompt('Введіть пароль турніру:') || '';
-        }
+        if (hasPass) { pass = prompt('Введіть пароль турніру:') || ''; }
         const snap = await db().ref(`tournaments/${tid}`).once('value');
         const t = snap.val();
         if (!t) { showGN('❌ Турнір не знайдено'); return; }
@@ -1839,39 +1922,42 @@
         if (!t || t.host !== u) { showGN('❌ Тільки хост може запустити'); return; }
         const players = Object.keys(t.players || {});
         if (players.length < 2) { showGN('❌ Потрібно мінімум 2 гравці'); return; }
-        // Build bracket
         const shuffled = [...players].sort(() => Math.random() - 0.5);
         const bracket = buildBracket(shuffled);
         await db().ref(`tournaments/${tid}`).update({ status: 'active', bracket, bracketPlayers: shuffled });
-        // Post to news
-        if (typeof db !== 'undefined') {
-            await db().ref('newsPosts').push({
-                title: `🏆 Турнір "${esc(t.name)}" розпочато!`,
-                text: `Організатор: ${esc(u)} • Гравці: ${players.length} • Переможець буде визначений після завершення турніру`,
-                type: 'tournament',
-                createdAt: Date.now(),
-                author: u
-            });
-        }
+        await db().ref('newsPosts').push({
+            title: `🏆 Турнір "${esc(t.name)}" розпочато!`,
+            text: `Організатор: ${esc(u)} • Гравці: ${players.length} • Переможець отримає 🎁 Містері Бокс з призами!`,
+            type: 'tournament',
+            createdAt: Date.now(),
+            author: u
+        });
         showGN(`🏆 Турнір "${t.name}" розпочато!`);
         viewTournamentBracket(tid);
     };
 
     function buildBracket(players) {
-        // Single-elimination bracket rounds
         const rounds = [];
-        let current = [...players];
-        while (current.length > 1) {
+        // Round 1: actual match-ups between real players
+        const r1 = [];
+        for (let i = 0; i < players.length; i += 2) {
+            if (i + 1 < players.length) {
+                r1.push({ p1: players[i], p2: players[i + 1], winner: null, status: 'pending' });
+            } else {
+                // Odd player out gets a bye (auto-advance)
+                r1.push({ p1: players[i], p2: null, winner: players[i], status: 'bye' });
+            }
+        }
+        rounds.push(r1);
+        // Future rounds: empty placeholders – filled in as winners advance
+        let matchCount = Math.ceil(players.length / 2);
+        while (matchCount > 1) {
+            matchCount = Math.ceil(matchCount / 2);
             const round = [];
-            for (let i = 0; i < current.length; i += 2) {
-                if (i + 1 < current.length) {
-                    round.push({ p1: current[i], p2: current[i+1], winner: null, status: 'pending' });
-                } else {
-                    round.push({ p1: current[i], p2: null, winner: current[i], status: 'bye' });
-                }
+            for (let i = 0; i < matchCount; i++) {
+                round.push({ p1: null, p2: null, winner: null, status: 'waiting' });
             }
             rounds.push(round);
-            current = round.map(m => m.winner || m.p1);
         }
         return rounds;
     }
@@ -1885,32 +1971,103 @@
         if (bracketSection) bracketSection.style.display = 'block';
         const titleEl = document.getElementById('tournament-title-display');
         if (titleEl) titleEl.textContent = `🏆 ${t.name}`;
-        renderBracketUI(t);
-        // Check if current user has a pending match
-        checkMyTournamentMatch(t);
+        const normalized = { ...t, bracket: normalizeBracket(t.bracket) };
+        renderBracketUI(normalized);
+        checkMyTournamentMatch(normalized);
+        setupTournamentListener(tid);
     };
+
+    function setupTournamentListener(tid) {
+        if (_tourneyListenerRef && _tourneyListenerTid !== tid) {
+            _tourneyListenerRef.off('value');
+            _tourneyListenerRef = null;
+        }
+        if (_tourneyListenerRef) return; // Already listening to same tid
+        _tourneyListenerTid = tid;
+        _tourneyListenerRef = db().ref(`tournaments/${tid}`);
+        _tourneyListenerRef.on('value', snap => {
+            const raw = snap.val();
+            if (!raw) return;
+            const t = { ...raw, bracket: normalizeBracket(raw.bracket) };
+            renderBracketUI(t);
+
+            const m = tournamentState.myMatchId;
+            if (m && m.tid === tid) {
+                // Check if our active match was resolved by the other client
+                const bracket = t.bracket;
+                for (let ri = 0; ri < bracket.length; ri++) {
+                    for (let mi = 0; mi < bracket[ri].length; mi++) {
+                        const match = bracket[ri][mi];
+                        if (match.p1 === m.p1 && match.p2 === m.p2 && match.status === 'done') {
+                            const u = getUser();
+                            const resEl = document.getElementById('tournament-match-result');
+                            const waitEl = document.getElementById('tournament-wait-msg');
+                            if (waitEl) waitEl.style.display = 'none';
+                            if (resEl && match.p1Choice && match.p2Choice) {
+                                const icons = { rock: '✊', scissors: '✌️', paper: '🖐️' };
+                                const myChoice = u === m.p1 ? match.p1Choice : match.p2Choice;
+                                const oppChoice = u === m.p1 ? match.p2Choice : match.p1Choice;
+                                resEl.innerHTML = `${icons[myChoice] || '?'} vs ${icons[oppChoice] || '?'} → ${match.winner === u ? '<span style="color:var(--g);">✅ Ви виграли!</span>' : '<span style="color:var(--r);">❌ Ви програли</span>'}`;
+                            }
+                            tournamentState.myMatchId = null;
+                            setTimeout(() => {
+                                if (t.status === 'completed' && t.winner === getUser()) {
+                                    checkPendingMysteryBox();
+                                } else {
+                                    viewTournamentBracket(tid);
+                                }
+                            }, 2000);
+                            return;
+                        }
+                    }
+                }
+            } else if (!tournamentState.myMatchId) {
+                checkMyTournamentMatch(t);
+            }
+        });
+    }
 
     function renderBracketUI(t) {
         const el = document.getElementById('tournament-bracket');
         if (!el) return;
         const bracket = t.bracket || [];
-        const stageNames = ['1/8', 'Чвертьфінал', 'Півфінал', 'Фінал'];
-        el.innerHTML = bracket.map((round, ri) => {
+        const u = getUser();
+        const stageNames = ['1/8', '1/4 Фінал', 'Півфінал', 'Фінал'];
+
+        // Spectator live-match banner (shows who is playing but NOT their choice)
+        const activeMatches = [];
+        for (const round of bracket) {
+            for (const m of round) {
+                if (m.status === 'pending' && m.p1 && m.p2) activeMatches.push(m);
+            }
+        }
+        const isSpectator = u && !activeMatches.find(m => m.p1 === u || m.p2 === u);
+        let spectatorBanner = '';
+        if (activeMatches.length > 0 && isSpectator) {
+            spectatorBanner = `<div style="background:rgba(240,185,11,0.1);border:1px solid rgba(240,185,11,0.3);border-radius:8px;padding:10px;margin-bottom:12px;">
+                <div style="font-size:11px;color:var(--gold);font-weight:900;margin-bottom:6px;">⚔️ ЗАРАЗ ГРАЮТЬ:</div>
+                ${activeMatches.map(m => `<div style="font-size:12px;color:var(--text2);margin-bottom:3px;">${esc(m.p1)} <span style="color:var(--p);">vs</span> ${esc(m.p2)}</div>`).join('')}
+            </div>`;
+        }
+
+        el.innerHTML = spectatorBanner + bracket.map((round, ri) => {
             return `<div style="margin-bottom:14px;">
-                <div class="bracket-stage-label">${stageNames[ri] || `Раунд ${ri+1}`}</div>
+                <div class="bracket-stage-label">${stageNames[ri] || `Раунд ${ri + 1}`}</div>
                 ${round.map(m => `<div class="bracket-match">
-                    <div class="bracket-player ${m.winner === m.p1 ? 'winner' : (m.winner ? 'loser' : '')}">${esc(m.p1 || '—')}</div>
-                    <div style="font-size:10px; color:#555; text-align:center; margin:2px 0;">vs</div>
-                    <div class="bracket-player ${m.winner === m.p2 ? 'winner' : (m.winner && m.p2 ? 'loser' : '')}">${esc(m.p2 || 'BYE')}</div>
+                    <div class="bracket-player ${m.winner === m.p1 ? 'winner' : (m.winner && m.p2 ? 'loser' : '')}">${esc(m.p1 || '—')}</div>
+                    <div style="font-size:10px;color:#555;text-align:center;margin:2px 0;">vs</div>
+                    <div class="bracket-player ${m.winner === m.p2 ? 'winner' : (m.winner && m.p2 ? 'loser' : '')}">${esc(m.p2 || (m.status === 'waiting' ? '?' : 'BYE'))}</div>
+                    ${m.status === 'done' ? `<div style="font-size:9px;color:var(--text2);text-align:center;">🏆 ${esc(m.winner)}</div>` : ''}
+                    ${m.status === 'pending' && m.p1 && m.p2 ? `<div style="font-size:9px;color:var(--text2);text-align:center;">⚔️ Триває...</div>` : ''}
                 </div>`).join('')}
             </div>`;
         }).join('');
 
-        // Check winner
         if (t.status === 'completed' && t.winner) {
             el.innerHTML += `<div class="glass" style="text-align:center; border-color:var(--gold); margin-top:12px;">
                 <div style="font-size:1.6rem; margin-bottom:6px;">🏆</div>
                 <div style="font-size:14px; font-weight:900; color:var(--gold);">Переможець: ${esc(t.winner)}</div>
+                <div style="font-size:11px;color:var(--text2);margin-top:4px;">🎁 Нагороджений Містері Боксом!</div>
             </div>`;
         }
     }
@@ -1921,14 +2078,21 @@
         const matchVs = document.getElementById('tournament-match-vs');
         if (!matchArea || !matchVs) return;
         const bracket = t.bracket;
-        for (const round of bracket) {
-            for (const match of round) {
-                if (match.status === 'pending' && (match.p1 === u || match.p2 === u)) {
+        for (let ri = 0; ri < bracket.length; ri++) {
+            for (let mi = 0; mi < bracket[ri].length; mi++) {
+                const match = bracket[ri][mi];
+                if (match.status === 'pending' && match.p1 && match.p2 && (match.p1 === u || match.p2 === u)) {
                     const opp = match.p1 === u ? match.p2 : match.p1;
-                    tournamentState.myMatchId = { tid: t.id, p1: match.p1, p2: match.p2 };
+                    tournamentState.myMatchId = { tid: t.id, ri, mi, p1: match.p1, p2: match.p2 };
                     matchArea.style.display = 'block';
                     matchVs.textContent = `Ваш суперник: ${opp}`;
                     document.getElementById('tournament-match-result').textContent = '';
+                    const waitEl = document.getElementById('tournament-wait-msg');
+                    if (waitEl) waitEl.style.display = 'none';
+                    // Re-enable choice buttons in case this is a reload
+                    document.querySelectorAll('#tournament-match-area .rps-choice-btn').forEach(b => b.disabled = false);
+                    // If we already submitted our choice, restore waiting state
+                    checkIfAlreadyChose(t.id, ri, mi, match.p1, match.p2);
                     return;
                 }
             }
@@ -1936,71 +2100,94 @@
         matchArea.style.display = 'none';
     }
 
+    async function checkIfAlreadyChose(tid, ri, mi, p1, p2) {
+        const u = getUser(); if (!u) return;
+        const choiceKey = `${ri}_${mi}`;
+        const snap = await db().ref(`tournaments/${tid}/choices/${choiceKey}/${u}`).once('value');
+        if (snap.val()) {
+            // We already chose – show waiting state
+            document.querySelectorAll('#tournament-match-area .rps-choice-btn').forEach(b => b.disabled = true);
+            const waitEl = document.getElementById('tournament-wait-msg');
+            if (waitEl) waitEl.style.display = 'block';
+        }
+    }
+
     window.tournamentChoose = async function(choice) {
         const u = getUser(); if (!u) return;
         const m = tournamentState.myMatchId;
         if (!m) return;
-        const tid = m.tid;
-        const snap = await db().ref(`tournaments/${tid}`).once('value');
-        const t = snap.val();
-        if (!t) return;
-        const bracket = t.bracket;
-        let matchRef = null, matchData = null;
-        for (let ri = 0; ri < bracket.length; ri++) {
-            for (let mi = 0; mi < bracket[ri].length; mi++) {
-                const mm = bracket[ri][mi];
-                if (mm.p1 === m.p1 && mm.p2 === m.p2 && mm.status === 'pending') {
-                    matchRef = { ri, mi };
-                    matchData = mm;
-                    break;
-                }
-            }
-            if (matchRef) break;
+        const { tid, ri, mi, p1, p2 } = m;
+
+        // Immediately lock UI – prevent double-clicks
+        document.querySelectorAll('#tournament-match-area .rps-choice-btn').forEach(b => b.disabled = true);
+        const waitEl = document.getElementById('tournament-wait-msg');
+        if (waitEl) waitEl.style.display = 'block';
+
+        // Persist our choice to Firebase
+        const choiceKey = `${ri}_${mi}`;
+        await db().ref(`tournaments/${tid}/choices/${choiceKey}/${u}`).set(choice);
+
+        // Check if opponent already chose
+        const allSnap = await db().ref(`tournaments/${tid}/choices/${choiceKey}`).once('value');
+        const all = allSnap.val() || {};
+        if (all[p1] && all[p2]) {
+            // Both players have chosen – try to resolve
+            await tryResolveTournamentMatch(tid, ri, mi, p1, p2, all[p1], all[p2]);
         }
-        if (!matchRef || !matchData) { showGN('Матч не знайдено'); return; }
+        // Either way the setupTournamentListener will catch updates in real-time
+    };
 
-        // Store choice and auto-resolve (in real impl: wait for opponent; here: simulate opponent)
-        const oppChoice = ['rock','scissors','paper'][Math.floor(Math.random() * 3)];
-        const myChoice = choice;
-        const winner = rpsWinnerCheck(myChoice, oppChoice);
-        let matchWinner = null;
-        if (winner === 1)  matchWinner = u;
-        else if (winner === 2) matchWinner = (matchData.p1 === u ? matchData.p2 : matchData.p1);
-        else matchWinner = u; // draw → current player wins (simplification)
+    async function tryResolveTournamentMatch(tid, ri, mi, p1, p2, p1Choice, p2Choice) {
+        // Use a transaction to ensure exactly one client resolves the match
+        const statusRef = db().ref(`tournaments/${tid}/bracket/${ri}/${mi}/status`);
+        const txResult = await statusRef.transaction(status => {
+            if (status !== 'pending') return undefined; // Abort – already resolved
+            return 'resolving';
+        });
+        if (!txResult.committed) {
+            // Another client already resolved this match — the real-time listener will show the result
+            return;
+        }
 
-        bracket[matchRef.ri][matchRef.mi].winner = matchWinner;
-        bracket[matchRef.ri][matchRef.mi].status = 'done';
+        const winner = rpsWinnerCheck(p1Choice, p2Choice);
+        let matchWinner;
+        if (winner === 1) matchWinner = p1;
+        else if (winner === 2) matchWinner = p2;
+        else matchWinner = Math.random() < 0.5 ? p1 : p2; // Draw → random
 
-        // Propagate winners to next round
+        // Load current bracket to propagate advancement
+        const snap = await db().ref(`tournaments/${tid}`).once('value');
+        const raw = snap.val();
+        if (!raw) return;
+        const bracket = normalizeBracket(raw.bracket);
+
+        bracket[ri][mi].winner = matchWinner;
+        bracket[ri][mi].status = 'done';
+        bracket[ri][mi].p1Choice = p1Choice;
+        bracket[ri][mi].p2Choice = p2Choice;
+
         advanceBracket(bracket);
 
-        // Check if tournament done
         const lastRound = bracket[bracket.length - 1];
         const tournamentDone = lastRound.length === 1 && lastRound[0].winner;
         const updates = { bracket };
-        if (tournamentDone) {
-            updates.status = 'completed';
-            updates.winner = lastRound[0].winner;
-            // Grant win stat
-            if (typeof db !== 'undefined' && lastRound[0].winner) {
-                const wUser = lastRound[0].winner;
-                await db().ref(`users/${wUser}/tournamentsWon`).transaction(v => (n(v, 0) + 1));
-                await db().ref('newsPosts').push({
-                    title: `🏆 Турнір "${esc(t.name)}" завершено!`,
-                    text: `Переможець: ${esc(wUser)} 🎊`,
-                    type: 'tournament_result',
-                    createdAt: Date.now()
-                });
-            }
-        }
-        await db().ref(`tournaments/${tid}`).update(updates);
 
-        const resEl = document.getElementById('tournament-match-result');
-        const icons = { rock: '✊', scissors: '✌️', paper: '🖐️' };
-        resEl.innerHTML = `${icons[myChoice]} vs ${icons[oppChoice]} → ${matchWinner === u ? '<span style="color:var(--g);">✅ Ви виграли!</span>' : '<span style="color:var(--r);">❌ Ви програли</span>'}`;
-        tournamentState.myMatchId = null;
-        setTimeout(() => viewTournamentBracket(tid), 1500);
-    };
+        if (tournamentDone) {
+            const winnerUser = lastRound[0].winner;
+            updates.status = 'completed';
+            updates.winner = winnerUser;
+            await db().ref(`users/${winnerUser}/tournamentsWon`).transaction(v => (n(v, 0) + 1));
+            await db().ref('newsPosts').push({
+                title: `🏆 Турнір "${esc(raw.name)}" завершено!`,
+                text: `Переможець: ${esc(winnerUser)} 🎊 — нагороджений Містері Боксом!`,
+                type: 'tournament_result',
+                createdAt: Date.now()
+            });
+            await awardMysteryBox(winnerUser);
+        }
+
+        await db().ref(`tournaments/${tid}`).update(updates);
+    }
 
     function rpsWinnerCheck(c1, c2) {
         if (c1 === c2) return 0;
@@ -2010,17 +2197,17 @@
 
     function advanceBracket(bracket) {
         for (let ri = 0; ri < bracket.length - 1; ri++) {
-            const nextRound = bracket[ri + 1];
-            let ni = 0;
             for (let mi = 0; mi < bracket[ri].length; mi++) {
                 const m = bracket[ri][mi];
-                if (m.winner) {
-                    const nextMatch = nextRound[Math.floor(mi / 2)];
-                    if (nextMatch && !nextMatch.status) {
-                        if (mi % 2 === 0) nextMatch.p1 = m.winner;
-                        else nextMatch.p2 = m.winner;
-                    }
-                }
+                if (!m.winner) continue;
+                const nextMi = Math.floor(mi / 2);
+                const nextMatch = bracket[ri + 1]?.[nextMi];
+                // Only write into uninitialised slots (status: 'waiting')
+                if (!nextMatch || nextMatch.status !== 'waiting') continue;
+                if (mi % 2 === 0) nextMatch.p1 = m.winner;
+                else nextMatch.p2 = m.winner;
+                // Once both players are known, the match becomes pending
+                if (nextMatch.p1 && nextMatch.p2) nextMatch.status = 'pending';
             }
         }
     }
@@ -2657,6 +2844,8 @@
         if (extState.workCooldownTimer) { clearInterval(extState.workCooldownTimer); extState.workCooldownTimer = null; }
         minesState.active = false;
         tournamentState.activeTournamentId = null;
+        tournamentState.myMatchId = null;
+        if (_tourneyListenerRef) { _tourneyListenerRef.off('value'); _tourneyListenerRef = null; _tourneyListenerTid = null; }
     }
 
     /* Extend handleExtendedTabOpen for new tabs */
