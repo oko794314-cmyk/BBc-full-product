@@ -971,7 +971,7 @@
     ];
 
     function getBusinessDailyIncome(business, level) {
-        return Math.round(n(business?.dailyIncome, 0) * Math.max(1, n(level, 1)) * 100) / 100;
+        return Math.round(n(business?.dailyIncome, 0) * Math.max(1, n(level, 0)) * 100) / 100;
     }
 
     function getBusinessPendingIncome(business, owned, now = Date.now()) {
@@ -1022,6 +1022,11 @@
         return { current, previous, delta, deltaPct };
     }
 
+    function formatSigned(value, digits = 2) {
+        const amount = n(value, 0);
+        return `${amount >= 0 ? '+' : ''}${amount.toFixed(digits)}`;
+    }
+
     function renderStocksFeatureViews() {
         renderStocksTab();
         renderBusinessTab();
@@ -1051,11 +1056,11 @@
             const avgBuy = n(extState.stocks.portfolio[s.id]?.avgPrice, 0);
             const pnl = owned > 0 ? (price - avgBuy) * owned : 0;
             const deltaColor = delta >= 0 ? 'var(--g)' : 'var(--r)';
-            const deltaLabel = `${delta >= 0 ? '+' : ''}${delta.toFixed(2)} BB (${deltaPct >= 0 ? '+' : ''}${deltaPct.toFixed(2)}%)`;
+            const deltaLabel = `${formatSigned(delta)} BB (${formatSigned(deltaPct)}%)`;
             return `<div class="stock-card">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
                     <div><span style="font-size:1.4rem;">${esc(s.icon)}</span> <b style="color:var(--p);">${esc(s.id)}</b><br><span style="font-size:11px; color:var(--text2);">${esc(s.name)} • ${esc(s.sector)}</span></div>
-                    <div style="text-align:right;"><div style="font-size:16px; font-weight:900;">${price.toFixed(2)} BB</div><div style="font-size:11px; color:${deltaColor};">${deltaLabel}</div>${owned > 0 ? `<div style="font-size:11px; color:${pnl >= 0 ? 'var(--g)' : 'var(--r)'};">${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)} BB</div>` : ''}</div>
+                    <div style="text-align:right;"><div style="font-size:16px; font-weight:900;">${price.toFixed(2)} BB</div><div style="font-size:11px; color:${deltaColor};">${deltaLabel}</div>${owned > 0 ? `<div style="font-size:11px; color:${pnl >= 0 ? 'var(--g)' : 'var(--r)'};">${formatSigned(pnl)} BB</div>` : ''}</div>
                 </div>
                 ${owned > 0 ? `<div style="font-size:11px; color:var(--text2); margin-bottom:8px;">Моє: ${owned} акцій • Сер. купівля: ${avgBuy.toFixed(2)}</div>` : ''}
                 <div style="display:flex; gap:6px;">
@@ -1077,7 +1082,7 @@
         const valEl = document.getElementById('stocks-portfolio-value');
         const pnlEl = document.getElementById('stocks-portfolio-pnl');
         if (valEl) valEl.textContent = `${totalValue.toFixed(2)} BB`;
-        if (pnlEl) { pnlEl.textContent = `${totalPnl >= 0 ? '+' : ''}${totalPnl.toFixed(2)} BB`; pnlEl.style.color = totalPnl >= 0 ? 'var(--g)' : 'var(--r)'; }
+        if (pnlEl) { pnlEl.textContent = `${formatSigned(totalPnl)} BB`; pnlEl.style.color = totalPnl >= 0 ? 'var(--g)' : 'var(--r)'; }
     }
 
     window.buyStock = async function(stockId) {
@@ -1208,7 +1213,7 @@
                 const p = extState.stocks.portfolio[s.id];
                 const price = getStockPrice(s.id);
                 const pnl = (price - n(p.avgPrice)) * n(p.shares);
-                return `<div class="activity-card"><b style="color:var(--p);">${esc(s.icon)} ${esc(s.id)}</b> — ${n(p.shares)} акцій • ${price.toFixed(2)} BB <span style="color:${pnl >= 0 ? 'var(--g)' : 'var(--r)'};">${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)} BB</span></div>`;
+                return `<div class="activity-card"><b style="color:var(--p);">${esc(s.icon)} ${esc(s.id)}</b> — ${n(p.shares)} акцій • ${price.toFixed(2)} BB <span style="color:${pnl >= 0 ? 'var(--g)' : 'var(--r)'};">${formatSigned(pnl)} BB</span></div>`;
             }).join('');
         }
         if (bizEl) {
