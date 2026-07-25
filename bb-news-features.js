@@ -1272,7 +1272,9 @@
         const bbAmount = num(bbAmountInput?.value, 0);
         if (bbAmount <= 0) { alert('Вкажіть кількість BB для купівлі.'); return; }
         const currentPrice = Math.max(MIN_PRICE, num(state.market.currentPrice, 1));
-        const usdtCost = Number((bbAmount * currentPrice).toFixed(6));
+        // Round to 4 dp so the cost matches what the UI displays, preventing
+        // floating-point residuals from causing false "insufficient funds" errors.
+        const usdtCost = Number((bbAmount * currentPrice).toFixed(4));
         const btn = document.getElementById('market-buy-btn');
         if (btn) btn.disabled = true;
         try {
@@ -1288,18 +1290,26 @@
                 alert(`Недостатньо USDT. Потрібно: ${usdtCost.toFixed(4)} USDT, у вас: ${freshUsdt.toFixed(4)} USDT`);
                 return;
             }
-            // Use a transaction to atomically deduct USDT to prevent race conditions
-            let transactionSuccess = false;
+            // Use a transaction to atomically deduct USDT to prevent race conditions.
+            // When the local cache is cold Firebase may call the callback with null first.
+            // Using freshUsdt as the assumed starting value causes Firebase to do a
+            // conditional write; if the server value differs, Firebase retries the
+            // callback with the real value — the transaction remains atomic and safe.
             let newUsdtValue = 0;
-            await getDb().ref(`users/${gameState.user}/usdt`).transaction(currentUsdtVal => {
-                const current = num(currentUsdtVal, 0);
+            const txResult = await getDb().ref(`users/${gameState.user}/usdt`).transaction(currentUsdtVal => {
+                const current = currentUsdtVal === null ? freshUsdt : num(currentUsdtVal, 0);
                 if (current < usdtCost) { return; } // abort transaction — insufficient funds
-                newUsdtValue = Math.max(0, Math.round((current - usdtCost) * 1e6) / 1e6);
-                transactionSuccess = true;
+                newUsdtValue = Math.max(0, Math.round((current - usdtCost) * 10000) / 10000);
                 return newUsdtValue;
             });
-            if (!transactionSuccess) {
-                alert(`Недостатньо USDT. Потрібно: ${usdtCost.toFixed(4)} USDT, у вас: ${freshUsdt.toFixed(4)} USDT`);
+            if (!txResult.committed) {
+                // snapshot.val() is the server's current value at the moment of abort,
+                // so it reflects the true balance even if it changed after the pre-read.
+                const actualSnap = await getDb().ref(`users/${gameState.user}/usdt`).once('value');
+                const actualUsdt = num(actualSnap.val(), freshUsdt);
+                gameState.usdt = actualUsdt;
+                if (typeof updateHeader === 'function') updateHeader();
+                alert(`Недостатньо USDT. Потрібно: ${usdtCost.toFixed(4)} USDT, у вас: ${actualUsdt.toFixed(4)} USDT`);
                 return;
             }
             gameState.usdt = newUsdtValue;
@@ -1308,7 +1318,7 @@
                 // Rollback USDT via transaction and re-read actual value to keep local state consistent
                 let restoredUsdt = freshUsdt;
                 await getDb().ref(`users/${gameState.user}/usdt`).transaction(v => {
-                    restoredUsdt = Math.round((num(v, 0) + usdtCost) * 1e6) / 1e6;
+                    restoredUsdt = Math.round((num(v, 0) + usdtCost) * 10000) / 10000;
                     return restoredUsdt;
                 });
                 gameState.usdt = restoredUsdt;
@@ -1365,7 +1375,8 @@
         const bbAmount = num(bbAmountInput?.value, 0);
         if (bbAmount <= 0) { alert('Вкажіть кількість BB для продажу.'); return; }
         const currentPrice = Math.max(MIN_PRICE, num(state.market.currentPrice, 1));
-        const usdtGain = Number((bbAmount * currentPrice).toFixed(6));
+        // Round to 4 dp to match the UI display and keep USDT precision consistent.
+        const usdtGain = Number((bbAmount * currentPrice).toFixed(4));
         const currentBB = num(gameState.balance, 0);
         if (currentBB < bbAmount) {
             alert(`Недостатньо BB. Потрібно: ${bbAmount.toFixed(4)} BB, у вас: ${currentBB.toFixed(4)} BB`);
@@ -1379,7 +1390,8 @@
             gameState.balance = bbResult.balance;
             let newUsdt = 0;
             await getDb().ref(`users/${gameState.user}/usdt`).transaction(v => {
-                newUsdt = Math.round((num(v, 0) + usdtGain) * 1e6) / 1e6;
+                // null means the usdt field does not yet exist; treat as 0 (additive is safe here).
+                newUsdt = Math.round((num(v === null ? 0 : v, 0) + usdtGain) * 10000) / 10000;
                 return newUsdt;
             });
             gameState.usdt = newUsdt;
@@ -1638,14 +1650,18 @@
 
     async function fulfillOrder(orderId) {
         const target = state.orders.find(item => item.id === orderId);
-        if (!target || target.user === gameState?.user || target.status !== 'open') return;
+        if (!target || target.user === gameState?.user || target.status !== 'open') {
+            if (!target) alert('Заявку не знайдено. Можливо, вона вже виконана або скасована.');
+            return;
+        }
         const creator = target.user;
         const executor = gameState?.user;
+        if (!executor) { alert('Увійдіть в акаунт.'); return; }
         const offer = target.offer;
         const want = target.want;
         const bbAmount = num(target.bbAmount, 0);
         const bbFee = getExchangeBbFee(target, bbAmount);
-        if (!offer || !want || !executor) return;
+        if (!offer || !want) return;
         if (want.type !== 'bb' && !hasCurrentUserAsset(want)) {
             alert('Для виконання заявки у вас має бути потрібний предмет.');
             return;
@@ -1659,6 +1675,7 @@
                 return;
             }
         }
+        try {
 
         // Determine whether BB was escrowed at order creation.
         // If escrowed (offer.type==='bb'), the creator's balance was already deducted —
@@ -1690,7 +1707,13 @@
                 const receiver = offer.type === 'bb' ? executor : creator;
                 const coinResult = await transferCoins(payer, receiver, bbAmount);
                 if (!coinResult.success) {
-                    alert('Не вдалося провести переказ BB. Перевірте баланс сторін.');
+                    if (offer.type === 'bb') {
+                        // Creator is the BB payer; they no longer have enough BB.
+                        alert('Автор заявки не має достатньо BB для її виконання. Спробуйте іншу заявку.');
+                    } else {
+                        // Executor is the BB payer; their balance is insufficient.
+                        alert('Недостатньо BB для виконання заявки. Поповніть баланс.');
+                    }
                     return;
                 }
                 coinTransferMeta = {
@@ -1798,6 +1821,10 @@
         }
         await appendLocalNotification({ type: 'exchange', level: 'success', title: '🤝 Угоду завершено', message: trade.summary });
         renderExchangeHub();
+        } catch (e) {
+            console.error('❌ Помилка при виконанні заявки:', e);
+            alert('Помилка при виконанні заявки: ' + (e.message || 'невідома помилка'));
+        }
     }
 
     async function cancelOrder(orderId) {
