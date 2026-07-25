@@ -605,11 +605,11 @@
                 el.style.cssText = `
                     position:absolute;
                     top:${topPct}%;
-                    left:0;
                     width:${size}px;height:${size}px;
                     cursor:pointer;
                     animation: chef-slide-${fromRight?'r':'l'} ${duration}s ${delay}s linear infinite;
                     filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5));
+                    ${fromRight ? 'right:0;' : 'left:0;'}
                 `;
                 el.innerHTML = item.svg;
                 el.dataset.fresh = item.fresh ? '1' : '0';
@@ -841,10 +841,12 @@
     }
 
     /* ── TAX AGENT: Real Estate Tax Calculator puzzle ── */
+    // Tax rates are based on Ukrainian real estate taxation rules:
+    // residential: 1.5%, commercial: 2.5%, late payment penalty: 5%
     function startTaxAgentGame() {
-        const TAX_RATE_RESIDENTIAL = 0.015;  // 1.5% of assessed value
-        const TAX_RATE_COMMERCIAL  = 0.025;  // 2.5% of assessed value
-        const PENALTY_RATE         = 0.05;   // 5% penalty for late payment
+        const TAX_RATE_RESIDENTIAL = 0.015;  // 1.5% of assessed value (Ukrainian law)
+        const TAX_RATE_COMMERCIAL  = 0.025;  // 2.5% of assessed value (Ukrainian law)
+        const PENALTY_RATE         = 0.05;   // 5% penalty for late payment (Ukrainian law)
 
         const cases = [
             {

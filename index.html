@@ -6066,12 +6066,12 @@
             localStorage.setItem('bbc_sport_bets', JSON.stringify(window._sportState.bets));
         }
 
-        // Fetch matches from football-data.org (public, no key needed for UPL in v4 free tier)
-        // Using competition PL for now as a fallback with known CORS headers
-        // PRIMARY: api.football-data.org/v4/competitions/UPL/matches
+        // Fetch matches from football-data.org (Ukrainian Premier League = UPL).
+        // The free plan (api.football-data.org) allows limited requests without authentication.
+        // If the API returns an error, the tab falls back to simulated Ukrainian club fixtures.
         // Fallback: simulate with real team names from current UPL season
         async function fetchMatches() {
-            const API_KEY = ''; // free tier, some requests work without key
+            const API_KEY = ''; // Set to your football-data.org API key to increase the request quota
             try {
                 const res = await fetch('https://api.football-data.org/v4/competitions/UPL/matches?status=SCHEDULED,IN_PLAY,FINISHED&limit=10', {
                     headers: API_KEY ? { 'X-Auth-Token': API_KEY } : {}
@@ -6296,7 +6296,8 @@
             setTimeout(async () => {
                 const b = window._sportState.bets.find(b => b.id === record.id);
                 if (!b || b.status !== 'pending') return;
-                // Random result: 45% win chance adjusted by odds
+                // Demo simulation: win probability approximated from odds (lower odds = higher probability).
+                // This is a simplified demo and does not reflect real sports betting mathematics.
                 const winChance = Math.min(0.7, 1 / bet.odds);
                 const won = Math.random() < winChance;
                 b.status = won ? 'won' : 'lost';
