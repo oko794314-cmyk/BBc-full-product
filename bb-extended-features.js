@@ -1427,25 +1427,25 @@
        Each bill has a "Pay" button that deducts the amount from the player's balance.
     ── */
     const TAX_INTERVAL_MS   = 2 * 24 * 60 * 60 * 1000; // 2 real-world days (not game time)
-    const TAX_BILL_BASE     = 0.10;   // base USDT per property per level
+    const TAX_BILL_BASE     = 0.10;   // base USDT per property level (added to value-based component)
     const TAX_BILL_CAP      = 5.00;   // max USDT per bill
     const TAX_PRICE_FACTOR  = 0.0005; // property price contribution to tax amount
-    const TAX_MIN_THRESHOLD = 0.01;   // minimum total before flat fee kicks in
-    const TAX_FLAT_MIN      = 0.05;   // minimum flat fee USDT
-    const TAX_FLAT_MAX      = 0.50;   // maximum flat fee USDT
-    const TAX_BALANCE_RATE  = 0.001;  // flat fee as fraction of player balance
+    const TAX_COUNT_FACTOR  = 0.08;   // 0.08x added to multiplier per property beyond the first (2 props=1.08x, 3 props=1.16x)
 
     function calcTaxBillAmount() {
         const catalog = typeof realEstateCatalog === 'undefined' ? [] : realEstateCatalog;
         const state   = typeof realEstateState   === 'undefined' ? { properties: {} } : realEstateState;
+        const ownedProperties = catalog.filter(def => !!state.properties?.[def.id]);
+        if (!ownedProperties.length) return 0;
         let total = 0;
-        catalog.forEach(def => {
-            if (!state.properties?.[def.id]) return;
+        ownedProperties.forEach(def => {
             const level = Math.max(1, n(state.properties[def.id]?.level, 1));
-            total += TAX_BILL_BASE * level * (1 + n(def.price, 0) * TAX_PRICE_FACTOR);
+            const totalPropertyValue = Math.max(0, n(def.price, 0)) * level;
+            // Tax = fixed amount per level + percentage from property market value.
+            total += (TAX_BILL_BASE * level) + (totalPropertyValue * TAX_PRICE_FACTOR);
         });
-        // If no real estate, use a small flat fee based on balance
-        if (total < TAX_MIN_THRESHOLD) total = Math.max(TAX_FLAT_MIN, Math.min(TAX_FLAT_MAX, getBalance() * TAX_BALANCE_RATE));
+        const quantityMultiplier = 1 + Math.max(0, ownedProperties.length - 1) * TAX_COUNT_FACTOR;
+        total *= quantityMultiplier;
         return Math.min(TAX_BILL_CAP, Math.round(total * 100) / 100);
     }
 
@@ -1458,6 +1458,7 @@
         if (now - lastBillTs < TAX_INTERVAL_MS) return; // too soon
 
         const amount = calcTaxBillAmount();
+        if (amount <= 0) return;
         const billId = uid('tax');
         const bill = {
             id: billId,
