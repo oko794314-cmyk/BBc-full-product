@@ -6038,7 +6038,13 @@
             for (const [key, url] of Object.entries(TEAM_LOGOS)) {
                 if (name.includes(key) || key.includes(name)) return url;
             }
-            return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=1E2026&color=F0B90B&size=48&bold=true`;
+            return getLogoFallbackSvg(name);
+        }
+
+        function getLogoFallbackSvg(name) {
+            const initials = (name || '?').split(' ').filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+            const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='44' height='44'><rect width='44' height='44' rx='8' fill='%231E2026'/><text x='22' y='30' text-anchor='middle' fill='%23F0B90B' font-size='15' font-weight='bold' font-family='Arial,sans-serif'>${initials}</text></svg>`;
+            return `data:image/svg+xml,${svg}`;
         }
 
         // Simulated odds generation based on team ranking / goals
@@ -6096,46 +6102,79 @@
         }
 
         // Fallback simulated matches (real UPL teams, plausible fixtures)
-        function buildFallbackMatches() {
+        // Fixtures are stored in localStorage so teams/scores don't change on refresh.
+        // Status (SCHEDULED/IN_PLAY/FINISHED) is recomputed each time based on current time.
+        const FALLBACK_STORAGE_KEY = 'bbc_sport_fallback_v2';
+
+        function buildFallbackFixtures() {
+            const today = new Date().toDateString();
+            try {
+                const cached = JSON.parse(localStorage.getItem(FALLBACK_STORAGE_KEY) || 'null');
+                if (cached && cached.date === today && Array.isArray(cached.fixtures) && cached.fixtures.length > 0) {
+                    return cached.fixtures;
+                }
+            } catch(e) {}
+
             const teams = [
                 'Шахтар Донецьк','Динамо Київ','Металіст 1925','Ворскла',
                 'Дніпро-1','Зоря','Олександрія','Рух','Кривбас','Чорноморець','Минай','Полісся'
             ];
             const now = Date.now();
-            const matches = [];
+            const fixtures = [];
             const usedPairs = new Set();
-            let t = now - 2 * 3600000; // start from 2h ago
-            for (let i = 0; i < 6; i++) {
-                let h, a;
+            // Spread 8 matches across the day relative to current time
+            const offsets = [-3.5, -2, -0.5, 0.5, 2, 3.5, 5, 7];
+            for (let i = 0; i < 8; i++) {
+                let h, a, attempts = 0;
                 do {
                     h = teams[Math.floor(Math.random() * teams.length)];
                     a = teams[Math.floor(Math.random() * teams.length)];
-                } while (h === a || usedPairs.has(`${h}-${a}`) || usedPairs.has(`${a}-${h}`));
+                    attempts++;
+                } while ((h === a || usedPairs.has(`${h}-${a}`) || usedPairs.has(`${a}-${h}`)) && attempts < 100);
                 usedPairs.add(`${h}-${a}`);
-                const kickoff = t + i * 1.5 * 3600000;
+                fixtures.push({
+                    id: i + 1,
+                    kickoff: now + offsets[i] * 3600000,
+                    homeTeam: h,
+                    awayTeam: a,
+                    finalHome: Math.floor(Math.random() * 4),
+                    finalAway: Math.floor(Math.random() * 4),
+                    homePos: i + 1,
+                    awayPos: teams.length - i
+                });
+            }
+            try { localStorage.setItem(FALLBACK_STORAGE_KEY, JSON.stringify({ date: today, fixtures })); } catch(e) {}
+            return fixtures;
+        }
+
+        function buildFallbackMatches() {
+            const fixtures = buildFallbackFixtures();
+            const now = Date.now();
+            return fixtures.map(f => {
+                const elapsed = now - f.kickoff;
                 let status, hg = 0, ag = 0;
-                if (kickoff < now - 90*60000) {
+                if (elapsed >= 90 * 60000) {
                     status = 'FINISHED';
-                    hg = Math.floor(Math.random() * 4);
-                    ag = Math.floor(Math.random() * 4);
-                } else if (kickoff < now) {
+                    hg = f.finalHome;
+                    ag = f.finalAway;
+                } else if (elapsed > 0) {
                     status = 'IN_PLAY';
-                    hg = Math.floor(Math.random() * 3);
-                    ag = Math.floor(Math.random() * 3);
+                    const progress = elapsed / (90 * 60000);
+                    hg = Math.min(f.finalHome, Math.floor(f.finalHome * progress * 1.2));
+                    ag = Math.min(f.finalAway, Math.floor(f.finalAway * progress * 1.2));
                 } else {
                     status = 'SCHEDULED';
                 }
-                matches.push({
-                    id: i + 1,
-                    utcDate: new Date(kickoff).toISOString(),
+                return {
+                    id: f.id,
+                    utcDate: new Date(f.kickoff).toISOString(),
                     status,
-                    homeTeam: { name: h },
-                    awayTeam: { name: a },
+                    homeTeam: { name: f.homeTeam },
+                    awayTeam: { name: f.awayTeam },
                     score: { fullTime: { home: hg, away: ag }, halfTime: { home: 0, away: 0 } },
-                    _pos: { home: i + 1, away: teams.length - i }
-                });
-            }
-            return matches;
+                    _pos: { home: f.homePos, away: f.awayPos }
+                };
+            });
         }
 
         function statusLabel(s) {
@@ -6175,12 +6214,12 @@
                 </div>
                 <div style="display:flex;align-items:center;gap:8px;margin:10px 0;">
                     <div style="flex:1;text-align:center;">
-                        <img src="${hLogo}" alt="${hn}" style="width:44px;height:44px;object-fit:contain;border-radius:6px;background:#111;" onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(hn)}&background=1E2026&color=F0B90B&size=44&bold=true'">
+                        <img src="${hLogo}" alt="${hn}" style="width:44px;height:44px;object-fit:contain;border-radius:6px;background:#111;" onerror="this.src=getLogoFallbackSvg('${hn.replace(/'/g,"\\'")}');this.onerror=null;">
                         <div style="font-size:11px;font-weight:700;margin-top:4px;word-break:break-word;">${hn}</div>
                     </div>
                     <div style="text-align:center;min-width:60px;">${scoreHtml}</div>
                     <div style="flex:1;text-align:center;">
-                        <img src="${aLogo}" alt="${an}" style="width:44px;height:44px;object-fit:contain;border-radius:6px;background:#111;" onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(an)}&background=1E2026&color=F0B90B&size=44&bold=true'">
+                        <img src="${aLogo}" alt="${an}" style="width:44px;height:44px;object-fit:contain;border-radius:6px;background:#111;" onerror="this.src=getLogoFallbackSvg('${an.replace(/'/g,"\\'")}');this.onerror=null;">
                         <div style="font-size:11px;font-weight:700;margin-top:4px;word-break:break-word;">${an}</div>
                     </div>
                 </div>
@@ -6203,7 +6242,10 @@
         async function loadSportMatches() {
             const listEl = document.getElementById('sport-matches-list');
             if (!listEl) return;
-            listEl.innerHTML = '<div style="text-align:center;color:var(--text2);padding:30px;">⏳ Завантаження матчів...</div>';
+            // Only show spinner on first load (when list is empty or shows placeholder)
+            if (!window._sportState.matches || window._sportState.matches.length === 0) {
+                listEl.innerHTML = '<div style="text-align:center;color:var(--text2);padding:30px;">⏳ Завантаження матчів...</div>';
+            }
 
             let raw = await fetchMatches();
             const standings = await fetchStandings();
