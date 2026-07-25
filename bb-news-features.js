@@ -19,9 +19,9 @@
         '4h':  4 * 60 * 60 * 1000,
         '1d':  24 * 60 * 60 * 1000
     };
-    // Price impact per 1 BB traded (0.5% per unit, capped at ±20% per trade)
-    const PRICE_IMPACT_PER_UNIT = 0.005;
-    const PRICE_IMPACT_MAX = 0.20;
+    // Price impact per 1 BB traded (0.02% per unit, capped at ±5% per trade)
+    const PRICE_IMPACT_PER_UNIT = 0.0002;
+    const PRICE_IMPACT_MAX = 0.05;
     const QUESTS = [
         { id: 'buy_100', title: 'Купити 100 BB Coin', key: 'totalBought', target: 100, reward: { bb: 10, title: 'Трейдер' } },
         { id: 'sell_50', title: 'Продати 50 BB Coin', key: 'totalSold', target: 50, reward: { bb: 8 } },
@@ -1281,26 +1281,34 @@
         const btn = document.getElementById('market-buy-btn');
         if (btn) btn.disabled = true;
         try {
+            // Sync USDT balance from server before transaction to avoid stale local state.
+            // This also warms the Firebase cache so the transaction callback won't receive null.
+            const freshSnap = await getDb().ref(`users/${gameState.user}/usdt`).once('value');
+            const freshUsdt = num(freshSnap.val(), 0);
             // Use a transaction to atomically deduct USDT to prevent race conditions
             let transactionSuccess = false;
             let newUsdtValue = 0;
             await getDb().ref(`users/${gameState.user}/usdt`).transaction(currentUsdtVal => {
                 const current = num(currentUsdtVal, 0);
-                if (current < usdtCost) { return; } // abort transaction
+                if (current < usdtCost) { return; } // abort transaction — insufficient funds
                 newUsdtValue = Math.max(0, Math.round((current - usdtCost) * 1e6) / 1e6);
                 transactionSuccess = true;
                 return newUsdtValue;
             });
             if (!transactionSuccess) {
-                alert(`Недостатньо USDT. Потрібно: ${usdtCost.toFixed(4)} USDT`);
+                alert(`Недостатньо USDT. Потрібно: ${usdtCost.toFixed(4)} USDT, у вас: ${freshUsdt.toFixed(4)} USDT`);
                 return;
             }
             gameState.usdt = newUsdtValue;
             const bbResult = await adjustUserBalanceFirebase(gameState.user, bbAmount);
             if (!bbResult.success) {
-                // Rollback USDT via transaction
-                await getDb().ref(`users/${gameState.user}/usdt`).transaction(v => Math.round((num(v, 0) + usdtCost) * 1e6) / 1e6);
-                gameState.usdt = currentUsdt;
+                // Rollback USDT via transaction and re-read actual value to keep local state consistent
+                let restoredUsdt = freshUsdt;
+                await getDb().ref(`users/${gameState.user}/usdt`).transaction(v => {
+                    restoredUsdt = Math.round((num(v, 0) + usdtCost) * 1e6) / 1e6;
+                    return restoredUsdt;
+                });
+                gameState.usdt = restoredUsdt;
                 alert('Помилка при купівлі BB. Спробуйте ще раз.');
                 return;
             }
