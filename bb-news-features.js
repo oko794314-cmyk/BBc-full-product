@@ -10,6 +10,7 @@
     const CHART_PAD_TOP = 14;
     const CHART_PAD_BOTTOM = 28;
     const CHART_CANDLE_STEP = 18;
+    const CHART_SCROLL_SNAP_THRESHOLD = 24;
     const INTERVALS = {
         '1m':  60 * 1000,
         '5m':  5 * 60 * 1000,
@@ -764,7 +765,7 @@
         const cssH = 300;
         const hostWidth = scrollHost?.clientWidth || canvas.clientWidth || 640;
         const contentWidth = Math.max(hostWidth, (candles.length * CHART_CANDLE_STEP) + CHART_PAD_LEFT + CHART_PAD_RIGHT);
-        const shouldStickToRight = !!scrollHost && (state.chartShouldSnapToEnd || (scrollHost.scrollLeft + scrollHost.clientWidth >= scrollHost.scrollWidth - 24));
+        const shouldStickToRight = !!scrollHost && (state.chartShouldSnapToEnd || (scrollHost.scrollLeft + scrollHost.clientWidth >= scrollHost.scrollWidth - CHART_SCROLL_SNAP_THRESHOLD));
         const previousRatio = scrollHost && scrollHost.scrollWidth > scrollHost.clientWidth
             ? scrollHost.scrollLeft / Math.max(1, scrollHost.scrollWidth - scrollHost.clientWidth)
             : 0;

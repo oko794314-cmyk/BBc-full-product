@@ -222,7 +222,7 @@
     }
 
     function getLoanIssuedAmount(entry) {
-        return n(entry?.issuedAmount, n(entry?.amount));
+        return n(entry?.issuedAmount ?? entry?.amount);
     }
 
     async function loadBankData() {
@@ -330,7 +330,7 @@
         } else {
             await adjustUsdt(u, amount);
         }
-        await appendBankRecord({ type: 'loan', currency, amount: totalDue, issuedAmount: amount, totalDue, note: `Кредит: ${amount.toFixed(2)} ${currency.toUpperCase()} → погасити ${totalDue.toFixed(2)}`, ts: Date.now() });
+        await appendBankRecord({ type: 'loan', currency, amount: totalDue, issuedAmount: amount, note: `Кредит: ${amount.toFixed(2)} ${currency.toUpperCase()} → погасити ${totalDue.toFixed(2)}`, ts: Date.now() });
         showGN(`✅ Отримано ${amount.toFixed(2)} ${currency.toUpperCase()}! Погасити: ${totalDue.toFixed(2)}`);
         renderBankTab();
     };
