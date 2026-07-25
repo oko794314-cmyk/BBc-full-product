@@ -1849,7 +1849,7 @@
     /* ── Normalize Firebase bracket (object → array) ── */
     function normalizeBracket(bracket) {
         if (!bracket) return [];
-        const toArr = o => Array.isArray(o) ? o : Object.keys(o).sort((a, b) => +a - +b).map(k => o[k]);
+        const toArr = o => Array.isArray(o) ? o : Object.keys(o).sort((a, b) => parseInt(a, 10) - parseInt(b, 10)).map(k => o[k]);
         return toArr(bracket).map(round => toArr(round).map(m => m || {}));
     }
 
@@ -2058,7 +2058,7 @@
                     <div style="font-size:10px;color:#555;text-align:center;margin:2px 0;">vs</div>
                     <div class="bracket-player ${m.winner === m.p2 ? 'winner' : (m.winner && m.p2 ? 'loser' : '')}">${esc(m.p2 || (m.status === 'waiting' ? '?' : 'BYE'))}</div>
                     ${m.status === 'done' ? `<div style="font-size:9px;color:var(--text2);text-align:center;">🏆 ${esc(m.winner)}</div>` : ''}
-                    ${m.status === 'pending' && m.p1 && m.p2 ? `<div style="font-size:9px;color:var(--text2);text-align:center;">⚔️ Тривалість...</div>` : ''}
+                    ${m.status === 'pending' && m.p1 && m.p2 ? `<div style="font-size:9px;color:var(--text2);text-align:center;">⚔️ Триває...</div>` : ''}
                 </div>`).join('')}
             </div>`;
         }).join('');
@@ -2144,11 +2144,16 @@
             if (status !== 'pending') return undefined; // Abort – already resolved
             return 'resolving';
         });
-        if (!txResult.committed) return;
+        if (!txResult.committed) {
+            // Another client already resolved this match — the real-time listener will show the result
+            return;
+        }
 
         const winner = rpsWinnerCheck(p1Choice, p2Choice);
-        // 0 = draw → random winner
-        const matchWinner = winner === 1 ? p1 : winner === 2 ? p2 : (Math.random() < 0.5 ? p1 : p2);
+        let matchWinner;
+        if (winner === 1) matchWinner = p1;
+        else if (winner === 2) matchWinner = p2;
+        else matchWinner = Math.random() < 0.5 ? p1 : p2; // Draw → random
 
         // Load current bracket to propagate advancement
         const snap = await db().ref(`tournaments/${tid}`).once('value');
@@ -2197,7 +2202,8 @@
                 if (!m.winner) continue;
                 const nextMi = Math.floor(mi / 2);
                 const nextMatch = bracket[ri + 1]?.[nextMi];
-                if (!nextMatch || nextMatch.status === 'done') continue;
+                // Only write into uninitialised slots (status: 'waiting')
+                if (!nextMatch || nextMatch.status !== 'waiting') continue;
                 if (mi % 2 === 0) nextMatch.p1 = m.winner;
                 else nextMatch.p2 = m.winner;
                 // Once both players are known, the match becomes pending
