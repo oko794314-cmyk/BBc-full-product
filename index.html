@@ -133,6 +133,8 @@
         .friend-item button { width: 64px; padding: 9px; font-size: 12px; }
         .friend-item-main { display:flex; flex-direction:column; gap:3px; flex: 1; min-width: 0; }
         .friend-item-subtitle { font-size:12px; color:var(--text2); }
+        .friend-nickname-link { cursor:pointer; text-decoration: underline dotted rgba(240,185,11,0.55); text-underline-offset: 2px; }
+        .friend-nickname-link:hover { color: var(--p); }
         .request-actions { display:flex; gap:8px; margin-top:10px; }
         .request-actions .btn { margin:0; }
         .friend-item-identity { display:flex; align-items:center; gap:10px; min-width:0; }
@@ -1713,6 +1715,8 @@
                     <span style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;">Джерело даних:</span>
                     <span style="font-size:11px;color:var(--g);">● UPL / Пряма трансляція</span>
                 </div>
+                <label for="sport-match-search" style="display:block;font-size:11px;color:var(--text2);">Пошук матчів</label>
+                <input id="sport-match-search" type="text" aria-label="Пошук матчів" placeholder="🔎 Пошук матчу або ліги..." style="margin-top:10px;">
             </div>
             <div id="sport-matches-list" style="display:flex;flex-direction:column;gap:10px;">
                 <div style="text-align:center;color:var(--text2);padding:30px;">⏳ Завантаження матчів...</div>
@@ -4223,10 +4227,10 @@
                     ${buildListAvatarHtml(friend)}
                     <div class="friend-item-main">
                         <div style="display:flex; align-items:center; gap:6px;">
-                            <strong>${escapeHtml(formatUserLabel(friend))}</strong>
+                            <strong class="friend-nickname-link" data-friend-profile-link="1" role="button" tabindex="0">${escapeHtml(formatUserLabel(friend))}</strong>
                             ${isOnline ? '<span class="online-dot" title="Онлайн"></span>' : ''}
                         </div>
-                        <span class="friend-item-subtitle">Натисніть, щоб відкрити профіль</span>
+                        <span class="friend-item-subtitle">Натисніть на картку, щоб перейти у чат</span>
                     </div>
                 </div>
                 <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
@@ -4240,15 +4244,30 @@
             if (removeBtn) {
                 removeBtn.addEventListener('click', (e) => { e.stopPropagation(); removeFriend(friend); });
             }
+            const profileLink = item.querySelector('[data-friend-profile-link]');
+            if (profileLink) {
+                profileLink.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    showFriendProfile(friend);
+                });
+                profileLink.addEventListener('keypress', (event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        showFriendProfile(friend);
+                    }
+                });
+            }
             item.addEventListener('click', (event) => {
                 if (event.target.closest('button')) return;
-                showFriendProfile(friend);
+                if (event.target.closest('[data-friend-profile-link]')) return;
+                openChat(friend);
             });
             item.addEventListener('keypress', (event) => {
                 if (event.target.closest('button')) return;
                 if (event.key === 'Enter' || event.key === ' ') {
                     event.preventDefault();
-                    showFriendProfile(friend);
+                    openChat(friend);
                 }
             });
             container.appendChild(item);
@@ -6074,17 +6093,129 @@
             away = Math.max(1.15, Math.min(away, 6.0));
             return { home, draw, away };
         }
+        // 45 minutes matches typical user session length and avoids repeated news spam during frequent refreshes.
+        const SPORT_NEWS_THROTTLE_MS = 45 * 60 * 1000;
+        const SPORT_NEWS_MATCH_STATUSES = ['SCHEDULED', 'TIMED', 'IN_PLAY'];
+        const SPORT_REFRESH_INTERVAL_MS = 30000;
+        const SPORT_MAX_NEWS_PER_REFRESH = 3;
+        const SPORT_TAB_ID = 'tab19';
+
+        function parseJsonSafe(raw, fallbackValue) {
+            try {
+                return JSON.parse(raw);
+            } catch (_e) {
+                console.warn('Failed to parse sport local cache JSON. Using fallback value.');
+                return fallbackValue;
+            }
+        }
 
         // sport state
         window._sportState = window._sportState || {
-            bets: JSON.parse(localStorage.getItem('bbc_sport_bets') || '[]'),
+            bets: parseJsonSafe(localStorage.getItem('bbc_sport_bets') || '[]', []),
             currentBet: null,
             matches: [],
-            refreshTimer: null
+            refreshTimer: null,
+            matchNewsCache: parseJsonSafe(localStorage.getItem('bbc_sport_match_news_cache') || '{}', {}),
+            newsThrottle: parseJsonSafe(localStorage.getItem('bbc_sport_news_throttle') || '{}', {}),
+            listenersBound: false
         };
 
         function saveBets() {
             localStorage.setItem('bbc_sport_bets', JSON.stringify(window._sportState.bets));
+        }
+
+        function saveSportNewsMeta() {
+            localStorage.setItem('bbc_sport_match_news_cache', JSON.stringify(window._sportState.matchNewsCache || {}));
+            localStorage.setItem('bbc_sport_news_throttle', JSON.stringify(window._sportState.newsThrottle || {}));
+        }
+
+        function normalizeSportSearchQuery(value) {
+            return String(value || '')
+                .toLowerCase()
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
+        function getCurrentSportSearchQuery() {
+            const field = document.getElementById('sport-match-search');
+            return normalizeSportSearchQuery(field?.value || '');
+        }
+
+        function filterSportMatches(matches) {
+            const query = getCurrentSportSearchQuery();
+            if (!query) return matches;
+            return matches.filter(match => {
+                const home = match.homeTeam?.shortName || match.homeTeam?.name || '';
+                const away = match.awayTeam?.shortName || match.awayTeam?.name || '';
+                const league = match._league || '';
+                const haystack = normalizeSportSearchQuery(`${home} ${away} ${league}`);
+                return haystack.includes(query);
+            });
+        }
+
+        function renderSportMatches() {
+            const listEl = document.getElementById('sport-matches-list');
+            if (!listEl) return;
+            const allMatches = Array.isArray(window._sportState.matches) ? window._sportState.matches : [];
+            const filtered = filterSportMatches(allMatches);
+            if (!allMatches.length) {
+                listEl.innerHTML = '<div style="text-align:center;color:var(--text2);padding:30px;">⏳ Завантаження матчів...</div>';
+                return;
+            }
+            if (!filtered.length) {
+                listEl.innerHTML = '<div style="text-align:center;color:var(--text2);padding:30px;">Нічого не знайдено за вашим запитом.</div>';
+                return;
+            }
+            listEl.innerHTML = filtered.map(m => renderMatchCard(m)).join('');
+        }
+
+        async function publishSportAutoNews(newsKey, title, text, pinned = false) {
+            if (!newsKey || typeof firebase === 'undefined') return;
+            const now = Date.now();
+            const throttle = window._sportState.newsThrottle || {};
+            if (throttle[newsKey] && now - throttle[newsKey] < SPORT_NEWS_THROTTLE_MS) return;
+            throttle[newsKey] = now;
+            window._sportState.newsThrottle = throttle;
+            saveSportNewsMeta();
+            try {
+                await firebase.database().ref('newsPosts').push({
+                    title,
+                    text,
+                    author: '🤖 Система',
+                    image: null,
+                    pinned: !!pinned,
+                    auto: true,
+                    type: 'sport',
+                    createdAt: firebase.database.ServerValue.TIMESTAMP
+                });
+            } catch (error) {
+                console.warn('Failed to publish sport auto news', error);
+            }
+        }
+
+        async function publishNewMatchesNews(newMatches) {
+            if (!Array.isArray(newMatches) || !newMatches.length) return;
+            const unpublished = newMatches
+                .filter(m => SPORT_NEWS_MATCH_STATUSES.includes(m.status))
+                // Publish at most 3 entries per refresh to keep the news feed readable.
+                .slice(0, SPORT_MAX_NEWS_PER_REFRESH);
+            if (!unpublished.length) return;
+            for (const match of unpublished) {
+                const matchId = String(match.id || '');
+                if (!matchId) continue;
+                const alreadySentAt = Number(window._sportState.matchNewsCache?.[matchId] || 0);
+                if (alreadySentAt) continue;
+                const home = match.homeTeam?.shortName || match.homeTeam?.name || '?';
+                const away = match.awayTeam?.shortName || match.awayTeam?.name || '?';
+                const dateLabel = formatMatchDate(match.utcDate);
+                await publishSportAutoNews(
+                    `sport_new_match_${matchId}`,
+                    `⚽ Новий матч: ${home} vs ${away}`,
+                    `Реальний матч ${home} — ${away} (${match._league || 'Football'}) вже в стрічці. Початок: ${dateLabel}.`
+                );
+                window._sportState.matchNewsCache[matchId] = Date.now();
+            }
+            saveSportNewsMeta();
         }
 
         // Fetch real matches from ESPN unofficial API (free, no key, CORS-enabled).
@@ -6323,6 +6454,13 @@
                     }
                     if (typeof updateHeader === 'function') updateHeader();
                     showGameNotification(`🏆 Ставка виграла! +${b.potential} BB`);
+                    const winnerTeam = b.teamName || b.matchLabel || (b.side === 'draw' ? 'Нічия' : 'Команда');
+                    const matchLabel = b.matchLabel || 'без назви матчу';
+                    await publishSportAutoNews(
+                        `sport_bet_win_${b.id}`,
+                        `🏆 Виграш ставки: +${b.potential} BB`,
+                        `${gameState.user || 'Гравець'} виграв ставку на "${winnerTeam}" у матчі ${matchLabel}.`
+                    );
                 } else {
                     showGameNotification(`😞 Ставка програла. -${b.amount} BB`);
                 }
@@ -6347,23 +6485,40 @@
                 raw = buildFallbackMatches();
             }
 
+            const previousIds = new Set((window._sportState.matches || []).map(m => String(m.id)));
+            const newMatches = raw.filter(m => !previousIds.has(String(m.id)));
             window._sportState.matches = raw;
-            listEl.innerHTML = raw.map(m => renderMatchCard(m)).join('');
+            renderSportMatches();
+            publishNewMatchesNews(newMatches);
 
             // Resolve pending bets whose matches are now finished
             resolveFinishedBets(raw);
 
-            // Auto-refresh every 60s for live scores
+            // Auto-refresh every 30s for live real scores
             clearInterval(window._sportState.refreshTimer);
             window._sportState.refreshTimer = setInterval(() => {
                 if (document.getElementById('sport-panel-matches')?.style.display !== 'none') {
                     loadSportMatches();
                 }
-            }, 60000);
+            }, SPORT_REFRESH_INTERVAL_MS);
+
+            if (!window._sportState.listenersBound) {
+                window._sportState.listenersBound = true;
+                document.addEventListener('visibilitychange', () => {
+                    if (!document.hidden && document.getElementById(SPORT_TAB_ID)?.style.display !== 'none') {
+                        loadSportMatches();
+                    }
+                });
+                window.addEventListener('online', () => {
+                    if (document.getElementById(SPORT_TAB_ID)?.style.display !== 'none') {
+                        loadSportMatches();
+                    }
+                });
+            }
         }
 
         window.initSportTab = function() {
-            if (document.getElementById('tab19').style.display !== 'none') {
+            if (document.getElementById(SPORT_TAB_ID).style.display !== 'none') {
                 loadSportMatches();
                 renderMyBets();
             }
@@ -6377,6 +6532,7 @@
                 el.style.color = active ? 'var(--p)' : 'var(--text2)';
                 el.style.borderBottomColor = active ? 'var(--p)' : 'transparent';
             });
+            if (tab === 'matches') renderSportMatches();
             if (tab === 'mybets') renderMyBets();
         };
 
@@ -6464,6 +6620,13 @@
         document.getElementById('sport-bet-modal')?.addEventListener('click', function(e) {
             if (e.target === this) closeSportBetModal();
         });
+
+        const sportSearchInput = document.getElementById('sport-match-search');
+        if (sportSearchInput) {
+            sportSearchInput.addEventListener('input', () => {
+                renderSportMatches();
+            });
+        }
 
     })();
 </script>
