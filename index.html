@@ -6033,7 +6033,8 @@
             'Полісся':         'https://upload.wikimedia.org/wikipedia/en/thumb/4/4c/FC_Polissya_Zhytomyr.png/200px-FC_Polissya_Zhytomyr.png',
         };
 
-        function getLogoUrl(name) {
+        function getLogoUrl(name, crest) {
+            if (crest) return crest;
             if (!name) return '';
             for (const [key, url] of Object.entries(TEAM_LOGOS)) {
                 if (name.includes(key) || key.includes(name)) return url;
@@ -6047,15 +6048,13 @@
             return `data:image/svg+xml,${svg}`;
         }
 
-        // Simulated odds generation based on team ranking / goals
-        function generateOdds(homeGoals, awayGoals, homePos, awayPos) {
-            const base = 1.1;
-            const posDiff = (awayPos - homePos) / 16;
-            let home = +(1.5 + posDiff * 0.8 + Math.random() * 0.3).toFixed(2);
-            let draw = +(3.2 + (Math.random() - 0.5) * 0.4).toFixed(2);
-            let away = +(1.5 - posDiff * 0.8 + Math.random() * 0.3).toFixed(2);
-            home = Math.max(1.15, home);
-            away = Math.max(1.15, away);
+        // Odds generation (random, since live standings are not fetched)
+        function generateOdds() {
+            let home = +(1.5 + Math.random() * 1.5).toFixed(2);
+            let draw = +(2.8 + Math.random() * 0.8).toFixed(2);
+            let away = +(1.5 + Math.random() * 1.5).toFixed(2);
+            home = Math.max(1.15, Math.min(home, 6.0));
+            away = Math.max(1.15, Math.min(away, 6.0));
             return { home, draw, away };
         }
 
@@ -6064,7 +6063,6 @@
             bets: JSON.parse(localStorage.getItem('bbc_sport_bets') || '[]'),
             currentBet: null,
             matches: [],
-            standings: [],
             refreshTimer: null
         };
 
@@ -6072,33 +6070,56 @@
             localStorage.setItem('bbc_sport_bets', JSON.stringify(window._sportState.bets));
         }
 
-        // Fetch matches from football-data.org (Ukrainian Premier League = UPL).
-        // The free plan (api.football-data.org) allows limited requests without authentication.
-        // If the API returns an error, the tab falls back to simulated Ukrainian club fixtures.
-        // Fallback: simulate with real team names from current UPL season
-        async function fetchMatches() {
-            const API_KEY = ''; // Set to your football-data.org API key to increase the request quota
-            try {
-                const res = await fetch('https://api.football-data.org/v4/competitions/UPL/matches?status=SCHEDULED,IN_PLAY,FINISHED&limit=10', {
-                    headers: API_KEY ? { 'X-Auth-Token': API_KEY } : {}
-                });
-                if (!res.ok) throw new Error('API error');
-                const data = await res.json();
-                return data.matches || [];
-            } catch(e) {
-                return null;
-            }
+        // Fetch real matches from ESPN unofficial API (free, no key, CORS-enabled).
+        // Tries Ukrainian Premier League first, then falls back to more active leagues.
+        async function fetchMatchesFromESPN(leagueSlug) {
+            const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueSlug}/scoreboard`;
+            const res = await fetch(url);
+            if (!res.ok) throw new Error('ESPN API error');
+            const data = await res.json();
+            const events = data.events || [];
+            const leagueName = data.leagues?.[0]?.shortName || data.leagues?.[0]?.name || leagueSlug;
+            return events.map(event => {
+                const comp = event.competitions?.[0];
+                const home = comp?.competitors?.find(c => c.homeAway === 'home');
+                const away = comp?.competitors?.find(c => c.homeAway === 'away');
+                const statusName = comp?.status?.type?.name || '';
+                let status = 'SCHEDULED';
+                if (statusName === 'STATUS_FINAL') status = 'FINISHED';
+                else if (statusName === 'STATUS_IN_PROGRESS' || statusName === 'STATUS_HALFTIME') status = 'IN_PLAY';
+                return {
+                    id: `espn-${event.id}`,
+                    utcDate: event.date,
+                    status,
+                    homeTeam: {
+                        name: home?.team?.displayName || home?.team?.shortDisplayName || '?',
+                        crest: home?.team?.logo || null
+                    },
+                    awayTeam: {
+                        name: away?.team?.displayName || away?.team?.shortDisplayName || '?',
+                        crest: away?.team?.logo || null
+                    },
+                    score: {
+                        fullTime: {
+                            home: parseInt(home?.score ?? 0, 10) || 0,
+                            away: parseInt(away?.score ?? 0, 10) || 0
+                        }
+                    },
+                    _league: leagueName
+                };
+            });
         }
 
-        async function fetchStandings() {
-            try {
-                const res = await fetch('https://api.football-data.org/v4/competitions/UPL/standings', {
-                    headers: {}
-                });
-                if (!res.ok) throw new Error();
-                const data = await res.json();
-                return (data.standings?.[0]?.table || []);
-            } catch(e) { return []; }
+        async function fetchMatches() {
+            // Try leagues in order: Ukrainian Premier League, English Premier League, Champions League
+            const LEAGUES = ['ukr.1', 'eng.1', 'uefa.champions_league', 'esp.1'];
+            for (const slug of LEAGUES) {
+                try {
+                    const matches = await fetchMatchesFromESPN(slug);
+                    if (matches.length > 0) return matches;
+                } catch(e) {}
+            }
+            return null;
         }
 
         // Fallback simulated matches (real UPL teams, plausible fixtures)
@@ -6189,54 +6210,88 @@
             return d.toLocaleString('uk-UA', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
         }
 
-        function renderMatchCard(m, standings) {
+        function renderMatchCard(m) {
             const hn = m.homeTeam?.shortName || m.homeTeam?.name || '?';
             const an = m.awayTeam?.shortName || m.awayTeam?.name || '?';
-            const hLogo = getLogoUrl(hn);
-            const aLogo = getLogoUrl(an);
-            const hPos = standings.findIndex(s => (s.team?.name || '').includes(hn.split(' ')[0])) + 1 || 8;
-            const aPos = standings.findIndex(s => (s.team?.name || '').includes(an.split(' ')[0])) + 1 || 8;
-            const odds = generateOdds(
-                m.score?.fullTime?.home ?? 0,
-                m.score?.fullTime?.away ?? 0,
-                hPos, aPos
-            );
+            const hLogo = getLogoUrl(hn, m.homeTeam?.crest);
+            const aLogo = getLogoUrl(an, m.awayTeam?.crest);
+            const odds = generateOdds();
             const live = m.status === 'IN_PLAY' || m.status === 'PAUSED';
             const finished = m.status === 'FINISHED';
             const scoreHtml = (live || finished)
                 ? `<span style="font-size:22px;font-weight:900;color:${live ? 'var(--g)' : '#fff'};">${m.score.fullTime.home ?? 0} : ${m.score.fullTime.away ?? 0}</span>`
                 : `<span style="color:var(--text2);font-size:13px;">${formatMatchDate(m.utcDate)}</span>`;
             const canBet = m.status === 'SCHEDULED' || m.status === 'TIMED' || live;
+            const leagueLabel = m._league || '⚽ Football';
+            const matchIdJson = JSON.stringify(String(m.id));
+            const hnJson = JSON.stringify(hn);
+            const anJson = JSON.stringify(an);
             return `<div class="glass" style="padding:14px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                    <span style="font-size:11px;color:var(--text2);">🇺🇦 УПЛ</span>
+                    <span style="font-size:11px;color:var(--text2);">⚽ ${leagueLabel}</span>
                     ${statusLabel(m.status)}
                 </div>
                 <div style="display:flex;align-items:center;gap:8px;margin:10px 0;">
                     <div style="flex:1;text-align:center;">
-                        <img src="${hLogo}" alt="${hn}" style="width:44px;height:44px;object-fit:contain;border-radius:6px;background:#111;" onerror="this.src=getLogoFallbackSvg('${hn.replace(/'/g,"\\'")}');this.onerror=null;">
+                        <img src="${hLogo}" alt="${hn}" style="width:44px;height:44px;object-fit:contain;border-radius:6px;background:#111;" onerror="this.src=getLogoFallbackSvg(${hnJson});this.onerror=null;">
                         <div style="font-size:11px;font-weight:700;margin-top:4px;word-break:break-word;">${hn}</div>
                     </div>
                     <div style="text-align:center;min-width:60px;">${scoreHtml}</div>
                     <div style="flex:1;text-align:center;">
-                        <img src="${aLogo}" alt="${an}" style="width:44px;height:44px;object-fit:contain;border-radius:6px;background:#111;" onerror="this.src=getLogoFallbackSvg('${an.replace(/'/g,"\\'")}');this.onerror=null;">
+                        <img src="${aLogo}" alt="${an}" style="width:44px;height:44px;object-fit:contain;border-radius:6px;background:#111;" onerror="this.src=getLogoFallbackSvg(${anJson});this.onerror=null;">
                         <div style="font-size:11px;font-weight:700;margin-top:4px;word-break:break-word;">${an}</div>
                     </div>
                 </div>
                 ${canBet ? `
                 <div style="display:flex;gap:6px;margin-top:10px;">
-                    <button class="btn" style="flex:1;padding:8px 4px;font-size:11px;" onclick="openSportBet(${m.id},'home','${hn}',${odds.home})">
-                        П1 <b style="color:var(--p);">x${odds.home}</b>
+                    <button class="btn" style="flex:1;padding:8px 4px;font-size:11px;color:#000;" onclick="openSportBet(${matchIdJson},'home',${hnJson},${odds.home})">
+                        П1 <b>x${odds.home}</b>
                     </button>
-                    <button class="btn" style="flex:1;padding:8px 4px;font-size:11px;" onclick="openSportBet(${m.id},'draw','Нічия',${odds.draw})">
-                        X <b style="color:var(--p);">x${odds.draw}</b>
+                    <button class="btn" style="flex:1;padding:8px 4px;font-size:11px;color:#000;" onclick="openSportBet(${matchIdJson},'draw','Нічия',${odds.draw})">
+                        X <b>x${odds.draw}</b>
                     </button>
-                    <button class="btn" style="flex:1;padding:8px 4px;font-size:11px;" onclick="openSportBet(${m.id},'away','${an}',${odds.away})">
-                        П2 <b style="color:var(--p);">x${odds.away}</b>
+                    <button class="btn" style="flex:1;padding:8px 4px;font-size:11px;color:#000;" onclick="openSportBet(${matchIdJson},'away',${anJson},${odds.away})">
+                        П2 <b>x${odds.away}</b>
                     </button>
                 </div>
                 ` : `<p style="font-size:11px;color:var(--text2);margin:8px 0 0;text-align:center;">Ставки недоступні для завершених матчів.</p>`}
             </div>`;
+        }
+
+        // Resolve pending bets based on actual match results (called after each match refresh).
+        // A bet is settled only when the match status is FINISHED; won money is added to balance.
+        async function resolveFinishedBets(matches) {
+            let anyChanged = false;
+            for (const b of window._sportState.bets) {
+                if (b.status !== 'pending') continue;
+                const match = matches.find(m => String(m.id) === String(b.matchId));
+                if (!match || match.status !== 'FINISHED') continue;
+
+                const hScore = match.score?.fullTime?.home ?? 0;
+                const aScore = match.score?.fullTime?.away ?? 0;
+                let won = false;
+                if (b.side === 'home') won = hScore > aScore;
+                else if (b.side === 'away') won = aScore > hScore;
+                else if (b.side === 'draw') won = hScore === aScore;
+
+                b.status = won ? 'won' : 'lost';
+                anyChanged = true;
+
+                if (won) {
+                    gameState.balance += b.potential;
+                    if (typeof updateMiningBalanceFirebase === 'function') {
+                        await updateMiningBalanceFirebase(gameState.user, gameState.balance);
+                    }
+                    if (typeof updateHeader === 'function') updateHeader();
+                    showGameNotification(`🏆 Ставка виграла! +${b.potential} BB`);
+                } else {
+                    showGameNotification(`😞 Ставка програла. -${b.amount} BB`);
+                }
+            }
+            if (anyChanged) {
+                saveBets();
+                renderMyBets();
+            }
         }
 
         async function loadSportMatches() {
@@ -6248,15 +6303,16 @@
             }
 
             let raw = await fetchMatches();
-            const standings = await fetchStandings();
-            window._sportState.standings = standings;
 
             if (!raw || raw.length === 0) {
                 raw = buildFallbackMatches();
             }
 
             window._sportState.matches = raw;
-            listEl.innerHTML = raw.map(m => renderMatchCard(m, standings)).join('');
+            listEl.innerHTML = raw.map(m => renderMatchCard(m)).join('');
+
+            // Resolve pending bets whose matches are now finished
+            resolveFinishedBets(raw);
 
             // Auto-refresh every 60s for live scores
             clearInterval(window._sportState.refreshTimer);
@@ -6312,13 +6368,13 @@
             }
             if (typeof updateHeader === 'function') updateHeader();
 
-            const match = window._sportState.matches.find(m => m.id === bet.matchId);
+            const match = window._sportState.matches.find(m => String(m.id) === String(bet.matchId));
             const hn = match?.homeTeam?.shortName || match?.homeTeam?.name || '?';
             const an = match?.awayTeam?.shortName || match?.awayTeam?.name || '?';
 
             const record = {
                 id: Date.now(),
-                matchId: bet.matchId,
+                matchId: String(bet.matchId),
                 matchLabel: `${hn} vs ${an}`,
                 side: bet.side,
                 teamName: bet.teamName,
@@ -6331,31 +6387,8 @@
             window._sportState.bets.unshift(record);
             saveBets();
             closeSportBetModal();
-            showGameNotification(`🎯 Ставку ${amt.toFixed(2)} BB на ${bet.teamName} прийнято!`);
-
-            // Simulate result after 5–30 seconds (demo)
-            const delay = 5000 + Math.random() * 25000;
-            setTimeout(async () => {
-                const b = window._sportState.bets.find(b => b.id === record.id);
-                if (!b || b.status !== 'pending') return;
-                // Demo simulation: win probability approximated from odds (lower odds = higher probability).
-                // This is a simplified demo and does not reflect real sports betting mathematics.
-                const winChance = Math.min(0.7, 1 / bet.odds);
-                const won = Math.random() < winChance;
-                b.status = won ? 'won' : 'lost';
-                saveBets();
-                if (won) {
-                    gameState.balance += b.potential;
-                    if (typeof updateMiningBalanceFirebase === 'function') {
-                        await updateMiningBalanceFirebase(gameState.user, gameState.balance);
-                    }
-                    if (typeof updateHeader === 'function') updateHeader();
-                    showGameNotification(`🏆 Ставка виграла! +${b.potential} BB`);
-                } else {
-                    showGameNotification(`😞 Ставка програла. -${b.amount} BB`);
-                }
-                renderMyBets();
-            }, delay);
+            renderMyBets();
+            showGameNotification(`🎯 Ставку ${amt.toFixed(2)} BB на ${bet.teamName} прийнято! Результат — після завершення матчу.`);
         };
 
         function renderMyBets() {
