@@ -1083,7 +1083,10 @@
         const valEl = document.getElementById('stocks-portfolio-value');
         const pnlEl = document.getElementById('stocks-portfolio-pnl');
         if (valEl) valEl.textContent = `${totalValue.toFixed(2)} BB`;
-        if (pnlEl) { pnlEl.textContent = `${formatSigned(totalPnl)} BB`; pnlEl.style.color = totalPnl >= 0 ? 'var(--g)' : 'var(--r)'; }
+        if (pnlEl) {
+            pnlEl.textContent = `${formatSigned(totalPnl)} BB`;
+            pnlEl.style.color = totalPnl >= 0 ? 'var(--g)' : 'var(--r)';
+        }
     }
 
     window.buyStock = async function(stockId) {
@@ -1193,15 +1196,15 @@
         const owned = extState.stocks.businesses[bId];
         if (!b || !owned) return;
         const now = Date.now();
-        const income = getBusinessPendingIncome(b, owned, now);
-        if (income < 0.0001) { showGN('❌ Ще мало накопичено'); return; }
-        const r = await adjustUserBalanceFirebase(u, income);
+        const pendingIncome = getBusinessPendingIncome(b, owned, now);
+        if (pendingIncome < 0.0001) { showGN('❌ Ще мало накопичено'); return; }
+        const r = await adjustUserBalanceFirebase(u, pendingIncome);
         if (!r?.success) { showGN('❌ Помилка'); return; }
         if (typeof gameState !== 'undefined') { gameState.balance = r.balance; updateHeader(); }
         owned.lastCollectedAt = now;
         owned.pendingIncome = 0;
         await saveStocksData();
-        showGN(`✅ Зібрано: +${income.toFixed(4)} BB з ${b.name}`);
+        showGN(`✅ Зібрано: +${pendingIncome.toFixed(4)} BB з ${b.name}`);
         renderStocksFeatureViews();
     };
 
