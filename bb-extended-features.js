@@ -193,6 +193,7 @@
     const BB_LOAN_LIMIT_STEP  = 250;
     const USDT_LOAN_LIMIT_STEP = 100;
     const BANK_HISTORY_LIMIT  = 200;
+    const BANK_STATS_ALL_WINDOW = 20;
 
     function getBankLoanCount(items = extState.bank.history) {
         return items.reduce((count, entry) => count + (entry?.type === 'loan' ? 1 : 0), 0);
@@ -302,8 +303,7 @@
         const currency = document.getElementById('loan-currency')?.value || 'bb';
         const amount   = n(document.getElementById('loan-amount')?.value, 0);
         const dateStr  = document.getElementById('loan-return-date')?.value;
-        const loanCount = getBankLoanCount();
-        const limits = getLoanLimits(0, loanCount);
+        const limits = getLoanLimits(0);
 
         if (amount <= 0) { showGN('❌ Вкажіть суму'); return; }
         const limit = currency === 'bb' ? limits.bb : limits.usdt;
@@ -369,9 +369,8 @@
 
     function renderBankTab() {
         const loans = Object.entries(extState.bank.loans || {}).filter(([, l]) => l.status === 'active');
-        const loanCount = getBankLoanCount();
-        const limits = getLoanLimits(0, loanCount);
-        const nextLimits = getLoanLimits(1, loanCount);
+        const limits = getLoanLimits(0);
+        const nextLimits = getLoanLimits(1);
         const countEl = document.getElementById('bank-active-loans-count');
         if (countEl) countEl.textContent = loans.length;
         const debtEl = document.getElementById('bank-total-debt');
@@ -441,8 +440,9 @@
         const statsEl = document.getElementById('bank-stats-grid');
         const chartEl = document.getElementById('bank-stats-chart');
         const period = document.getElementById('bank-stats-period')?.value || '7';
-        const days = period === 'all' ? 0 : n(period, 7);
-        const since = period === 'all' ? 0 : Date.now() - days * 24 * 3600 * 1000;
+        const isAllPeriod = period === 'all';
+        const days = isAllPeriod ? 0 : n(period, 7);
+        const since = isAllPeriod ? 0 : Date.now() - days * 24 * 3600 * 1000;
         const items = extState.bank.history.filter(h => n(h.ts, 0) >= since);
         const loanCountAll = getBankLoanCount();
         const currentLimits = getLoanLimits(0, loanCountAll);
@@ -487,7 +487,7 @@
                 const amount = entry.type === 'loan' ? getLoanIssuedAmount(entry) : n(entry.amount);
                 perDay[key][entry.type] += amount;
             });
-            const chartWindowSize = period === 'all' ? 20 : Math.max(days, 7);
+            const chartWindowSize = isAllPeriod ? BANK_STATS_ALL_WINDOW : Math.max(days, 7);
             const rows = Object.entries(perDay).sort((a, b) => a[0].localeCompare(b[0])).slice(-chartWindowSize);
             if (!rows.length) {
                 return `<div class="bank-chart-card"><div class="bank-chart-title">${currency === 'bb' ? 'BB Coin' : 'USDT'}</div><div style="color:var(--text2); font-size:12px;">Немає операцій</div></div>`;
