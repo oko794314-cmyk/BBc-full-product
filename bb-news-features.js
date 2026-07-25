@@ -1291,9 +1291,10 @@
                 return;
             }
             // Use a transaction to atomically deduct USDT to prevent race conditions.
-            // The callback may be called with null on the first invocation if the local
-            // cache is cold — fall back to freshUsdt so Firebase retries with the real
-            // server value instead of aborting immediately.
+            // When the local cache is cold Firebase may call the callback with null first.
+            // Using freshUsdt as the assumed starting value causes Firebase to do a
+            // conditional write; if the server value differs, Firebase retries the
+            // callback with the real value — the transaction remains atomic and safe.
             let newUsdtValue = 0;
             const txResult = await getDb().ref(`users/${gameState.user}/usdt`).transaction(currentUsdtVal => {
                 const current = currentUsdtVal === null ? freshUsdt : num(currentUsdtVal, 0);
@@ -1302,8 +1303,10 @@
                 return newUsdtValue;
             });
             if (!txResult.committed) {
-                // Re-read the actual USDT balance to show accurate info in the alert.
-                const actualUsdt = num(txResult.snapshot?.val(), freshUsdt);
+                // snapshot.val() is the server's current value at the moment of abort,
+                // so it reflects the true balance even if it changed after the pre-read.
+                const actualSnap = await getDb().ref(`users/${gameState.user}/usdt`).once('value');
+                const actualUsdt = num(actualSnap.val(), freshUsdt);
                 gameState.usdt = actualUsdt;
                 if (typeof updateHeader === 'function') updateHeader();
                 alert(`Недостатньо USDT. Потрібно: ${usdtCost.toFixed(4)} USDT, у вас: ${actualUsdt.toFixed(4)} USDT`);
@@ -1387,6 +1390,7 @@
             gameState.balance = bbResult.balance;
             let newUsdt = 0;
             await getDb().ref(`users/${gameState.user}/usdt`).transaction(v => {
+                // null means the usdt field does not yet exist; treat as 0 (additive is safe here).
                 newUsdt = Math.round((num(v === null ? 0 : v, 0) + usdtGain) * 10000) / 10000;
                 return newUsdt;
             });
@@ -1703,9 +1707,11 @@
                 const receiver = offer.type === 'bb' ? executor : creator;
                 const coinResult = await transferCoins(payer, receiver, bbAmount);
                 if (!coinResult.success) {
-                    if (payer === creator) {
+                    if (offer.type === 'bb') {
+                        // Creator is the BB payer; they no longer have enough BB.
                         alert('Автор заявки не має достатньо BB для її виконання. Спробуйте іншу заявку.');
                     } else {
+                        // Executor is the BB payer; their balance is insufficient.
                         alert('Недостатньо BB для виконання заявки. Поповніть баланс.');
                     }
                     return;
