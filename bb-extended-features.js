@@ -1128,7 +1128,7 @@
         const now = Date.now();
         listEl.innerHTML = BUSINESS_CATALOG.map(b => {
             const owned = extState.stocks.businesses[b.id];
-            const level = owned ? n(owned.level, 1) : 0;
+            const level = owned ? Math.max(1, n(owned.level, 1)) : 1;
             const isOwned = !!owned;
             const upgradePrice = isOwned ? Math.round(b.price * level * 0.5) : b.price;
             const income = isOwned ? getBusinessDailyIncome(b, level) : b.dailyIncome;
@@ -1177,8 +1177,9 @@
         const r = await adjustUserBalanceFirebase(u, -upgradePrice);
         if (!r?.success) { showGN('❌ Помилка'); return; }
         if (typeof gameState !== 'undefined') { gameState.balance = r.balance; updateHeader(); }
-        owned.pendingIncome = getBusinessPendingIncome(b, owned);
-        owned.lastCollectedAt = Date.now();
+        const now = Date.now();
+        owned.pendingIncome = getBusinessPendingIncome(b, owned, now);
+        owned.lastCollectedAt = now;
         owned.level = level + 1;
         await saveStocksData();
         showGN(`⬆ ${b.name} покращено до рівня ${level + 1}!`);
