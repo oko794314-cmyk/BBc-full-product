@@ -187,6 +187,132 @@
         if (ov) ov.style.display = 'none';
     }
 
+    function ensureProfessionSceneStyles() {
+        if (document.getElementById('work-prof-scene-style')) return;
+        const styleEl = document.createElement('style');
+        styleEl.id = 'work-prof-scene-style';
+        styleEl.textContent = `
+            .work-prof-scene{
+                position:relative;
+                overflow:hidden;
+                min-height:136px;
+                margin:10px 0 14px;
+                padding:14px 16px 12px;
+                border-radius:18px;
+                border:1px solid rgba(240,185,11,.25);
+                background:
+                    radial-gradient(circle at top right, rgba(240,185,11,.22), transparent 34%),
+                    linear-gradient(135deg, rgba(30,32,38,.98), rgba(11,14,17,.98));
+                box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 14px 34px rgba(0,0,0,.28);
+            }
+            .work-prof-scene::after{
+                content:'';
+                position:absolute;
+                inset:-30% auto auto 72%;
+                width:120px;
+                height:120px;
+                border-radius:50%;
+                background:rgba(255,255,255,.06);
+                filter:blur(8px);
+            }
+            .work-prof-scene-main{
+                position:relative;
+                z-index:1;
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                width:88px;
+                height:88px;
+                margin:6px auto 10px;
+                border-radius:24px;
+                background:rgba(255,255,255,.06);
+                border:1px solid rgba(255,255,255,.08);
+                font-size:48px;
+                animation:work-prof-bob 2.6s ease-in-out infinite;
+            }
+            .work-prof-scene-float{
+                position:absolute;
+                z-index:0;
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                width:44px;
+                height:44px;
+                border-radius:14px;
+                background:rgba(255,255,255,.05);
+                color:#fff;
+                font-size:22px;
+                animation:work-prof-float 3.2s ease-in-out infinite;
+                box-shadow:0 10px 20px rgba(0,0,0,.15);
+            }
+            .work-prof-scene-float.spin{ animation-name:work-prof-spin; animation-duration:5.8s; animation-timing-function:linear; }
+            .work-prof-scene-caption{
+                position:relative;
+                z-index:1;
+                text-align:center;
+                color:var(--text2);
+                font-size:12px;
+                line-height:1.45;
+            }
+            @keyframes work-prof-bob {
+                0%,100%{ transform:translateY(0) scale(1); }
+                50%{ transform:translateY(-7px) scale(1.04); }
+            }
+            @keyframes work-prof-float {
+                0%,100%{ transform:translateY(0) rotate(0deg); }
+                50%{ transform:translateY(-10px) rotate(4deg); }
+            }
+            @keyframes work-prof-spin {
+                from{ transform:rotate(0deg); }
+                to{ transform:rotate(360deg); }
+            }
+            .work-tax-grid{
+                display:grid;
+                gap:8px;
+                margin:12px 0;
+            }
+            .work-tax-card{
+                display:flex;
+                align-items:center;
+                justify-content:space-between;
+                gap:10px;
+                padding:10px 12px;
+                border-radius:12px;
+                background:#11151a;
+                border:1px solid var(--border);
+            }
+        `;
+        document.head.appendChild(styleEl);
+    }
+
+    function getProfessionScene(jobId, caption = '') {
+        ensureProfessionSceneStyles();
+        const scenes = {
+            freelancer: { main: '💻', floats: ['📩', '🧾', '⭐'], caption: 'Нові замовлення прилітають щохвилини.' },
+            programmer: { main: '🖥️', floats: ['</>', '0', '1'], caption: 'Код, логіка та швидкі рішення.' },
+            designer: { main: '🎨', floats: ['🟡', '🔷', '✨'], caption: 'Форма, колір і креатив у русі.' },
+            trader: { main: '📈', floats: ['💹', '🪙', '📊'], caption: 'Слідкуй за графіком і лови момент.' },
+            doctor: { main: '🏥', floats: ['💊', '🩺', '❤️'], caption: 'Швидко постав діагноз і допоможи.' },
+            pilot: { main: '✈️', floats: ['☁️', '🧭', '🌤️'], caption: 'Тримай курс і обходь перешкоди.' },
+            engineer: { main: '⚙️', floats: ['🔩', '🛠️', '⚙️'], caption: 'Налаштуй механізм без помилок.' },
+            chef: { main: '👨‍🍳', floats: ['🥕', '🍅', '🥦'], caption: 'Свіжі інгредієнти — головний секрет страви.' },
+            tiler: { main: '🪟', floats: ['🧱', '📐', '✨'], caption: 'Підбери правильний візерунок до кладки.' },
+            tax_agent: { main: '🏛️', floats: ['🏠', '🧾', '💰'], caption: 'Збір податків залежить від твоєї нерухомості.' },
+            entrepreneur: { main: '🤵', floats: ['🏪', '📦', '💼'], caption: 'Бізнес любить влучні рішення.' }
+        };
+        const scene = scenes[jobId];
+        if (!scene) return '';
+        return `
+            <div class="work-prof-scene">
+                <div class="work-prof-scene-float" style="top:14px;left:16px;animation-delay:-0.4s;">${scene.floats[0] || '✨'}</div>
+                <div class="work-prof-scene-float spin" style="top:22px;right:18px;">${scene.floats[1] || '⭐'}</div>
+                <div class="work-prof-scene-float" style="left:24px;bottom:12px;animation-delay:-1.1s;">${scene.floats[2] || '💡'}</div>
+                <div class="work-prof-scene-main">${scene.main}</div>
+                <div class="work-prof-scene-caption">${caption || scene.caption}</div>
+            </div>
+        `;
+    }
+
     let _workMiniGameState = {};
 
     window.doWork = async function() {
@@ -197,23 +323,30 @@
         openWorkMiniGame(prof.id);
     };
 
-    async function finishWork(penalties = 0) {
+    async function finishWork(penalties = 0, options = {}) {
         closeMiniGameOverlay();
         const { prof, u } = _workMiniGameState;
         if (!prof || !u) return;
-        const penaltyAmount = Math.min(penalties * 0.10, prof.reward * 0.5);
-        const actualReward = Math.max(0.01, prof.reward - penaltyAmount);
+        const baseReward = Number.isFinite(Number(options.rewardOverride)) ? Number(options.rewardOverride) : prof.reward;
+        const penaltyAmount = Math.min(penalties * 0.10, baseReward * 0.5);
+        const actualReward = Math.max(0.01, baseReward - penaltyAmount);
         extState.work.xp += prof.xpGain;
         extState.work.lastWorkAt = Date.now();
         extState.work.totalEarned = n(extState.work.totalEarned, 0) + actualReward;
         await saveWorkState();
         await adjustUsdt(u, actualReward);
-        await appendBankRecord({ type: 'work', currency: 'usdt', amount: actualReward, note: `Робота: ${prof.name}${penalties > 0 ? ` (штраф -${penaltyAmount.toFixed(2)})` : ''}`, ts: Date.now() });
+        await appendBankRecord({
+            type: 'work',
+            currency: 'usdt',
+            amount: actualReward,
+            note: `${options.recordNote || `Робота: ${prof.name}`}${penalties > 0 ? ` (штраф -${penaltyAmount.toFixed(2)})` : ''}`,
+            ts: Date.now()
+        });
         await incrementWeeklyProgress(u, 'weeklyWorkCount');
         await incrementWeeklyProgress(u, 'weeklyUsdtEarned', actualReward);
-        const msg = penalties > 0
+        const msg = options.successMessage || (penalties > 0
             ? `💵 +${actualReward.toFixed(2)} USDT (штраф -${penaltyAmount.toFixed(2)} за ${penalties} помилок)`
-            : `💵 +${actualReward.toFixed(2)} USDT за роботу ${prof.icon}`;
+            : `💵 +${actualReward.toFixed(2)} USDT за роботу ${prof.icon}`);
         showGN(msg);
         renderWorkTab();
         startWorkCooldownTick();
@@ -247,6 +380,7 @@
             openMiniGameOverlay(`
                 <h3 style="color:var(--p);margin:0 0 4px;">🖥️ Програміст</h3>
                 <p style="color:var(--text2);font-size:12px;margin:0 0 12px;">Завдання ${idx + 1}/${numbers.length} • Помилки: ${errors}</p>
+                ${getProfessionScene('programmer')}
                 <div style="text-align:center;margin:20px 0;">
                     <div style="font-size:4rem;font-weight:900;color:#fff;">${num}</div>
                 </div>
@@ -281,6 +415,7 @@
             openMiniGameOverlay(`
                 <h3 style="color:var(--p);margin:0 0 4px;">🎨 Дизайнер</h3>
                 <p style="color:var(--text2);font-size:12px;margin:0 0 12px;">Замовлення ${idx + 1}/${orders.length} • Помилки: ${errors}</p>
+                ${getProfessionScene('designer')}
                 <p style="margin:0 0 12px;">Клієнт хоче: <b style="color:${o.color};">${o.shape} (${o.size})</b></p>
                 <div style="display:grid;gap:8px;">
                     ${['Квадрат', 'Коло', 'Прямокутник'].map(s =>
@@ -310,6 +445,7 @@
             openMiniGameOverlay(`
                 <h3 style="color:var(--p);margin:0 0 4px;">📊 Трейдер</h3>
                 <p style="color:var(--text2);font-size:12px;margin:0 0 12px;">Угод закрито: ${trades}/3 • Помилки: ${errors}</p>
+                ${getProfessionScene('trader')}
                 <div style="background:#111;border-radius:10px;padding:16px;text-align:center;margin-bottom:12px;">
                     <div style="font-size:2.5rem;font-weight:900;color:#fff;">$${current}</div>
                     <div style="font-size:12px;color:var(--text2);margin-top:4px;">${trend}</div>
@@ -358,6 +494,7 @@
             openMiniGameOverlay(`
                 <h3 style="color:var(--p);margin:0 0 4px;">🏥 Лікар</h3>
                 <p style="color:var(--text2);font-size:12px;margin:0 0 12px;">Пацієнт ${idx + 1}/${cases.length} • Помилки: ${errors}</p>
+                ${getProfessionScene('doctor')}
                 <div style="background:#111;border-radius:10px;padding:16px;text-align:center;margin-bottom:12px;">
                     <div style="font-size:1.5rem;">${c.symptom}</div>
                     <div style="font-size:12px;color:var(--text2);margin-top:4px;">Оберіть лікування:</div>
@@ -382,6 +519,7 @@
         openMiniGameOverlay(`
             <h3 style="color:var(--p);margin:0 0 4px;">✈️ Пілот</h3>
             <p style="color:var(--text2);font-size:12px;margin:0 0 8px;">Торкайтеся/клікайте, щоб летіти. Не врізайтесь у перешкоди!</p>
+            ${getProfessionScene('pilot')}
             <canvas id="pilot-canvas" width="360" height="280" style="border-radius:10px;display:block;margin:0 auto;touch-action:none;"></canvas>
             <div id="pilot-status" style="text-align:center;color:var(--text2);font-size:12px;margin-top:8px;"></div>
         `);
@@ -477,6 +615,7 @@
             openMiniGameOverlay(`
                 <h3 style="color:var(--p);margin:0 0 4px;">⚙️ Інженер</h3>
                 <p style="color:var(--text2);font-size:12px;margin:0 0 12px;">Механізм ${idx + 1}/${gears.length} • Помилки: ${errors}</p>
+                ${getProfessionScene('engineer')}
                 <div style="background:#111;border-radius:10px;padding:16px;text-align:center;margin-bottom:12px;">
                     <div style="font-size:1.2rem;">Механізм крутиться <b style="color:var(--p);">${g.speed}</b></div>
                     <div style="font-size:12px;color:var(--text2);margin-top:4px;">Яку шестерню підібрати?</div>
@@ -511,6 +650,7 @@
             openMiniGameOverlay(`
                 <h3 style="color:var(--p);margin:0 0 4px;">🤵 Підприємець</h3>
                 <p style="color:var(--text2);font-size:12px;margin:0 0 12px;">Рішення ${idx + 1}/${decisions.length} • Помилки: ${errors}</p>
+                ${getProfessionScene('entrepreneur')}
                 <div style="background:#111;border-radius:10px;padding:16px;margin-bottom:12px;">
                     <div style="font-size:1rem;">${d.scenario}</div>
                     <div style="font-size:12px;color:var(--text2);margin-top:4px;">Що робити?</div>
@@ -755,6 +895,7 @@
                     <span style="color:var(--p);font-size:15px;font-weight:900;">🪟 Плиточник</span>
                     <span style="color:var(--text2);font-size:12px;">Кладка ${roundIdx+1}/${ROUNDS} • Помилки: ${errors}</span>
                 </div>
+                ${getProfessionScene('tiler')}
                 <p style="color:var(--text2);font-size:13px;margin:0 0 10px;text-align:center;">В стіні відсутня 1 плитка.<br>Підберіть плитку з <b style="color:var(--p);">правильним візерунком</b>:</p>
                 <canvas id="tiler-wall" width="${GRID_COLS*TILE_SIZE}" height="${GRID_ROWS*TILE_SIZE}" style="border:2px solid var(--border);border-radius:8px;margin-bottom:14px;"></canvas>
                 <p style="color:var(--text2);font-size:12px;margin:0 0 8px;">Виберіть потрібну плитку:</p>
@@ -840,93 +981,96 @@
         playRound();
     }
 
-    /* ── TAX AGENT: Real Estate Tax Calculator puzzle ── */
-    // Tax rates are based on Ukrainian real estate taxation rules:
-    // residential: 1.5%, commercial: 2.5%, late payment penalty: 5%
+    /* ── TAX AGENT: Collect taxes from owned real estate ── */
     function startTaxAgentGame() {
-        const TAX_RATE_RESIDENTIAL = 0.015;  // 1.5% of assessed value (Ukrainian law)
-        const TAX_RATE_COMMERCIAL  = 0.025;  // 2.5% of assessed value (Ukrainian law)
-        const PENALTY_RATE         = 0.05;   // 5% penalty for late payment (Ukrainian law)
+        const catalog = typeof realEstateCatalog === 'undefined' ? [] : realEstateCatalog;
+        const state = typeof realEstateState === 'undefined' ? { properties: {} } : realEstateState;
+        const ownedEntries = catalog
+            .filter(definition => state.properties?.[definition.id])
+            .map(definition => {
+                const level = Math.max(1, n(state.properties[definition.id]?.level, 1));
+                const taxAmount = Number(Math.min(2.5, 0.25 + (level * 0.05) + (n(definition.price, 0) * 0.002)).toFixed(2));
+                return { definition, level, taxAmount };
+            });
 
-        const cases = [
-            {
-                desc: '🏠 Власник квартири площею 80 м². Оціночна вартість: 1 200 000 грн. Тип: житлова. Яка річна сума податку?',
-                answer: Math.round(1200000 * TAX_RATE_RESIDENTIAL),
-                options: () => {
-                    const correct = Math.round(1200000 * TAX_RATE_RESIDENTIAL); // 18000
-                    return [correct, correct + 2000, correct - 1000, Math.round(1200000 * TAX_RATE_COMMERCIAL)].sort(() => Math.random()-0.5);
-                }
-            },
-            {
-                desc: '🏢 Офісне приміщення: 200 м². Оціночна вартість: 3 400 000 грн. Тип: комерційна. Яка річна сума податку?',
-                answer: Math.round(3400000 * TAX_RATE_COMMERCIAL),
-                options: () => {
-                    const correct = Math.round(3400000 * TAX_RATE_COMMERCIAL); // 85000
-                    return [correct, correct + 5000, correct - 5000, Math.round(3400000 * TAX_RATE_RESIDENTIAL)].sort(() => Math.random()-0.5);
-                }
-            },
-            {
-                desc: '🏚️ Платник прострочив сплату податку 900 000 грн на 1 рік. Яка сума штрафу (5%)?',
-                answer: Math.round(900000 * PENALTY_RATE),
-                options: () => {
-                    const correct = Math.round(900000 * PENALTY_RATE); // 45000
-                    return [correct, correct + 10000, 90000, 22500].sort(() => Math.random()-0.5);
-                }
-            },
-            {
-                desc: '🏠 Власник будинку: оціночна вартість 2 000 000 грн. Він сплачує 1.5% щороку. Яка загальна сума за 3 роки?',
-                answer: Math.round(2000000 * TAX_RATE_RESIDENTIAL * 3),
-                options: () => {
-                    const correct = Math.round(2000000 * TAX_RATE_RESIDENTIAL * 3); // 90000
-                    return [correct, 60000, 120000, 45000].sort(() => Math.random()-0.5);
-                }
-            },
-            {
-                desc: '🏗️ Забудовник продав об\'єкт за 5 000 000 грн. Він мав борг з податку на нерухомість: 75 000 грн + штраф 5%. Яка загальна сума до погашення?',
-                answer: 75000 + Math.round(75000 * PENALTY_RATE),
-                options: () => {
-                    const correct = 75000 + Math.round(75000 * PENALTY_RATE); // 78750
-                    return [correct, 75000, 80000, 82500].sort(() => Math.random()-0.5);
-                }
-            },
-        ];
-
-        const selected = [...cases].sort(() => Math.random()-0.5).slice(0, 4);
-        let idx = 0, errors = 0;
-
-        function fmt(n) { return n.toLocaleString('uk-UA') + ' грн'; }
-
-        function render() {
-            if (idx >= selected.length) { finishWork(errors); return; }
-            const c = selected[idx];
-            const opts = c.options();
+        if (!ownedEntries.length) {
             openMiniGameOverlay(`
                 <h3 style="color:var(--p);margin:0 0 4px;">🏛️ Податківець</h3>
-                <p style="color:var(--text2);font-size:12px;margin:0 0 12px;">Завдання ${idx + 1}/${selected.length} • Помилки: ${errors}</p>
-                <div style="background:#111;border-radius:10px;padding:14px;margin-bottom:12px;font-size:13px;line-height:1.6;">
-                    ${c.desc}
+                <p style="color:var(--text2);font-size:12px;margin:0 0 12px;">Без міні-гри — просто збір податків з кожної нерухомості.</p>
+                ${getProfessionScene('tax_agent')}
+                <div style="background:#111;border-radius:12px;padding:14px;margin-bottom:12px;font-size:13px;line-height:1.6;">
+                    У тебе ще немає нерухомості, тож податки збирати поки що ні з чого.
                 </div>
-                <p style="margin:0 0 8px;color:var(--text2);font-size:12px;">Оберіть правильну суму:</p>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-                    ${opts.map(o => `<button class="btn mg-tax-btn" data-val="${o}" style="padding:12px;font-size:13px;font-weight:700;">${fmt(o)}</button>`).join('')}
+                <button class="btn" id="mg-tax-close" style="width:100%;">ЗРОЗУМІЛО</button>
+            `);
+            document.getElementById('mg-tax-close').onclick = closeMiniGameOverlay;
+            return;
+        }
+
+        const totalReward = Number(ownedEntries.reduce((sum, entry) => sum + entry.taxAmount, 0).toFixed(2));
+        openMiniGameOverlay(`
+            <h3 style="color:var(--p);margin:0 0 4px;">🏛️ Податківець</h3>
+            <p style="color:var(--text2);font-size:12px;margin:0 0 12px;">Тепер тут не міні-гра, а прямий збір податків з кожної нерухомості.</p>
+            ${getProfessionScene('tax_agent', `У портфелі ${ownedEntries.length} обʼєкт(ів). Збери податки й заверши зміну.`)}
+            <div class="work-tax-grid">
+                ${ownedEntries.map(entry => `
+                    <div class="work-tax-card">
+                        <div>
+                            <div style="font-weight:800;color:#fff;">${esc(entry.definition.icon)} ${esc(entry.definition.name)}</div>
+                            <div style="font-size:12px;color:var(--text2);">Рівень ${entry.level}</div>
+                        </div>
+                        <div style="font-weight:900;color:var(--g);">+${entry.taxAmount.toFixed(2)} USDT</div>
+                    </div>
+                `).join('')}
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;background:#111;border-radius:12px;padding:12px 14px;margin-bottom:12px;">
+                <span style="color:var(--text2);font-size:12px;">Разом за зміну</span>
+                <span style="font-size:20px;font-weight:900;color:var(--p);">+${totalReward.toFixed(2)} USDT</span>
+            </div>
+            <button class="btn" id="mg-tax-collect" style="width:100%;">СТЯГНУТИ ПОДАТКИ</button>
+        `);
+        document.getElementById('mg-tax-collect').onclick = () => {
+            finishWork(0, {
+                rewardOverride: totalReward,
+                successMessage: `🏛️ Зібрано податки: +${totalReward.toFixed(2)} USDT з ${ownedEntries.length} об'єктів`,
+                recordNote: 'Податки з нерухомості'
+            });
+        };
+    }
+
+    /* ── FREELANCER: Random job ── */
+    function startFreelancerGame() {
+        const gigs = [
+            { task: 'Клієнт просить швидкий лендинг.', correct: '🖥️ Верстка', options: ['🖥️ Верстка', '⚖️ Судовий позов', '🏥 Діагностика'] },
+            { task: 'Потрібно терміново намалювати банер.', correct: '🎨 Дизайн', options: ['🎨 Дизайн', '⚙️ Ремонт двигуна', '🏛️ Податкова перевірка'] },
+            { task: 'Замовник хоче підготувати плитку для кухні.', correct: '🪟 Плитка', options: ['🪟 Плитка', '✈️ Політ маршрутом', '📈 Біржова угода'] }
+        ];
+        let idx = 0, errors = 0;
+        function render() {
+            if (idx >= gigs.length) { finishWork(errors); return; }
+            const gig = gigs[idx];
+            const opts = [...gig.options].sort(() => Math.random() - 0.5);
+            openMiniGameOverlay(`
+                <h3 style="color:var(--p);margin:0 0 4px;">💻 Фрілансер</h3>
+                <p style="color:var(--text2);font-size:12px;margin:0 0 12px;">Замовлення ${idx + 1}/${gigs.length} • Помилки: ${errors}</p>
+                ${getProfessionScene('freelancer')}
+                <div style="background:#111;border-radius:10px;padding:16px;margin-bottom:12px;">
+                    <div style="font-size:1rem;">${gig.task}</div>
+                    <div style="font-size:12px;color:var(--text2);margin-top:4px;">Що найкраще підходить?</div>
+                </div>
+                <div style="display:grid;gap:8px;">
+                    ${opts.map(opt => `<button class="btn mg-free-btn" data-val="${opt.replace(/"/g, '&quot;')}" style="padding:12px;text-align:left;">${opt}</button>`).join('')}
                 </div>
             `);
-            document.querySelectorAll('.mg-tax-btn').forEach(btn => {
+            document.querySelectorAll('.mg-free-btn').forEach(btn => {
                 btn.onclick = () => {
-                    if (+btn.dataset.val !== c.answer) errors++;
+                    if (btn.dataset.val !== gig.correct) errors++;
                     idx++;
                     render();
                 };
             });
         }
         render();
-    }
-
-    /* ── FREELANCER: Random job ── */
-    function startFreelancerGame() {
-        const pool = ['programmer', 'designer', 'trader', 'doctor', 'engineer', 'chef', 'lawyer', 'tiler'];
-        const rnd = pool[Math.floor(Math.random() * pool.length)];
-        openWorkMiniGame(rnd);
     }
 
     function startWorkCooldownTick() {
