@@ -327,7 +327,7 @@
         closeMiniGameOverlay();
         const { prof, u } = _workMiniGameState;
         if (!prof || !u) return;
-        const rewardOverride = typeof options.rewardOverride === 'number' ? options.rewardOverride : Number(options.rewardOverride);
+        const rewardOverride = Number(options.rewardOverride);
         const baseReward = Number.isFinite(rewardOverride) ? rewardOverride : prof.reward;
         const penaltyAmount = Math.min(penalties * 0.10, baseReward * 0.5);
         const actualReward = Math.max(0.01, baseReward - penaltyAmount);
@@ -987,6 +987,7 @@
         const TAX_AGENT_BASE_REWARD = 0.25;
         const TAX_AGENT_LEVEL_BONUS = 0.05;
         const TAX_AGENT_PRICE_FACTOR = 0.002;
+        // Caps payout from one property so large late-game assets do not make the tax profession overpowered.
         const TAX_AGENT_PROPERTY_CAP = 2.5;
         const catalog = typeof realEstateCatalog === 'undefined' ? [] : realEstateCatalog;
         const state = typeof realEstateState === 'undefined' ? { properties: {} } : realEstateState;
