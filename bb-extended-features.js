@@ -1037,16 +1037,16 @@
     /*  STOCKS & BUSINESS                                     */
     /* ────────────────────────────────────────────────────── */
     const STOCKS_CATALOG = [
-        { id: 'BBEX', name: 'BB Exchange',  icon: '💹', sector: 'Крипто',    basePrice: 10,  volatility: 0.12 },
-        { id: 'MINE', name: 'MineCore',     icon: '⛏️', sector: 'Майнінг',   basePrice: 5,   volatility: 0.15 },
-        { id: 'HOTR', name: 'HotelGroup',   icon: '🏨', sector: 'Туризм',    basePrice: 22,  volatility: 0.08 },
-        { id: 'TECH', name: 'TechVenture',  icon: '🖥️', sector: 'Технології',basePrice: 35,  volatility: 0.18 },
-        { id: 'AUTO', name: 'AutoDrive',    icon: '🚗', sector: 'Авто',      basePrice: 18,  volatility: 0.10 },
-        { id: 'FOOD', name: 'FoodChain',    icon: '🍔', sector: 'Харчування',basePrice: 8,   volatility: 0.06 },
-        { id: 'BANK', name: 'BB Bank',      icon: '🏦', sector: 'Фінанси',   basePrice: 45,  volatility: 0.07 },
-        { id: 'GAME', name: 'GameStudio',   icon: '🎮', sector: 'Розваги',   basePrice: 12,  volatility: 0.20 },
-        { id: 'REAL', name: 'RealtyMax',    icon: '🏠', sector: 'Нерухомість',basePrice: 28, volatility: 0.09 },
-        { id: 'ENRG', name: 'EnergyPlus',   icon: '⚡', sector: 'Енергія',   basePrice: 15,  volatility: 0.11 }
+        { id: 'BBEX', name: 'BB Exchange',  icon: '💹', sector: 'Крипто',    basePrice: 10,  volatility: 0.12, dividendRate: 0.0008 },
+        { id: 'MINE', name: 'MineCore',     icon: '⛏️', sector: 'Майнінг',   basePrice: 5,   volatility: 0.15, dividendRate: 0.0006 },
+        { id: 'HOTR', name: 'HotelGroup',   icon: '🏨', sector: 'Туризм',    basePrice: 22,  volatility: 0.08, dividendRate: 0.0010 },
+        { id: 'TECH', name: 'TechVenture',  icon: '🖥️', sector: 'Технології',basePrice: 35,  volatility: 0.18, dividendRate: 0.0005 },
+        { id: 'AUTO', name: 'AutoDrive',    icon: '🚗', sector: 'Авто',      basePrice: 18,  volatility: 0.10, dividendRate: 0.0007 },
+        { id: 'FOOD', name: 'FoodChain',    icon: '🍔', sector: 'Харчування',basePrice: 8,   volatility: 0.06, dividendRate: 0.0012 },
+        { id: 'BANK', name: 'BB Bank',      icon: '🏦', sector: 'Фінанси',   basePrice: 45,  volatility: 0.07, dividendRate: 0.0015 },
+        { id: 'GAME', name: 'GameStudio',   icon: '🎮', sector: 'Розваги',   basePrice: 12,  volatility: 0.20, dividendRate: 0.0004 },
+        { id: 'REAL', name: 'RealtyMax',    icon: '🏠', sector: 'Нерухомість',basePrice: 28, volatility: 0.09, dividendRate: 0.0011 },
+        { id: 'ENRG', name: 'EnergyPlus',   icon: '⚡', sector: 'Енергія',   basePrice: 15,  volatility: 0.11, dividendRate: 0.0009 }
     ];
     // Stock prices update every 15 minutes to make gains/losses noticeable.
     const STOCK_PRICE_INTERVAL_MS = 15 * 60 * 1000;
@@ -1064,19 +1064,34 @@
         { id: 'bank_biz',   name: 'Мікрофінансова',   icon: '🏦', price: 3000, dailyIncome: 160, maxLevel: 10 }
     ];
 
-    function getBusinessDailyIncome(business, level) {
-        return Math.round(n(business?.dailyIncome, 0) * Math.max(1, n(level, 0)) * 100) / 100;
+    function getBusinessDailyIncome(business, level, count = 1) {
+        return Math.round(n(business?.dailyIncome, 0) * Math.max(1, n(level, 0)) * Math.max(1, n(count, 1)) * 100) / 100;
     }
 
     function getBusinessPendingIncome(business, owned, now = Date.now()) {
         if (!business || !owned) return 0;
         const level = Math.max(1, n(owned.level, 1));
+        const count = Math.max(1, n(owned.count, 1));
         const storedIncome = n(owned.pendingIncome, 0);
         const lastCollectedAt = n(owned.lastCollectedAt, now);
         const elapsedDays = Math.max(0, now - lastCollectedAt) / (24 * 3600 * 1000);
-        const generatedIncome = getBusinessDailyIncome(business, level) * elapsedDays;
+        const generatedIncome = getBusinessDailyIncome(business, level, count) * elapsedDays;
         return Math.round((storedIncome + generatedIncome) * 10000) / 10000;
     }
+
+    function getStockDividendPending(stockId, now = Date.now()) {
+        const stock = STOCKS_CATALOG.find(s => s.id === stockId);
+        const portfolio = extState.stocks.portfolio[stockId];
+        if (!stock || !portfolio?.shares) return 0;
+        const price = getStockPrice(stockId, now);
+        const value = price * n(portfolio.shares, 0);
+        const lastDividendAt = n(portfolio.lastDividendAt, n(portfolio.boughtAt, now));
+        const elapsedDays = Math.max(0, now - lastDividendAt) / (24 * 3600 * 1000);
+        return Math.round(value * n(stock.dividendRate, 0) * elapsedDays * 10000) / 10000;
+    }
+
+    // Minimum amount (in BB) that must accumulate before it can be collected.
+    const MIN_COLLECTIBLE_AMOUNT = 0.0001;
 
     async function loadStocksData() {
         const u = getUser(); if (!u) return;
@@ -1149,14 +1164,20 @@
             const owned = n(extState.stocks.portfolio[s.id]?.shares, 0);
             const avgBuy = n(extState.stocks.portfolio[s.id]?.avgPrice, 0);
             const pnl = owned > 0 ? (price - avgBuy) * owned : 0;
+            const dividend = owned > 0 ? getStockDividendPending(s.id, now) : 0;
+            const divRatePct = (n(s.dividendRate, 0) * 100).toFixed(2);
             const deltaColor = delta >= 0 ? 'var(--g)' : 'var(--r)';
             const deltaLabel = `${formatSigned(delta)} BB (${formatSigned(deltaPct)}%)`;
+            const dividendRow = owned > 0
+                ? `<div style="font-size:11px; color:var(--g); margin-bottom:8px;">💰 Дивіденди: ${dividend.toFixed(4)} BB (${divRatePct}%/добу)</div>`
+                : `<div style="font-size:11px; color:var(--text2); margin-bottom:8px;">💰 Дивіденд: ${divRatePct}%/добу від вартості</div>`;
             return `<div class="stock-card">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
                     <div><span style="font-size:1.4rem;">${esc(s.icon)}</span> <b style="color:var(--p);">${esc(s.id)}</b><br><span style="font-size:11px; color:var(--text2);">${esc(s.name)} • ${esc(s.sector)}</span></div>
                     <div style="text-align:right;"><div style="font-size:16px; font-weight:900;">${price.toFixed(2)} BB</div><div style="font-size:11px; color:${deltaColor};">${deltaLabel}</div>${owned > 0 ? `<div style="font-size:11px; color:${pnl >= 0 ? 'var(--g)' : 'var(--r)'};">${formatSigned(pnl)} BB</div>` : ''}</div>
                 </div>
-                ${owned > 0 ? `<div style="font-size:11px; color:var(--text2); margin-bottom:8px;">Моє: ${owned} акцій • Сер. купівля: ${avgBuy.toFixed(2)}</div>` : ''}
+                ${owned > 0 ? `<div style="font-size:11px; color:var(--text2); margin-bottom:4px;">Моє: ${owned} акцій • Сер. купівля: ${avgBuy.toFixed(2)}</div>` : ''}
+                ${dividendRow}
                 <div style="display:flex; gap:6px;">
                     <input type="number" id="stock-qty-${esc(s.id)}" placeholder="К-сть" min="1" step="1" style="flex:1; padding:8px; font-size:12px;">
                     <button class="btn" style="width:auto; padding:8px 12px; font-size:11px; background:var(--g); color:#000;" onclick="buyStock('${esc(s.id)}')">КУПИТИ</button>
@@ -1164,21 +1185,35 @@
                 </div>
             </div>`;
         }).join('');
-        // Update portfolio value
-        let totalValue = 0, totalPnl = 0;
+        // Update portfolio value and dividends
+        let totalValue = 0, totalPnl = 0, totalDividends = 0;
         STOCKS_CATALOG.forEach(s => {
             const p = extState.stocks.portfolio[s.id];
             if (!p?.shares) return;
             const price = getStockPrice(s.id, now);
             totalValue += price * p.shares;
             totalPnl += (price - n(p.avgPrice)) * p.shares;
+            totalDividends += getStockDividendPending(s.id, now);
         });
+        totalDividends = Math.round(totalDividends * 10000) / 10000;
         const valEl = document.getElementById('stocks-portfolio-value');
         const pnlEl = document.getElementById('stocks-portfolio-pnl');
         if (valEl) valEl.textContent = `${totalValue.toFixed(2)} BB`;
         if (pnlEl) {
             pnlEl.textContent = `${formatSigned(totalPnl)} BB`;
             pnlEl.style.color = totalPnl >= 0 ? 'var(--g)' : 'var(--r)';
+        }
+        // Inject/update dividends collect row
+        let divRow = document.getElementById('stocks-dividends-row');
+        const panel = document.getElementById('stocks-panel-stocks');
+        if (panel && !divRow) {
+            divRow = document.createElement('div');
+            divRow.id = 'stocks-dividends-row';
+            divRow.style.cssText = 'display:flex; align-items:center; justify-content:space-between; background:var(--card); border:1px solid var(--border); border-radius:10px; padding:10px 14px; margin-bottom:12px;';
+            panel.insertBefore(divRow, listEl);
+        }
+        if (divRow) {
+            divRow.innerHTML = `<div><span style="font-size:13px; color:var(--text2);">💰 Накопичені дивіденди:</span> <b style="color:var(--g);">${totalDividends.toFixed(4)} BB</b></div><button class="btn" style="width:auto; padding:8px 14px; font-size:12px; background:var(--g); color:#000;" onclick="collectAllDividends()">ЗІБРАТИ ДИВІДЕНДИ</button>`;
         }
     }
 
@@ -1192,10 +1227,16 @@
         const r = await adjustUserBalanceFirebase(u, -total);
         if (!r?.success) { showGN('❌ Помилка'); return; }
         if (typeof gameState !== 'undefined') { gameState.balance = r.balance; updateHeader(); }
+        const now = Date.now();
         const cur = extState.stocks.portfolio[stockId] || { shares: 0, avgPrice: 0 };
         const newShares = cur.shares + qty;
         const newAvg = ((cur.avgPrice * cur.shares) + (price * qty)) / newShares;
-        extState.stocks.portfolio[stockId] = { shares: newShares, avgPrice: Math.round(newAvg * 100) / 100 };
+        extState.stocks.portfolio[stockId] = {
+            shares: newShares,
+            avgPrice: Math.round(newAvg * 100) / 100,
+            lastDividendAt: cur.lastDividendAt || now,
+            boughtAt: cur.boughtAt || now
+        };
         await saveStocksData();
         showGN(`✅ Куплено ${qty} акцій ${stockId} за ${total.toFixed(2)} BB`);
         renderStocksFeatureViews();
@@ -1219,27 +1260,70 @@
         renderStocksFeatureViews();
     };
 
+    window.collectAllDividends = async function() {
+        const u = getUser(); if (!u) return;
+        const now = Date.now();
+        let totalDividends = 0;
+        STOCKS_CATALOG.forEach(s => {
+            const pending = getStockDividendPending(s.id, now);
+            if (pending > 0) {
+                totalDividends += pending;
+                if (extState.stocks.portfolio[s.id]) {
+                    extState.stocks.portfolio[s.id].lastDividendAt = now;
+                }
+            }
+        });
+        totalDividends = Math.round(totalDividends * 10000) / 10000;
+        if (totalDividends < MIN_COLLECTIBLE_AMOUNT) { showGN('❌ Дивіденди ще не накопичились'); return; }
+        const r = await adjustUserBalanceFirebase(u, totalDividends);
+        if (!r?.success) { showGN('❌ Помилка'); return; }
+        if (typeof gameState !== 'undefined') { gameState.balance = r.balance; updateHeader(); }
+        await saveStocksData();
+        showGN(`✅ Дивіденди зібрано: +${totalDividends.toFixed(4)} BB`);
+        renderStocksFeatureViews();
+    };
+
     function renderBusinessTab() {
         const listEl = document.getElementById('business-list');
         if (!listEl) return;
         const now = Date.now();
+
+        // Inject/update "collect all" header
+        let bizHeader = document.getElementById('business-header-row');
+        const panel = document.getElementById('stocks-panel-business');
+        if (panel && !bizHeader) {
+            bizHeader = document.createElement('div');
+            bizHeader.id = 'business-header-row';
+            bizHeader.style.cssText = 'display:flex; align-items:center; justify-content:space-between; background:var(--card); border:1px solid var(--border); border-radius:10px; padding:10px 14px; margin-bottom:12px;';
+            panel.insertBefore(bizHeader, listEl);
+        }
+        if (bizHeader) {
+            const totalPending = BUSINESS_CATALOG.reduce((sum, b) => {
+                const ow = extState.stocks.businesses[b.id];
+                return sum + (ow ? getBusinessPendingIncome(b, ow, now) : 0);
+            }, 0);
+            bizHeader.innerHTML = `<div><span style="font-size:13px; color:var(--text2);">💵 Загальний прибуток:</span> <b style="color:var(--g);">${totalPending.toFixed(4)} BB</b></div><button class="btn" style="width:auto; padding:8px 14px; font-size:12px; background:var(--g); color:#000;" onclick="collectAllBusinessIncome()">ЗІБРАТИ ВСЕ</button>`;
+        }
+
         listEl.innerHTML = BUSINESS_CATALOG.map(b => {
             const owned = extState.stocks.businesses[b.id];
             const isOwned = !!owned;
             const ownedLevel = Math.max(1, n(owned?.level, 1));
+            const ownedCount = Math.max(1, n(owned?.count, 1));
             const upgradePrice = isOwned ? Math.round(b.price * ownedLevel * 0.5) : b.price;
-            const income = isOwned ? getBusinessDailyIncome(b, ownedLevel) : b.dailyIncome;
+            const income = isOwned ? getBusinessDailyIncome(b, ownedLevel, ownedCount) : b.dailyIncome;
             const pending = isOwned ? getBusinessPendingIncome(b, owned, now) : 0;
             return `<div class="business-card ${isOwned ? 'owned' : ''}">
                 <div style="font-size:2rem; margin-bottom:6px;">${esc(b.icon)}</div>
                 <div style="font-size:13px; font-weight:900; color:var(--p); margin-bottom:4px;">${esc(b.name)}</div>
-                ${isOwned ? `<div class="pill success" style="margin-bottom:6px;">Рівень ${ownedLevel}</div>` : ''}
+                ${isOwned ? `<div style="margin-bottom:6px; display:flex; gap:4px; flex-wrap:wrap;"><span class="pill success">Рівень ${ownedLevel}</span><span class="pill" style="background:rgba(240,185,11,0.15); color:var(--p);">×${ownedCount} шт.</span></div>` : ''}
                 <div style="font-size:11px; color:var(--text2);">💰 Дохід: ${income.toFixed(2)} BB/добу</div>
                 ${isOwned && pending > 0 ? `<div style="font-size:12px; color:var(--g); margin-top:4px;">💵 Накопичено: ${pending.toFixed(4)} BB</div>` : ''}
-                <div style="margin-top:10px; display:flex; gap:6px;">
+                <div style="margin-top:10px; display:flex; gap:6px; flex-wrap:wrap;">
                     ${isOwned
                         ? `<button class="btn secondary-btn" style="padding:8px; font-size:11px;" onclick="collectBusinessIncome('${esc(b.id)}')">📥 ЗІБРАТИ</button>
-                           ${level < b.maxLevel ? `<button class="btn" style="padding:8px; font-size:11px; background:var(--gold); color:#000;" onclick="upgradeBusiness('${esc(b.id)}')">⬆ ${upgradePrice} BB</button>` : '<span class="pill success" style="font-size:10px;">MAX</span>'}`
+                           <button class="btn" style="padding:8px; font-size:11px;" onclick="buyBusiness('${esc(b.id)}')">КУПИТИ ЩЕ ${b.price} BB</button>
+                           ${ownedLevel < b.maxLevel ? `<button class="btn" style="padding:8px; font-size:11px; background:var(--gold); color:#000;" onclick="upgradeBusiness('${esc(b.id)}')">⬆ ${upgradePrice} BB</button>` : '<span class="pill success" style="font-size:10px;">MAX</span>'}`
                         : `<button class="btn" style="padding:8px; font-size:11px;" onclick="buyBusiness('${esc(b.id)}')">КУПИТИ ${b.price} BB</button>`
                     }
                 </div>
@@ -1251,14 +1335,55 @@
         const u = getUser(); if (!u) return;
         const b = BUSINESS_CATALOG.find(x => x.id === bId);
         if (!b) return;
-        if (extState.stocks.businesses[bId]) { showGN('Вже куплено'); return; }
         if (getBalance() < b.price) { showGN(`❌ Потрібно ${b.price} BB`); return; }
         const r = await adjustUserBalanceFirebase(u, -b.price);
         if (!r?.success) { showGN('❌ Помилка'); return; }
         if (typeof gameState !== 'undefined') { gameState.balance = r.balance; updateHeader(); }
-        extState.stocks.businesses[bId] = { level: 1, boughtAt: Date.now(), lastCollectedAt: Date.now(), pendingIncome: 0 };
+        const now = Date.now();
+        if (extState.stocks.businesses[bId]) {
+            const existing = extState.stocks.businesses[bId];
+            // Save pending income before adding new unit to keep accounting correct
+            existing.pendingIncome = getBusinessPendingIncome(b, existing, now);
+            existing.lastCollectedAt = now;
+            existing.count = Math.max(1, n(existing.count, 1)) + 1;
+            const newCount = existing.count;
+            await saveStocksData();
+            showGN(`✅ ${b.icon} ${b.name} ще один куплено! (Всього: ${newCount})`);
+        } else {
+            extState.stocks.businesses[bId] = { count: 1, level: 1, boughtAt: now, lastCollectedAt: now, pendingIncome: 0 };
+            await saveStocksData();
+            showGN(`✅ ${b.icon} ${b.name} куплено!`);
+        }
+        renderStocksFeatureViews();
+    };
+
+    window.collectAllBusinessIncome = async function() {
+        const u = getUser(); if (!u) return;
+        const now = Date.now();
+        let totalIncome = 0;
+        const collectedIds = [];
+        BUSINESS_CATALOG.forEach(b => {
+            const owned = extState.stocks.businesses[b.id];
+            if (!owned) return;
+            const pending = getBusinessPendingIncome(b, owned, now);
+            if (pending >= MIN_COLLECTIBLE_AMOUNT) {
+                totalIncome += pending;
+                collectedIds.push(b.id);
+            }
+        });
+        totalIncome = Math.round(totalIncome * 10000) / 10000;
+        if (totalIncome < MIN_COLLECTIBLE_AMOUNT) { showGN('❌ Ще немає прибутку для збору'); return; }
+        const r = await adjustUserBalanceFirebase(u, totalIncome);
+        if (!r?.success) { showGN('❌ Помилка'); return; }
+        if (typeof gameState !== 'undefined') { gameState.balance = r.balance; updateHeader(); }
+        collectedIds.forEach(bId => {
+            if (extState.stocks.businesses[bId]) {
+                extState.stocks.businesses[bId].lastCollectedAt = now;
+                extState.stocks.businesses[bId].pendingIncome = 0;
+            }
+        });
         await saveStocksData();
-        showGN(`✅ ${b.icon} ${b.name} куплено!`);
+        showGN(`✅ Зібрано з усього бізнесу: +${totalIncome.toFixed(4)} BB`);
         renderStocksFeatureViews();
     };
 
@@ -1290,7 +1415,7 @@
         if (!b || !owned) return;
         const now = Date.now();
         const pendingIncome = getBusinessPendingIncome(b, owned, now);
-        if (pendingIncome < 0.0001) { showGN('❌ Ще мало накопичено'); return; }
+        if (pendingIncome < MIN_COLLECTIBLE_AMOUNT) { showGN('❌ Ще мало накопичено'); return; }
         const r = await adjustUserBalanceFirebase(u, pendingIncome);
         if (!r?.success) { showGN('❌ Помилка'); return; }
         if (typeof gameState !== 'undefined') { gameState.balance = r.balance; updateHeader(); }
@@ -1320,7 +1445,8 @@
             else bizEl.innerHTML = bizEntries.map(b => {
                 const ow = extState.stocks.businesses[b.id];
                 const pending = getBusinessPendingIncome(b, ow);
-                return `<div class="activity-card"><b style="color:var(--p);">${esc(b.icon)} ${esc(b.name)}</b> Рівень ${n(ow.level,1)} | Дохід: ${getBusinessDailyIncome(b, n(ow.level,1)).toFixed(2)} BB/добу | Накопичено: ${pending.toFixed(4)} BB</div>`;
+                const count = Math.max(1, n(ow.count, 1));
+                return `<div class="activity-card"><b style="color:var(--p);">${esc(b.icon)} ${esc(b.name)}</b> ×${count} • Рівень ${n(ow.level,1)} | Дохід: ${getBusinessDailyIncome(b, n(ow.level,1), count).toFixed(2)} BB/добу | Накопичено: ${pending.toFixed(4)} BB</div>`;
             }).join('');
         }
     }
