@@ -1050,6 +1050,8 @@
     ];
     // Stock prices update every 15 minutes to make gains/losses noticeable.
     const STOCK_PRICE_INTERVAL_MS = 15 * 60 * 1000;
+    // Fraction of original purchase price returned when selling a business.
+    const BUSINESS_SELL_RATE = 0.75;
 
     const BUSINESS_CATALOG = [
         { id: 'cafe',       name: 'Кафе',            icon: '☕', price: 100,  dailyIncome: 5,   maxLevel: 10 },
@@ -1116,10 +1118,14 @@
         // the seed with each character of the stock ID so every stock follows a
         // distinct price path.
         const seed = Math.floor(time / STOCK_PRICE_INTERVAL_MS);
+        // Amplitude multiplier: keeps volatile stocks (e.g. GAME vol=0.20) in a range
+        // where prices can drop below zero while stable stocks (e.g. BANK vol=0.07) remain
+        // mostly positive. With 4-char IDs and this multiplier the swing is ±(3×vol×base).
+        const PRICE_SWING_FACTOR = 6;
         let offset = 0;
         for (let i = 0; i < stockId.length; i++) {
             const h = (seed * 1000003 + stockId.charCodeAt(i) * 9999991) % 10000;
-            offset += stock.volatility * (h / 10000 - 0.5) * stock.basePrice * 6;
+            offset += stock.volatility * (h / 10000 - 0.5) * stock.basePrice * PRICE_SWING_FACTOR;
         }
         return Math.round((stock.basePrice + offset) * 100) / 100;
     }
@@ -1316,7 +1322,7 @@
             const upgradePrice = isOwned ? Math.round(b.price * ownedLevel * 0.5) : b.price;
             const income = isOwned ? getBusinessDailyIncome(b, ownedLevel, ownedCount) : b.dailyIncome;
             const pending = isOwned ? getBusinessPendingIncome(b, owned, now) : 0;
-            const sellBizPrice = Math.round(b.price * ownedCount * 0.75);
+            const sellBizPrice = Math.round(b.price * ownedCount * BUSINESS_SELL_RATE);
             return `<div class="business-card ${isOwned ? 'owned' : ''}">
                 <div style="font-size:2rem; margin-bottom:6px;">${esc(b.icon)}</div>
                 <div style="font-size:13px; font-weight:900; color:var(--p); margin-bottom:4px;">${esc(b.name)}</div>
@@ -1422,8 +1428,8 @@
         const now = Date.now();
         // Collect pending income and return 75% of base purchase price per unit
         const pendingIncome = getBusinessPendingIncome(b, owned, now);
-        const sellPrice = Math.round(b.price * count * 0.75 * 100) / 100;
-        const total = Math.round((sellPrice + pendingIncome) * 10000) / 10000;
+        const sellPrice = Math.round(b.price * count * BUSINESS_SELL_RATE * 100) / 100;
+        const total = Math.round((sellPrice + pendingIncome) * 100) / 100;
         const r = await adjustUserBalanceFirebase(u, total);
         if (!r?.success) { showGN('❌ Помилка'); return; }
         if (typeof gameState !== 'undefined') { gameState.balance = r.balance; updateHeader(); }
