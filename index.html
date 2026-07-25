@@ -5535,6 +5535,7 @@
     // ===== LANGUAGE (i18n) =====
     const i18n = {
         ua: {
+            // Text only: emoji icons stay in the nav markup itself.
             nav: ['Майнінг', 'Переказ', 'Казино', 'Друзі', 'Налаш.'],
             headerBalance: 'BB COIN',
         },
@@ -5548,7 +5549,7 @@
         localStorage.setItem('bbcLang', lang);
         document.getElementById('lang-btn-ua').classList.toggle('active', lang === 'ua');
         document.getElementById('lang-btn-en').classList.toggle('active', lang === 'en');
-        const tabs = document.querySelectorAll('.app-nav .tab');
+        const tabs = document.querySelectorAll('nav.app-nav .tab');
         const labels = i18n[lang]?.nav || i18n.ua.nav;
         tabs.forEach((tab, idx) => {
             if (!labels[idx]) return;

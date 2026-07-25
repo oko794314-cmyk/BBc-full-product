@@ -955,6 +955,7 @@
         { id: 'REAL', name: 'RealtyMax',    icon: '🏠', sector: 'Нерухомість',basePrice: 28, volatility: 0.09 },
         { id: 'ENRG', name: 'EnergyPlus',   icon: '⚡', sector: 'Енергія',   basePrice: 15,  volatility: 0.11 }
     ];
+    // Stock prices update every 15 minutes to make gains/losses noticeable.
     const STOCK_PRICE_INTERVAL_MS = 15 * 60 * 1000;
 
     const BUSINESS_CATALOG = [
@@ -1128,15 +1129,15 @@
         const now = Date.now();
         listEl.innerHTML = BUSINESS_CATALOG.map(b => {
             const owned = extState.stocks.businesses[b.id];
-            const level = owned ? Math.max(1, n(owned.level, 1)) : 1;
             const isOwned = !!owned;
-            const upgradePrice = isOwned ? Math.round(b.price * level * 0.5) : b.price;
-            const income = isOwned ? getBusinessDailyIncome(b, level) : b.dailyIncome;
+            const ownedLevel = Math.max(1, n(owned?.level, 1));
+            const upgradePrice = isOwned ? Math.round(b.price * ownedLevel * 0.5) : b.price;
+            const income = isOwned ? getBusinessDailyIncome(b, ownedLevel) : b.dailyIncome;
             const pending = isOwned ? getBusinessPendingIncome(b, owned, now) : 0;
             return `<div class="business-card ${isOwned ? 'owned' : ''}">
                 <div style="font-size:2rem; margin-bottom:6px;">${esc(b.icon)}</div>
                 <div style="font-size:13px; font-weight:900; color:var(--p); margin-bottom:4px;">${esc(b.name)}</div>
-                ${isOwned ? `<div class="pill success" style="margin-bottom:6px;">Рівень ${level}</div>` : ''}
+                ${isOwned ? `<div class="pill success" style="margin-bottom:6px;">Рівень ${ownedLevel}</div>` : ''}
                 <div style="font-size:11px; color:var(--text2);">💰 Дохід: ${income.toFixed(2)} BB/добу</div>
                 ${isOwned && pending > 0 ? `<div style="font-size:12px; color:var(--g); margin-top:4px;">💵 Накопичено: ${pending.toFixed(4)} BB</div>` : ''}
                 <div style="margin-top:10px; display:flex; gap:6px;">
