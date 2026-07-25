@@ -1570,6 +1570,7 @@
             <div class="bank-subtab active" onclick="switchBankTab('loans')">💳 Кредити</div>
             <div class="bank-subtab" onclick="switchBankTab('history')">📋 Історія</div>
             <div class="bank-subtab" onclick="switchBankTab('stats')">📊 Статистика</div>
+            <div class="bank-subtab" id="bank-taxes-tab" onclick="switchBankTab('taxes')">🧾 Податки</div>
         </div>
 
         <!-- Панель кредитів -->
@@ -1617,6 +1618,7 @@
                     <option value="repay">Погашення</option>
                     <option value="penalty">Штрафи</option>
                     <option value="work">Робота</option>
+                    <option value="tax">Податки</option>
                 </select>
                 <div id="bank-history-list" class="list-stack"></div>
             </div>
@@ -1634,6 +1636,21 @@
                 </select>
                 <div id="bank-stats-chart"></div>
             </div>
+        </div>
+
+        <!-- Панель податків -->
+        <div id="bank-panel-taxes" class="bank-panel">
+            <div class="glass" style="margin-bottom:12px;">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                    <span style="font-size:28px;">🏛️</span>
+                    <div>
+                        <div style="font-weight:900;font-size:15px;color:var(--p);">Податкові повідомлення</div>
+                        <div style="font-size:11px;color:var(--text2);">Нові рахунки надходять кожні 2 дні</div>
+                    </div>
+                </div>
+                <div id="bank-taxes-badge" style="display:none;background:var(--r);color:#fff;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;margin-bottom:8px;"></div>
+            </div>
+            <div id="bank-taxes-list" class="list-stack"></div>
         </div>
     </div>
 
@@ -6110,22 +6127,34 @@
             });
         }
 
+        // Export getLogoFallbackSvg so onerror handlers can reach it
+        window._sportLogoFallback = getLogoFallbackSvg;
+
         async function fetchMatches() {
-            // Try leagues in order: Ukrainian Premier League, English Premier League, Champions League
-            const LEAGUES = ['ukr.1', 'eng.1', 'uefa.champions_league', 'esp.1'];
-            for (const slug of LEAGUES) {
-                try {
-                    const matches = await fetchMatchesFromESPN(slug);
-                    if (matches.length > 0) return matches;
-                } catch(e) {}
+            // Gather matches from multiple leagues concurrently; combine and return all
+            const LEAGUES = ['ukr.1', 'eng.1', 'uefa.champions_league', 'esp.1', 'ger.1', 'fra.1'];
+            const results = await Promise.allSettled(LEAGUES.map(s => fetchMatchesFromESPN(s)));
+            const combined = [];
+            for (const r of results) {
+                if (r.status === 'fulfilled' && Array.isArray(r.value)) combined.push(...r.value);
             }
-            return null;
+            // De-duplicate by id, prioritise non-finished matches first
+            const seen = new Set();
+            const unique = [];
+            for (const m of combined) {
+                if (!seen.has(m.id)) { seen.add(m.id); unique.push(m); }
+            }
+            unique.sort((a, b) => {
+                const order = { 'IN_PLAY': 0, 'PAUSED': 0, 'SCHEDULED': 1, 'TIMED': 1, 'FINISHED': 2 };
+                return (order[a.status] ?? 3) - (order[b.status] ?? 3);
+            });
+            return unique.length > 0 ? unique : null;
         }
 
         // Fallback simulated matches (real UPL teams, plausible fixtures)
         // Fixtures are stored in localStorage so teams/scores don't change on refresh.
         // Status (SCHEDULED/IN_PLAY/FINISHED) is recomputed each time based on current time.
-        const FALLBACK_STORAGE_KEY = 'bbc_sport_fallback_v2';
+        const FALLBACK_STORAGE_KEY = 'bbc_sport_fallback_v3';
 
         function buildFallbackFixtures() {
             const today = new Date().toDateString();
@@ -6143,9 +6172,9 @@
             const now = Date.now();
             const fixtures = [];
             const usedPairs = new Set();
-            // Spread 8 matches across the day relative to current time
-            const offsets = [-3.5, -2, -0.5, 0.5, 2, 3.5, 5, 7];
-            for (let i = 0; i < 8; i++) {
+            // Spread 12 matches across the day relative to current time
+            const offsets = [-5, -3.5, -2, -1, -0.5, 0.5, 1.5, 2.5, 3.5, 5, 6.5, 8];
+            for (let i = 0; i < 12; i++) {
                 let h, a, attempts = 0;
                 do {
                     h = teams[Math.floor(Math.random() * teams.length)];
@@ -6210,6 +6239,16 @@
             return d.toLocaleString('uk-UA', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
         }
 
+        // Dispatcher for bet buttons — avoids double-quote breakage in innerHTML onclick
+        window._sportBetBtn = function(el) {
+            const { mid, side, team, odds } = el.dataset;
+            openSportBet(mid, side, team, parseFloat(odds));
+        };
+
+        function escAttr(s) {
+            return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
         function renderMatchCard(m) {
             const hn = m.homeTeam?.shortName || m.homeTeam?.name || '?';
             const an = m.awayTeam?.shortName || m.awayTeam?.name || '?';
@@ -6223,9 +6262,9 @@
                 : `<span style="color:var(--text2);font-size:13px;">${formatMatchDate(m.utcDate)}</span>`;
             const canBet = m.status === 'SCHEDULED' || m.status === 'TIMED' || live;
             const leagueLabel = m._league || '⚽ Football';
-            const matchIdJson = JSON.stringify(String(m.id));
-            const hnJson = JSON.stringify(hn);
-            const anJson = JSON.stringify(an);
+            const mid = escAttr(String(m.id));
+            const ehn = escAttr(hn);
+            const ean = escAttr(an);
             return `<div class="glass" style="padding:14px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
                     <span style="font-size:11px;color:var(--text2);">⚽ ${leagueLabel}</span>
@@ -6233,26 +6272,26 @@
                 </div>
                 <div style="display:flex;align-items:center;gap:8px;margin:10px 0;">
                     <div style="flex:1;text-align:center;">
-                        <img src="${hLogo}" alt="${hn}" style="width:44px;height:44px;object-fit:contain;border-radius:6px;background:#111;" onerror="this.src=getLogoFallbackSvg(${hnJson});this.onerror=null;">
+                        <img src="${hLogo}" alt="${ehn}" style="width:44px;height:44px;object-fit:contain;border-radius:6px;background:#111;" onerror="this.src=window._sportLogoFallback('${ehn}');this.onerror=null;">
                         <div style="font-size:11px;font-weight:700;margin-top:4px;word-break:break-word;">${hn}</div>
                     </div>
                     <div style="text-align:center;min-width:60px;">${scoreHtml}</div>
                     <div style="flex:1;text-align:center;">
-                        <img src="${aLogo}" alt="${an}" style="width:44px;height:44px;object-fit:contain;border-radius:6px;background:#111;" onerror="this.src=getLogoFallbackSvg(${anJson});this.onerror=null;">
+                        <img src="${aLogo}" alt="${ean}" style="width:44px;height:44px;object-fit:contain;border-radius:6px;background:#111;" onerror="this.src=window._sportLogoFallback('${ean}');this.onerror=null;">
                         <div style="font-size:11px;font-weight:700;margin-top:4px;word-break:break-word;">${an}</div>
                     </div>
                 </div>
                 ${canBet ? `
                 <div style="display:flex;gap:6px;margin-top:10px;">
-                    <button class="btn" style="flex:1;padding:8px 4px;font-size:11px;color:#000;" onclick="openSportBet(${matchIdJson},'home',${hnJson},${odds.home})">
-                        П1 <b>x${odds.home}</b>
-                    </button>
-                    <button class="btn" style="flex:1;padding:8px 4px;font-size:11px;color:#000;" onclick="openSportBet(${matchIdJson},'draw','Нічия',${odds.draw})">
-                        X <b>x${odds.draw}</b>
-                    </button>
-                    <button class="btn" style="flex:1;padding:8px 4px;font-size:11px;color:#000;" onclick="openSportBet(${matchIdJson},'away',${anJson},${odds.away})">
-                        П2 <b>x${odds.away}</b>
-                    </button>
+                    <button class="btn" style="flex:1;padding:8px 4px;font-size:11px;color:#000;"
+                        data-mid="${mid}" data-side="home" data-team="${ehn}" data-odds="${odds.home}"
+                        onclick="window._sportBetBtn(this)">П1 <b>x${odds.home}</b></button>
+                    <button class="btn" style="flex:1;padding:8px 4px;font-size:11px;color:#000;"
+                        data-mid="${mid}" data-side="draw" data-team="Нічия" data-odds="${odds.draw}"
+                        onclick="window._sportBetBtn(this)">X <b>x${odds.draw}</b></button>
+                    <button class="btn" style="flex:1;padding:8px 4px;font-size:11px;color:#000;"
+                        data-mid="${mid}" data-side="away" data-team="${ean}" data-odds="${odds.away}"
+                        onclick="window._sportBetBtn(this)">П2 <b>x${odds.away}</b></button>
                 </div>
                 ` : `<p style="font-size:11px;color:var(--text2);margin:8px 0 0;text-align:center;">Ставки недоступні для завершених матчів.</p>`}
             </div>`;
