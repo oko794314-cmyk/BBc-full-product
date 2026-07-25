@@ -19,9 +19,9 @@
         '4h':  4 * 60 * 60 * 1000,
         '1d':  24 * 60 * 60 * 1000
     };
-    // Price impact per 1 BB traded (0.5% per unit, capped at ±20% per trade)
-    const PRICE_IMPACT_PER_UNIT = 0.005;
-    const PRICE_IMPACT_MAX = 0.20;
+    // Price impact per 1 BB traded (0.02% per unit, capped at ±5% per trade)
+    const PRICE_IMPACT_PER_UNIT = 0.0002;
+    const PRICE_IMPACT_MAX = 0.05;
     const QUESTS = [
         { id: 'buy_100', title: 'Купити 100 BB Coin', key: 'totalBought', target: 100, reward: { bb: 10, title: 'Трейдер' } },
         { id: 'sell_50', title: 'Продати 50 BB Coin', key: 'totalSold', target: 50, reward: { bb: 8 } },
@@ -1281,12 +1281,21 @@
         const btn = document.getElementById('market-buy-btn');
         if (btn) btn.disabled = true;
         try {
+            // Sync USDT balance from server before transaction to avoid stale local state
+            const freshSnap = await getDb().ref(`users/${gameState.user}/usdt`).once('value');
+            const freshUsdt = num(freshSnap.val(), 0);
+            gameState.usdt = freshUsdt;
+            if (freshUsdt < usdtCost) {
+                alert(`Недостатньо USDT. Потрібно: ${usdtCost.toFixed(4)} USDT, у вас: ${freshUsdt.toFixed(4)} USDT`);
+                return;
+            }
             // Use a transaction to atomically deduct USDT to prevent race conditions
             let transactionSuccess = false;
             let newUsdtValue = 0;
             await getDb().ref(`users/${gameState.user}/usdt`).transaction(currentUsdtVal => {
+                if (currentUsdtVal === null) { return currentUsdtVal; } // not yet cached — let Firebase retry with server value
                 const current = num(currentUsdtVal, 0);
-                if (current < usdtCost) { return; } // abort transaction
+                if (current < usdtCost) { return; } // abort transaction — insufficient after concurrent deduction
                 newUsdtValue = Math.max(0, Math.round((current - usdtCost) * 1e6) / 1e6);
                 transactionSuccess = true;
                 return newUsdtValue;
@@ -1300,7 +1309,7 @@
             if (!bbResult.success) {
                 // Rollback USDT via transaction
                 await getDb().ref(`users/${gameState.user}/usdt`).transaction(v => Math.round((num(v, 0) + usdtCost) * 1e6) / 1e6);
-                gameState.usdt = currentUsdt;
+                gameState.usdt = freshUsdt;
                 alert('Помилка при купівлі BB. Спробуйте ще раз.');
                 return;
             }
