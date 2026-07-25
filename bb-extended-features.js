@@ -56,6 +56,7 @@
         { id: 'engineer',    name: 'Інженер',      icon: '⚙️', reward: 2.00, cooldown: 120,   xpGain: 12, xpRequired: 200, desc: 'Потрібно 200 XP.' },
         { id: 'chef',        name: 'Шеф-кухар',   icon: '👨‍🍳', reward: 1.50, cooldown: 90,    xpGain: 8,  xpRequired: 100, desc: 'Потрібно 100 XP.' },
         { id: 'pilot',       name: 'Пілот',        icon: '✈️', reward: 5.00, cooldown: 360,   xpGain: 30, xpRequired: 800, desc: 'Потрібно 800 XP. Найкращий заробіток.' },
+        { id: 'tiler',       name: 'Плиточник',    icon: '🪟', reward: 1.80, cooldown: 90,    xpGain: 10, xpRequired: 80,  desc: 'Потрібно 80 XP. Укладати плитку.' },
         { id: 'entrepreneur',name: 'Підприємець',  icon: '🤵', reward: 8.00, cooldown: 480,   xpGain: 40, xpRequired: 1500,desc: 'Потрібно 1500 XP. Максимальна виплата.' }
     ];
 
@@ -159,20 +160,489 @@
         renderWorkTab();
     };
 
+    /* ── Mini-game overlay ── */
+    function openMiniGameOverlay(html, css = '') {
+        let ov = document.getElementById('work-minigame-overlay');
+        if (!ov) {
+            ov = document.createElement('div');
+            ov.id = 'work-minigame-overlay';
+            ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:8000;display:flex;align-items:center;justify-content:center;padding:16px;';
+            document.body.appendChild(ov);
+        }
+        ov.style.display = 'flex';
+        ov.innerHTML = `<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;width:100%;max-width:400px;max-height:90vh;overflow-y:auto;">${html}</div>`;
+        if (css) {
+            let styleEl = document.getElementById('work-minigame-style');
+            if (!styleEl) {
+                styleEl = document.createElement('style');
+                styleEl.id = 'work-minigame-style';
+                document.head.appendChild(styleEl);
+            }
+            styleEl.textContent = css;
+        }
+    }
+    function closeMiniGameOverlay() {
+        const ov = document.getElementById('work-minigame-overlay');
+        if (ov) ov.style.display = 'none';
+    }
+
+    let _workMiniGameState = {};
+
     window.doWork = async function() {
         if (getWorkCooldownRemaining() > 0) { showGN('⏳ Ще рано!'); return; }
         const u = getUser(); if (!u) return;
         const prof = getCurrentProfession();
+        _workMiniGameState = { prof, u, penalties: 0, started: false };
+        openWorkMiniGame(prof.id);
+    };
+
+    async function finishWork(penalties = 0) {
+        closeMiniGameOverlay();
+        const { prof, u } = _workMiniGameState;
+        if (!prof || !u) return;
+        const penaltyAmount = Math.min(penalties * 0.10, prof.reward * 0.5);
+        const actualReward = Math.max(0.01, prof.reward - penaltyAmount);
         extState.work.xp += prof.xpGain;
         extState.work.lastWorkAt = Date.now();
-        extState.work.totalEarned = n(extState.work.totalEarned, 0) + prof.reward;
+        extState.work.totalEarned = n(extState.work.totalEarned, 0) + actualReward;
         await saveWorkState();
-        const newUsdt = await adjustUsdt(u, prof.reward);
-        await appendBankRecord({ type: 'work', currency: 'usdt', amount: prof.reward, note: `Робота: ${prof.name}`, ts: Date.now() });
-        showGN(`💵 +${prof.reward.toFixed(2)} USDT за роботу ${prof.icon}`);
+        await adjustUsdt(u, actualReward);
+        await appendBankRecord({ type: 'work', currency: 'usdt', amount: actualReward, note: `Робота: ${prof.name}${penalties > 0 ? ` (штраф -${penaltyAmount.toFixed(2)})` : ''}`, ts: Date.now() });
+        await incrementWeeklyProgress(u, 'weeklyWorkCount');
+        await incrementWeeklyProgress(u, 'weeklyUsdtEarned', actualReward);
+        const msg = penalties > 0
+            ? `💵 +${actualReward.toFixed(2)} USDT (штраф -${penaltyAmount.toFixed(2)} за ${penalties} помилок)`
+            : `💵 +${actualReward.toFixed(2)} USDT за роботу ${prof.icon}`;
+        showGN(msg);
         renderWorkTab();
         startWorkCooldownTick();
-    };
+    }
+
+    function openWorkMiniGame(jobId) {
+        switch (jobId) {
+            case 'programmer':   startProgrammerGame(); break;
+            case 'designer':     startDesignerGame(); break;
+            case 'trader':       startTraderGame(); break;
+            case 'doctor':       startDoctorGame(); break;
+            case 'pilot':        startPilotGame(); break;
+            case 'engineer':     startEngineerGame(); break;
+            case 'entrepreneur': startEntrepreneurGame(); break;
+            case 'chef':         startChefGame(); break;
+            case 'lawyer':       startLawyerGame(); break;
+            case 'tiler':        startTilerGame(); break;
+            case 'freelancer':   startFreelancerGame(); break;
+            default:             finishWork(0); break;
+        }
+    }
+
+    /* ── PROGRAMMER: Even/Odd ── */
+    function startProgrammerGame() {
+        const numbers = Array.from({ length: 6 }, () => Math.floor(Math.random() * 99) + 1);
+        let idx = 0, errors = 0;
+        function render() {
+            if (idx >= numbers.length) { finishWork(errors); return; }
+            const num = numbers[idx];
+            openMiniGameOverlay(`
+                <h3 style="color:var(--p);margin:0 0 4px;">🖥️ Програміст</h3>
+                <p style="color:var(--text2);font-size:12px;margin:0 0 12px;">Завдання ${idx + 1}/${numbers.length} • Помилки: ${errors}</p>
+                <div style="text-align:center;margin:20px 0;">
+                    <div style="font-size:4rem;font-weight:900;color:#fff;">${num}</div>
+                </div>
+                <p style="text-align:center;color:var(--text2);margin:0 0 16px;">Це число ПАРНЕ чи НЕПАРНЕ?</p>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                    <button class="btn" id="mg-even-btn" style="background:var(--g);color:#000;padding:14px;font-size:15px;">ПАРНЕ</button>
+                    <button class="btn" id="mg-odd-btn" style="background:var(--r);color:#fff;padding:14px;font-size:15px;">НЕПАРНЕ</button>
+                </div>
+            `);
+            document.getElementById('mg-even-btn').onclick = () => check(num % 2 === 0);
+            document.getElementById('mg-odd-btn').onclick = () => check(num % 2 !== 0);
+        }
+        function check(correct) {
+            if (!correct) errors++;
+            idx++;
+            render();
+        }
+        render();
+    }
+
+    /* ── DESIGNER: Draw frames ── */
+    function startDesignerGame() {
+        const orders = [
+            { shape: 'Квадрат', color: '#F0B90B', size: 'великий' },
+            { shape: 'Коло', color: '#0ECB81', size: 'малий' },
+            { shape: 'Прямокутник', color: '#F6465D', size: 'середній' }
+        ];
+        let idx = 0, errors = 0;
+        function render() {
+            if (idx >= orders.length) { finishWork(errors); return; }
+            const o = orders[idx];
+            openMiniGameOverlay(`
+                <h3 style="color:var(--p);margin:0 0 4px;">🎨 Дизайнер</h3>
+                <p style="color:var(--text2);font-size:12px;margin:0 0 12px;">Замовлення ${idx + 1}/${orders.length} • Помилки: ${errors}</p>
+                <p style="margin:0 0 12px;">Клієнт хоче: <b style="color:${o.color};">${o.shape} (${o.size})</b></p>
+                <div style="display:grid;gap:8px;">
+                    ${['Квадрат', 'Коло', 'Прямокутник'].map(s =>
+                        `<button class="btn mg-shape-btn" data-shape="${s}" style="padding:12px;">${s === 'Квадрат' ? '⬛' : s === 'Коло' ? '🔵' : '▬'} ${s}</button>`
+                    ).join('')}
+                </div>
+            `);
+            document.querySelectorAll('.mg-shape-btn').forEach(btn => {
+                btn.onclick = () => {
+                    if (btn.dataset.shape !== o.shape) errors++;
+                    idx++;
+                    render();
+                };
+            });
+        }
+        render();
+    }
+
+    /* ── TRADER: Buy/Sell ── */
+    function startTraderGame() {
+        const prices = [10, 12, 9, 14, 11, 16, 13];
+        let pos = 2, trades = 0, errors = 0, holding = false, buyPrice = 0;
+        function render() {
+            if (trades >= 3) { finishWork(errors); return; }
+            const current = prices[pos] || 12;
+            const trend = pos > 0 && prices[pos] > prices[pos - 1] ? '📈 Зростає' : '📉 Падає';
+            openMiniGameOverlay(`
+                <h3 style="color:var(--p);margin:0 0 4px;">📊 Трейдер</h3>
+                <p style="color:var(--text2);font-size:12px;margin:0 0 12px;">Угод закрито: ${trades}/3 • Помилки: ${errors}</p>
+                <div style="background:#111;border-radius:10px;padding:16px;text-align:center;margin-bottom:12px;">
+                    <div style="font-size:2.5rem;font-weight:900;color:#fff;">$${current}</div>
+                    <div style="font-size:12px;color:var(--text2);margin-top:4px;">${trend}</div>
+                    ${holding ? `<div style="font-size:11px;color:var(--g);margin-top:4px;">Куплено за $${buyPrice}</div>` : ''}
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+                    <button class="btn" id="mg-buy-btn" style="background:var(--g);color:#000;" ${holding ? 'disabled' : ''}>КУПИТИ</button>
+                    <button class="btn" id="mg-sell-btn" style="background:var(--r);color:#fff;" ${!holding ? 'disabled' : ''}>ПРОДАТИ</button>
+                    <button class="btn" id="mg-next-btn" style="background:#333;color:#fff;">ДАЛІ ⏩</button>
+                </div>
+            `);
+            document.getElementById('mg-buy-btn').onclick = () => {
+                holding = true;
+                buyPrice = current;
+                pos = Math.min(pos + 1, prices.length - 1);
+                render();
+            };
+            document.getElementById('mg-sell-btn').onclick = () => {
+                if (current < buyPrice) errors++;
+                holding = false;
+                trades++;
+                pos = Math.min(pos + 1, prices.length - 1);
+                render();
+            };
+            document.getElementById('mg-next-btn').onclick = () => {
+                pos = Math.min(pos + 1, prices.length - 1);
+                render();
+            };
+        }
+        render();
+    }
+
+    /* ── DOCTOR: Treat patients ── */
+    function startDoctorGame() {
+        const cases = [
+            { symptom: '🤒 Температура, кашель', correct: '💊 Парацетамол', options: ['💊 Парацетамол', '💉 Інсулін', '🩺 Операція'] },
+            { symptom: '🤕 Головний біль', correct: '💊 Ібупрофен', options: ['💉 Антибіотик', '💊 Ібупрофен', '🩹 Пластир'] },
+            { symptom: '🤢 Нудота, блювота', correct: '💊 Церукал', options: ['💊 Церукал', '💊 Парацетамол', '🩺 Операція'] },
+            { symptom: '🦴 Перелом руки', correct: '🩺 Операція', options: ['💊 Ібупрофен', '🩺 Операція', '💉 Вітамін C'] }
+        ];
+        let idx = 0, errors = 0;
+        function render() {
+            if (idx >= cases.length) { finishWork(errors); return; }
+            const c = cases[idx];
+            const opts = [...c.options].sort(() => Math.random() - 0.5);
+            openMiniGameOverlay(`
+                <h3 style="color:var(--p);margin:0 0 4px;">🏥 Лікар</h3>
+                <p style="color:var(--text2);font-size:12px;margin:0 0 12px;">Пацієнт ${idx + 1}/${cases.length} • Помилки: ${errors}</p>
+                <div style="background:#111;border-radius:10px;padding:16px;text-align:center;margin-bottom:12px;">
+                    <div style="font-size:1.5rem;">${c.symptom}</div>
+                    <div style="font-size:12px;color:var(--text2);margin-top:4px;">Оберіть лікування:</div>
+                </div>
+                <div style="display:grid;gap:8px;">
+                    ${opts.map(opt => `<button class="btn mg-opt-btn" data-val="${opt.replace(/"/g, '&quot;')}" style="padding:12px;text-align:left;">${opt}</button>`).join('')}
+                </div>
+            `);
+            document.querySelectorAll('.mg-opt-btn').forEach(btn => {
+                btn.onclick = () => {
+                    if (btn.dataset.val !== c.correct) errors++;
+                    idx++;
+                    render();
+                };
+            });
+        }
+        render();
+    }
+
+    /* ── PILOT: Flappy-style ── */
+    function startPilotGame() {
+        openMiniGameOverlay(`
+            <h3 style="color:var(--p);margin:0 0 4px;">✈️ Пілот</h3>
+            <p style="color:var(--text2);font-size:12px;margin:0 0 8px;">Торкайтеся/клікайте, щоб летіти. Не врізайтесь у перешкоди!</p>
+            <canvas id="pilot-canvas" width="360" height="280" style="border-radius:10px;display:block;margin:0 auto;touch-action:none;"></canvas>
+            <div id="pilot-status" style="text-align:center;color:var(--text2);font-size:12px;margin-top:8px;"></div>
+        `);
+        const canvas = document.getElementById('pilot-canvas');
+        const ctx = canvas.getContext('2d');
+        let gy = 140, vel = 0, score = 0, crashed = false, won = false;
+        const obstacles = [{ x: 400, gapY: 80 + Math.random() * 120 }];
+        let raf;
+        function addObstacle() { obstacles.push({ x: 400, gapY: 60 + Math.random() * 160 }); }
+        function jump() { if (!crashed && !won) vel = -5; }
+        const onTouchStart = e => { e.preventDefault(); jump(); };
+        canvas.addEventListener('click', jump);
+        canvas.addEventListener('touchstart', onTouchStart, { passive: false });
+        function cleanup() {
+            cancelAnimationFrame(raf);
+            canvas.removeEventListener('click', jump);
+            canvas.removeEventListener('touchstart', onTouchStart);
+        }
+        function drawFrame() {
+            ctx.fillStyle = '#0B0E11'; ctx.fillRect(0, 0, 360, 280);
+            ctx.fillStyle = '#F0B90B'; ctx.fillRect(60, gy - 14, 28, 20);
+            ctx.fillStyle = '#fff'; ctx.fillRect(80, gy - 12, 8, 8);
+            obstacles.forEach(ob => {
+                const gapH = 80;
+                ctx.fillStyle = '#1E2026';
+                ctx.strokeStyle = '#2B3139';
+                ctx.lineWidth = 2;
+                ctx.fillRect(ob.x, 0, 40, ob.gapY);
+                ctx.strokeRect(ob.x, 0, 40, ob.gapY);
+                ctx.fillRect(ob.x, ob.gapY + gapH, 40, 280);
+                ctx.strokeRect(ob.x, ob.gapY + gapH, 40, 280);
+            });
+            ctx.fillStyle = '#fff'; ctx.font = '14px monospace';
+            ctx.fillText(`Відстань: ${score}м / 300м`, 8, 20);
+            if (crashed) {
+                ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(0, 0, 360, 280);
+                ctx.fillStyle = '#F6465D'; ctx.font = 'bold 22px monospace';
+                ctx.fillText('АВАРІЯ!', 130, 130);
+                ctx.fillStyle = '#fff'; ctx.font = '13px monospace';
+                ctx.fillText('Повторіть спробу', 100, 155);
+            }
+            if (won) {
+                ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(0, 0, 360, 280);
+                ctx.fillStyle = '#0ECB81'; ctx.font = 'bold 20px monospace';
+                ctx.fillText('МАРШРУТ ПРОЙДЕНО!', 60, 130);
+            }
+        }
+        let frame = 0;
+        function tick() {
+            if (crashed || won) {
+                drawFrame();
+                if (crashed) {
+                    document.getElementById('pilot-status').innerHTML = '<button id="pilot-retry" class="btn" style="margin:4px auto;display:block;width:auto;padding:8px 16px;">Спробувати знову</button><button id="pilot-quit" class="btn" style="margin:4px auto;display:block;width:auto;padding:8px 16px;background:#333;">Здатись (штраф)</button>';
+                    document.getElementById('pilot-retry').onclick = () => { cleanup(); startPilotGame(); };
+                    document.getElementById('pilot-quit').onclick = () => { cleanup(); finishWork(2); };
+                } else {
+                    setTimeout(() => { cleanup(); finishWork(0); }, 1500);
+                }
+                return;
+            }
+            frame++;
+            vel += 0.35;
+            gy += vel;
+            obstacles.forEach(ob => { ob.x -= 3; });
+            if (frame % 90 === 0) addObstacle();
+            while (obstacles.length && obstacles[0].x < -50) obstacles.shift();
+            const gapH = 80;
+            for (const ob of obstacles) {
+                if (ob.x < 90 && ob.x + 40 > 60) {
+                    if (gy - 14 < ob.gapY || gy + 6 > ob.gapY + gapH) { crashed = true; break; }
+                }
+            }
+            if (gy < 0 || gy > 280) crashed = true;
+            if (!crashed) score = Math.min(300, Math.floor(frame * 0.5));
+            if (score >= 300) won = true;
+            drawFrame();
+            raf = requestAnimationFrame(tick);
+        }
+        tick();
+    }
+
+    /* ── ENGINEER: Gear matching ── */
+    function startEngineerGame() {
+        const gears = [
+            { size: 'Велика', speed: 'повільно', correct: 'Велика' },
+            { size: 'Мала', speed: 'швидко', correct: 'Мала' },
+            { size: 'Середня', speed: 'помірно', correct: 'Середня' }
+        ];
+        let idx = 0, errors = 0;
+        function render() {
+            if (idx >= gears.length) { finishWork(errors); return; }
+            const g = gears[idx];
+            openMiniGameOverlay(`
+                <h3 style="color:var(--p);margin:0 0 4px;">⚙️ Інженер</h3>
+                <p style="color:var(--text2);font-size:12px;margin:0 0 12px;">Механізм ${idx + 1}/${gears.length} • Помилки: ${errors}</p>
+                <div style="background:#111;border-radius:10px;padding:16px;text-align:center;margin-bottom:12px;">
+                    <div style="font-size:1.2rem;">Механізм крутиться <b style="color:var(--p);">${g.speed}</b></div>
+                    <div style="font-size:12px;color:var(--text2);margin-top:4px;">Яку шестерню підібрати?</div>
+                </div>
+                <div style="display:grid;gap:8px;">
+                    ${['Велика', 'Середня', 'Мала'].map(s => `<button class="btn mg-gear-btn" data-size="${s}" style="padding:12px;">${s === 'Велика' ? '⚙️⚙️⚙️' : s === 'Середня' ? '⚙️⚙️' : '⚙️'} ${s} шестерня</button>`).join('')}
+                </div>
+            `);
+            document.querySelectorAll('.mg-gear-btn').forEach(btn => {
+                btn.onclick = () => {
+                    if (btn.dataset.size !== g.correct) errors++;
+                    idx++;
+                    render();
+                };
+            });
+        }
+        render();
+    }
+
+    /* ── ENTREPRENEUR: Stock decisions ── */
+    function startEntrepreneurGame() {
+        const decisions = [
+            { scenario: '📈 Курс криптовалюти зростає на 15%', correct: 'Купити акції крипто-бізнесу', options: ['Купити акції крипто-бізнесу', 'Продати всі активи', 'Взяти кредит'] },
+            { scenario: '📉 Ринок нерухомості падає на 20%', correct: 'Почекати та спостерігати', options: ['Купити нерухомість зараз', 'Почекати та спостерігати', 'Продати наявне майно'] },
+            { scenario: '💼 Новий конкурент відкрив магазин поряд', correct: 'Зробити акції та знижки', options: ['Зробити акції та знижки', 'Ігнорувати конкурента', 'Закрити бізнес'] }
+        ];
+        let idx = 0, errors = 0;
+        function render() {
+            if (idx >= decisions.length) { finishWork(errors); return; }
+            const d = decisions[idx];
+            const opts = [...d.options].sort(() => Math.random() - 0.5);
+            openMiniGameOverlay(`
+                <h3 style="color:var(--p);margin:0 0 4px;">🤵 Підприємець</h3>
+                <p style="color:var(--text2);font-size:12px;margin:0 0 12px;">Рішення ${idx + 1}/${decisions.length} • Помилки: ${errors}</p>
+                <div style="background:#111;border-radius:10px;padding:16px;margin-bottom:12px;">
+                    <div style="font-size:1rem;">${d.scenario}</div>
+                    <div style="font-size:12px;color:var(--text2);margin-top:4px;">Що робити?</div>
+                </div>
+                <div style="display:grid;gap:8px;">
+                    ${opts.map(o => `<button class="btn mg-dec-btn" data-val="${o.replace(/"/g, '&quot;')}" style="padding:12px;text-align:left;font-size:12px;">${o}</button>`).join('')}
+                </div>
+            `);
+            document.querySelectorAll('.mg-dec-btn').forEach(btn => {
+                btn.onclick = () => {
+                    if (btn.dataset.val !== d.correct) errors++;
+                    idx++;
+                    render();
+                };
+            });
+        }
+        render();
+    }
+
+    /* ── CHEF: Pick ripe food ── */
+    function startChefGame() {
+        const rounds = [
+            { items: ['🍎 Стигле яблуко', '🥦 Свіжа броколі', '🍌 Гнилий банан', '🍅 Червоний томат', '🍋 Жовтий лимон'], rotten: ['🍌 Гнилий банан'] },
+            { items: ['🥝 Стиглий ківі', '🍇 Свіжий виноград', '🍊 Зелений апельсин', '🍓 Свіжа полуниця', '🥑 Гниле авокадо'], rotten: ['🍊 Зелений апельсин'] },
+            { items: ['🫐 Чорниця', '🍑 Персик', '🍐 Стигла груша', "🍍 Гнилий ананас", '🍆 Свіжий баклажан'], rotten: ["🍍 Гнилий ананас"] }
+        ];
+        let idx = 0, errors = 0;
+        function render() {
+            if (idx >= rounds.length) { finishWork(errors); return; }
+            const r = rounds[idx];
+            openMiniGameOverlay(`
+                <h3 style="color:var(--p);margin:0 0 4px;">👨‍🍳 Шеф-кухар</h3>
+                <p style="color:var(--text2);font-size:12px;margin:0 0 12px;">Раунд ${idx + 1}/${rounds.length} • Помилки: ${errors}</p>
+                <p style="margin:0 0 12px;color:var(--text2);">По столу їдуть продукти. Виберіть <b style="color:var(--r);">зіпсований</b>:</p>
+                <div style="display:grid;gap:6px;">
+                    ${[...r.items].sort(() => Math.random() - 0.5).map(item =>
+                        `<button class="btn mg-food-btn" data-val="${item.replace(/"/g, '&quot;')}" style="padding:10px;text-align:left;">${item}</button>`
+                    ).join('')}
+                </div>
+            `);
+            document.querySelectorAll('.mg-food-btn').forEach(btn => {
+                btn.onclick = () => {
+                    if (!r.rotten.includes(btn.dataset.val)) errors++;
+                    idx++;
+                    render();
+                };
+            });
+        }
+        render();
+    }
+
+    /* ── LAWYER: Legal quiz ── */
+    function startLawyerGame() {
+        const cases = [
+            { situation: '👨‍💼 Клієнт підписав контракт не читаючи. Він каже, що умови несправедливі.', correct: 'Консультація та аналіз контракту', options: ['Одразу подати до суду', 'Консультація та аналіз контракту', 'Ігнорувати проблему'] },
+            { situation: '🏠 Орендар не платить за квартиру 3 місяці.', correct: 'Надіслати офіційну претензію', options: ['Виселити фізично', 'Надіслати офіційну претензію', 'Знизити оренду'] },
+            { situation: '🚗 Клієнт потрапив у ДТП. Другий водій тікає.', correct: 'Зафіксувати все та викликати поліцію', options: ['Догнати другого водія', 'Зафіксувати все та викликати поліцію', 'Самостійно вирішити суперечку'] },
+            { situation: '💼 Роботодавець відмовляється виплачувати зарплату 2 місяці.', correct: 'Подати скаргу в інспекцію праці', options: ['Нічого не робити', 'Подати скаргу в інспекцію праці', 'Звільнитись без виплати'] }
+        ];
+        let idx = 0, errors = 0;
+        function render() {
+            if (idx >= cases.length) { finishWork(errors); return; }
+            const c = cases[idx];
+            const opts = [...c.options].sort(() => Math.random() - 0.5);
+            openMiniGameOverlay(`
+                <h3 style="color:var(--p);margin:0 0 4px;">⚖️ Юрист</h3>
+                <p style="color:var(--text2);font-size:12px;margin:0 0 12px;">Справа ${idx + 1}/${cases.length} • Помилки: ${errors}</p>
+                <div style="background:#111;border-radius:10px;padding:14px;margin-bottom:12px;font-size:13px;line-height:1.5;">
+                    ${c.situation}
+                </div>
+                <p style="margin:0 0 8px;color:var(--text2);font-size:12px;">Яка правильна юридична дія?</p>
+                <div style="display:grid;gap:8px;">
+                    ${opts.map(o => `<button class="btn mg-law-btn" data-val="${o.replace(/"/g, '&quot;')}" style="padding:12px;text-align:left;font-size:12px;">${o}</button>`).join('')}
+                </div>
+            `);
+            document.querySelectorAll('.mg-law-btn').forEach(btn => {
+                btn.onclick = () => {
+                    if (btn.dataset.val !== c.correct) errors++;
+                    idx++;
+                    render();
+                };
+            });
+        }
+        render();
+    }
+
+    /* ── TILER: Pick intact tiles ── */
+    function startTilerGame() {
+        const rounds = [
+            { tiles: ['🟦 Ціла', '🟦 Ціла', '💔 Тріщина', '🟦 Ціла', '🟦 Ціла'], broken: ['💔 Тріщина'] },
+            { tiles: ['🟦 Ціла', '💔 Скол', '🟦 Ціла', '🟦 Ціла', '💔 Тріщина'], broken: ['💔 Скол', '💔 Тріщина'] },
+            { tiles: ['🟦 Ціла', '🟦 Ціла', '🟦 Ціла', '💔 Тріщина', '🟦 Ціла'], broken: ['💔 Тріщина'] }
+        ];
+        let idx = 0, errors = 0;
+        function render() {
+            if (idx >= rounds.length) { finishWork(errors); return; }
+            const r = rounds[idx];
+            openMiniGameOverlay(`
+                <h3 style="color:var(--p);margin:0 0 4px;">🪟 Плиточник</h3>
+                <p style="color:var(--text2);font-size:12px;margin:0 0 12px;">Кладка ${idx + 1}/${rounds.length} • Помилки: ${errors}</p>
+                <p style="margin:0 0 12px;color:var(--text2);">Знайдіть і виберіть <b style="color:var(--r);">биту плитку</b>:</p>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                    ${[...r.tiles].sort(() => Math.random() - 0.5).map(t =>
+                        `<button class="btn mg-tile-btn" data-val="${t.replace(/"/g, '&quot;')}" style="padding:12px;font-size:1.2rem;">${t}</button>`
+                    ).join('')}
+                </div>
+            `);
+            document.querySelectorAll('.mg-tile-btn').forEach(btn => {
+                btn.onclick = () => {
+                    if (!r.broken.includes(btn.dataset.val)) {
+                        errors++;
+                        idx++;
+                        render();
+                        return;
+                    }
+                    btn.disabled = true;
+                    btn.style.opacity = '0.3';
+                    const remaining = Array.from(document.querySelectorAll('.mg-tile-btn:not([disabled])')).filter(b => r.broken.includes(b.dataset.val));
+                    if (remaining.length === 0) {
+                        idx++;
+                        render();
+                    }
+                };
+            });
+        }
+        render();
+    }
+
+    /* ── FREELANCER: Random job ── */
+    function startFreelancerGame() {
+        const pool = ['programmer', 'designer', 'trader', 'doctor', 'engineer', 'chef', 'lawyer', 'tiler'];
+        const rnd = pool[Math.floor(Math.random() * pool.length)];
+        openWorkMiniGame(rnd);
+    }
 
     function startWorkCooldownTick() {
         if (extState.workCooldownTimer) clearInterval(extState.workCooldownTimer);
