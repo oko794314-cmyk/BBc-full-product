@@ -221,6 +221,10 @@
         return `BB ${n(bbValue).toFixed(bbDigits)}<br><span style="color:#26A17B;">USDT ${n(usdtValue).toFixed(usdtDigits)}</span>`;
     }
 
+    function getLoanIssuedAmount(entry) {
+        return n(entry?.issuedAmount, n(entry?.amount));
+    }
+
     async function loadBankData() {
         const u = getUser(); if (!u) return;
         const snap = await db().ref(`users/${u}/bankData`).once('value');
@@ -325,7 +329,7 @@
         } else {
             await adjustUsdt(u, amount);
         }
-        await appendBankRecord({ type: 'loan', currency, amount, principal: amount, totalDue, note: `Кредит: ${amount.toFixed(2)} ${currency.toUpperCase()} → погасити ${totalDue.toFixed(2)}`, ts: Date.now() });
+        await appendBankRecord({ type: 'loan', currency, amount, issuedAmount: amount, totalDue, note: `Кредит: ${amount.toFixed(2)} ${currency.toUpperCase()} → погасити ${totalDue.toFixed(2)}`, ts: Date.now() });
         showGN(`✅ Отримано ${amount.toFixed(2)} ${currency.toUpperCase()}! Погасити: ${totalDue.toFixed(2)}`);
         renderBankTab();
     };
@@ -449,7 +453,7 @@
             acc[currency] += n(loan.remaining);
             return acc;
         }, { bb: 0, usdt: 0 });
-        const issuedTotals = getCurrencyTotals(items, 'loan', entry => n(entry.principal, n(entry.amount)));
+        const issuedTotals = getCurrencyTotals(items, 'loan', getLoanIssuedAmount);
         const repaidTotals = getCurrencyTotals(items, 'repay');
         const penaltyTotals = getCurrencyTotals(items, 'penalty');
         const totalWork = items.filter(h => h?.type === 'work').reduce((s, h) => s + n(h.amount), 0);
@@ -477,10 +481,11 @@
             activityItems.filter(h => (h.currency || 'bb') === currency).forEach(entry => {
                 const key = dateKey(n(entry.ts));
                 if (!perDay[key]) perDay[key] = { loan: 0, repay: 0, penalty: 0 };
-                const amount = entry.type === 'loan' ? n(entry.principal, n(entry.amount)) : n(entry.amount);
+                const amount = entry.type === 'loan' ? getLoanIssuedAmount(entry) : n(entry.amount);
                 perDay[key][entry.type] += amount;
             });
-            const rows = Object.entries(perDay).sort((a, b) => a[0].localeCompare(b[0])).slice(-(period === 'all' ? 20 : Math.max(days, 7)));
+            const chartWindowSize = period === 'all' ? 20 : Math.max(days, 7);
+            const rows = Object.entries(perDay).sort((a, b) => a[0].localeCompare(b[0])).slice(-chartWindowSize);
             if (!rows.length) {
                 return `<div class="bank-chart-card"><div class="bank-chart-title">${currency === 'bb' ? 'BB Coin' : 'USDT'}</div><div style="color:var(--text2); font-size:12px;">Немає операцій</div></div>`;
             }
