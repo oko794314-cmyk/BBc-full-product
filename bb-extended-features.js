@@ -1793,7 +1793,7 @@
         return MYSTERY_BOX_PRIZES[0];
     }
 
-    async function awardMysteryBox(username) {
+    async function awardMysteryBox(username, place = 1) {
         const prize = pickPrize();
         if (prize.type === 'coins') {
             await db().ref(`users/${username}/balance`).transaction(v => n(v, 0) + prize.amount);
@@ -1807,7 +1807,7 @@
                 return arr;
             });
         }
-        await db().ref(`users/${username}/pendingMysteryBox`).set({ prize, awardedAt: Date.now() });
+        await db().ref(`users/${username}/pendingMysteryBox`).set({ prize, place, awardedAt: Date.now() });
         return prize;
     }
 
@@ -1817,12 +1817,13 @@
         const box = snap.val();
         if (!box) return;
         await db().ref(`users/${u}/pendingMysteryBox`).remove();
-        showMysteryBoxReveal(box.prize);
+        showMysteryBoxReveal(box.prize, box.place || 1);
     }
 
-    function showMysteryBoxReveal(prize) {
+    function showMysteryBoxReveal(prize, place = 1) {
         const existing = document.getElementById('mystery-box-overlay');
         if (existing) existing.remove();
+        const placeLabel = place === 1 ? '1-е' : place === 2 ? '2-е' : place === 3 ? '3-є' : `${place}-е`;
         const ov = document.createElement('div');
         ov.id = 'mystery-box-overlay';
         ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:20px;';
@@ -1830,7 +1831,7 @@
         ov.innerHTML = `
             <div style="text-align:center;">
                 <div class="loot-open-anim revealed" style="font-size:5rem;">🎁</div>
-                <div style="font-size:20px;font-weight:900;color:var(--gold);margin:16px 0 8px;">🏆 ВИ ВИГРАЛИ ТУРНІР!</div>
+                <div style="font-size:20px;font-weight:900;color:var(--gold);margin:16px 0 8px;">🏆 Ви зайняли ${placeLabel} місце!</div>
                 <div style="font-size:13px;color:var(--text2);margin-bottom:20px;">Ваш приз — Містері Бокс</div>
                 <div style="font-size:3rem;margin:12px 0;">${typeIcons[prize.type] || '🎁'}</div>
                 <div style="font-size:22px;font-weight:900;color:var(--p);margin-bottom:6px;">${esc(prize.label)}</div>
@@ -1995,9 +1996,11 @@
             if (m && m.tid === tid) {
                 // Check if our active match was resolved by the other client
                 const bracket = t.bracket;
+                let trackedStillPending = false;
                 for (let ri = 0; ri < bracket.length; ri++) {
                     for (let mi = 0; mi < bracket[ri].length; mi++) {
                         const match = bracket[ri][mi];
+                        if (match.p1 === m.p1 && match.p2 === m.p2 && match.status === 'pending') trackedStillPending = true;
                         if (match.p1 === m.p1 && match.p2 === m.p2 && match.status === 'done') {
                             const u = getUser();
                             const resEl = document.getElementById('tournament-match-result');
@@ -2021,7 +2024,9 @@
                         }
                     }
                 }
-            } else if (!tournamentState.myMatchId) {
+                if (!trackedStillPending) tournamentState.myMatchId = null;
+            }
+            if (!tournamentState.myMatchId) {
                 checkMyTournamentMatch(t);
             }
         });
@@ -2064,10 +2069,19 @@
         }).join('');
 
         if (t.status === 'completed' && t.winner) {
+            const winners = t.winners || {};
+            const first = winners.first || t.winner;
+            const second = winners.second || null;
+            const third = winners.third || null;
+            const podiumRows = [first, second, third].filter(Boolean).map((name, idx) => {
+                const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉';
+                return `<div style="font-size:12px;color:var(--text);margin-top:4px;">${medal} ${idx + 1} місце: <b>${esc(name)}</b></div>`;
+            }).join('');
             el.innerHTML += `<div class="glass" style="text-align:center; border-color:var(--gold); margin-top:12px;">
                 <div style="font-size:1.6rem; margin-bottom:6px;">🏆</div>
-                <div style="font-size:14px; font-weight:900; color:var(--gold);">Переможець: ${esc(t.winner)}</div>
-                <div style="font-size:11px;color:var(--text2);margin-top:4px;">🎁 Нагороджений Містері Боксом!</div>
+                <div style="font-size:14px; font-weight:900; color:var(--gold);">Турнір завершено</div>
+                ${podiumRows}
+                <div style="font-size:11px;color:var(--text2);margin-top:6px;">🎁 Топ-3 гравці нагороджені Містері Боксами</div>
             </div>`;
         }
     }
@@ -2173,17 +2187,33 @@
         const updates = { bracket };
 
         if (tournamentDone) {
-            const winnerUser = lastRound[0].winner;
+            const winnersTop3 = collectTournamentTop3(bracket, raw.bracketPlayers || []);
+            const winnerUser = winnersTop3[0] || lastRound[0].winner;
             updates.status = 'completed';
             updates.winner = winnerUser;
+            updates.winners = {
+                first: winnersTop3[0] || null,
+                second: winnersTop3[1] || null,
+                third: winnersTop3[2] || null
+            };
             await db().ref(`users/${winnerUser}/tournamentsWon`).transaction(v => (n(v, 0) + 1));
+            for (let i = 0; i < winnersTop3.length; i++) {
+                const user = winnersTop3[i];
+                if (user) await awardMysteryBox(user, i + 1);
+            }
+            const podiumText = [
+                winnersTop3[0] ? `🥇 ${winnersTop3[0]}` : null,
+                winnersTop3[1] ? `🥈 ${winnersTop3[1]}` : null,
+                winnersTop3[2] ? `🥉 ${winnersTop3[2]}` : null
+            ].filter(Boolean).join(' • ');
             await db().ref('newsPosts').push({
                 title: `🏆 Турнір "${esc(raw.name)}" завершено!`,
-                text: `Переможець: ${esc(winnerUser)} 🎊 — нагороджений Містері Боксом!`,
+                text: podiumText
+                    ? `Призові місця: ${podiumText} 🎁 Топ-3 отримали Містері Бокси!`
+                    : `Переможець: ${esc(winnerUser)} 🎊 — нагороджений Містері Боксом!`,
                 type: 'tournament_result',
                 createdAt: Date.now()
             });
-            await awardMysteryBox(winnerUser);
         }
 
         await db().ref(`tournaments/${tid}`).update(updates);
@@ -2210,6 +2240,48 @@
                 if (nextMatch.p1 && nextMatch.p2) nextMatch.status = 'pending';
             }
         }
+    }
+
+    function collectTournamentTop3(bracket, bracketPlayers) {
+        const seeds = Array.isArray(bracketPlayers) ? bracketPlayers : [];
+        const seedPos = new Map(seeds.map((u, i) => [u, i]));
+        const stats = {};
+        const ensure = (u) => {
+            if (!u) return;
+            if (!stats[u]) stats[u] = { wins: 0, eliminatedRound: -1 };
+        };
+        for (let ri = 0; ri < bracket.length; ri++) {
+            for (const m of (bracket[ri] || [])) {
+                ensure(m.p1); ensure(m.p2); ensure(m.winner);
+                if (m.status === 'done' && m.winner) {
+                    stats[m.winner].wins += 1;
+                    const loser = m.winner === m.p1 ? m.p2 : m.p1;
+                    if (loser) {
+                        ensure(loser);
+                        stats[loser].eliminatedRound = Math.max(stats[loser].eliminatedRound, ri);
+                    }
+                } else if (m.status === 'bye' && m.winner) {
+                    stats[m.winner].wins += 1;
+                }
+            }
+        }
+        const finalMatch = bracket[bracket.length - 1]?.[0];
+        const champion = finalMatch?.winner || null;
+        if (!champion) return [];
+        const users = Object.keys(stats).filter(u => u !== champion);
+        users.sort((a, b) => {
+            const ea = stats[a].eliminatedRound;
+            const eb = stats[b].eliminatedRound;
+            if (ea !== eb) return eb - ea;
+            const wa = stats[a].wins;
+            const wb = stats[b].wins;
+            if (wa !== wb) return wb - wa;
+            const sa = seedPos.has(a) ? seedPos.get(a) : Number.MAX_SAFE_INTEGER;
+            const sb = seedPos.has(b) ? seedPos.get(b) : Number.MAX_SAFE_INTEGER;
+            if (sa !== sb) return sa - sb;
+            return a.localeCompare(b);
+        });
+        return [champion, ...users.slice(0, 2)];
     }
 
     /* ────────────────────────────────────────────────────── */
