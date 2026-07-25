@@ -2958,6 +2958,16 @@
         return getRealEstateHourlyProfit(definition, getRealEstateLevel(propertyId)) * elapsedHours;
     }
 
+    function getRealEstateCollectSummary(propertyIds, now = Date.now()) {
+        return propertyIds.reduce((summary, propertyId) => {
+            const pendingIncome = Number(getRealEstatePendingIncome(propertyId, now).toFixed(4));
+            if (pendingIncome <= 0) return summary;
+            summary.propertyIds.push(propertyId);
+            summary.total = Number((summary.total + pendingIncome).toFixed(4));
+            return summary;
+        }, { propertyIds: [], total: 0 });
+    }
+
     async function saveRealEstateState() {
         if (!gameState.user) return false;
         return saveUserFeatureStateFirebase(gameState.user, 'realEstate', realEstateState);
@@ -2992,7 +3002,8 @@
         const definition = getRealEstateDefinition(propertyId);
         const entry = realEstateState.properties[propertyId];
         if (!definition || !entry) return 0;
-        const pendingIncome = Number(getRealEstatePendingIncome(propertyId).toFixed(4));
+        const now = Date.now();
+        const pendingIncome = Number(getRealEstatePendingIncome(propertyId, now).toFixed(4));
         if (pendingIncome <= 0) {
             if (!silent) showGameNotification('⌛ Прибуток ще не накопичився.');
             return 0;
@@ -3002,7 +3013,7 @@
             if (!silent) alert('Не вдалося зарахувати прибуток.');
             return 0;
         }
-        realEstateState.properties[propertyId].lastCollectedAt = Date.now();
+        realEstateState.properties[propertyId].lastCollectedAt = now;
         await saveRealEstateState();
         gameState.balance = balanceResult.balance;
         updateCachedUser(gameState.user, { balance: balanceResult.balance });
@@ -3014,16 +3025,28 @@
 
     async function collectAllRealEstateIncome() {
         const propertyIds = Object.keys(realEstateState.properties || {});
-        let totalCollected = 0;
-        for (const propertyId of propertyIds) {
-            totalCollected += await collectRealEstateIncome(propertyId, true);
-        }
-        renderRealEstateTab();
-        if (totalCollected > 0) {
-            showGameNotification(`🏦 Загальний прибуток: ${totalCollected.toFixed(4)} BB`);
-        } else {
+        const now = Date.now();
+        const summary = getRealEstateCollectSummary(propertyIds, now);
+        if (summary.total <= 0) {
             showGameNotification('⌛ Поки що немає прибутку для збору.');
+            return;
         }
+        const balanceResult = await adjustUserBalanceFirebase(gameState.user, summary.total);
+        if (!balanceResult.success) {
+            alert('Не вдалося зібрати прибуток.');
+            return;
+        }
+        summary.propertyIds.forEach((propertyId) => {
+            if (realEstateState.properties[propertyId]) {
+                realEstateState.properties[propertyId].lastCollectedAt = now;
+            }
+        });
+        await saveRealEstateState();
+        gameState.balance = balanceResult.balance;
+        updateCachedUser(gameState.user, { balance: balanceResult.balance });
+        updateHeader();
+        renderRealEstateTab();
+        showGameNotification(`🏦 Загальний прибуток: ${summary.total.toFixed(4)} BB`);
     }
 
     async function upgradeRealEstate(propertyId) {
@@ -5512,11 +5535,12 @@
     // ===== LANGUAGE (i18n) =====
     const i18n = {
         ua: {
-            nav: ['⛏️ Майнінг', '💸 Переказ', '🎰 Казино', '👥 Друзі', '⚙️ Налаш.'],
+            // Text only: emoji icons stay in the nav markup itself.
+            nav: ['Майнінг', 'Переказ', 'Казино', 'Друзі', 'Налаш.'],
             headerBalance: 'BB COIN',
         },
         en: {
-            nav: ['⛏️ Mining', '💸 Transfer', '🎰 Casino', '👥 Friends', '⚙️ Settings'],
+            nav: ['Mining', 'Transfer', 'Casino', 'Friends', 'Settings'],
             headerBalance: 'BB COIN',
         }
     };
@@ -5525,10 +5549,13 @@
         localStorage.setItem('bbcLang', lang);
         document.getElementById('lang-btn-ua').classList.toggle('active', lang === 'ua');
         document.getElementById('lang-btn-en').classList.toggle('active', lang === 'en');
-        const tabs = document.querySelectorAll('.nav-tab');
+        const tabs = document.querySelectorAll('nav.app-nav .tab');
         const labels = i18n[lang]?.nav || i18n.ua.nav;
         tabs.forEach((tab, idx) => {
-            if (labels[idx]) tab.textContent = labels[idx];
+            if (!labels[idx]) return;
+            const label = tab.querySelector('span');
+            if (label) label.textContent = labels[idx];
+            tab.setAttribute('aria-label', labels[idx]);
         });
     }
 

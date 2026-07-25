@@ -955,6 +955,8 @@
         { id: 'REAL', name: 'RealtyMax',    icon: '🏠', sector: 'Нерухомість',basePrice: 28, volatility: 0.09 },
         { id: 'ENRG', name: 'EnergyPlus',   icon: '⚡', sector: 'Енергія',   basePrice: 15,  volatility: 0.11 }
     ];
+    // Stock prices update every 15 minutes to make gains/losses noticeable.
+    const STOCK_PRICE_INTERVAL_MS = 15 * 60 * 1000;
 
     const BUSINESS_CATALOG = [
         { id: 'cafe',       name: 'Кафе',            icon: '☕', price: 100,  dailyIncome: 5,   maxLevel: 10 },
@@ -969,6 +971,20 @@
         { id: 'bank_biz',   name: 'Мікрофінансова',   icon: '🏦', price: 3000, dailyIncome: 160, maxLevel: 10 }
     ];
 
+    function getBusinessDailyIncome(business, level) {
+        return Math.round(n(business?.dailyIncome, 0) * Math.max(1, n(level, 0)) * 100) / 100;
+    }
+
+    function getBusinessPendingIncome(business, owned, now = Date.now()) {
+        if (!business || !owned) return 0;
+        const level = Math.max(1, n(owned.level, 1));
+        const storedIncome = n(owned.pendingIncome, 0);
+        const lastCollectedAt = n(owned.lastCollectedAt, now);
+        const elapsedDays = Math.max(0, now - lastCollectedAt) / (24 * 3600 * 1000);
+        const generatedIncome = getBusinessDailyIncome(business, level) * elapsedDays;
+        return Math.round((storedIncome + generatedIncome) * 10000) / 10000;
+    }
+
     async function loadStocksData() {
         const u = getUser(); if (!u) return;
         const snap = await db().ref(`users/${u}/stocksData`).once('value');
@@ -982,21 +998,40 @@
         await db().ref(`users/${u}/stocksData`).set({ portfolio: extState.stocks.portfolio, businesses: extState.stocks.businesses });
     }
 
-    function getStockPrice(stockId) {
+    function getStockPrice(stockId, time = Date.now()) {
         const stock = STOCKS_CATALOG.find(s => s.id === stockId);
         if (!stock) return 0;
-        // Pseudo-random price that changes every hour.
-        // seed = current hour as integer; two large co-prime multipliers (1_000_003 and
+        // Pseudo-random price that changes every 15 minutes.
+        // seed = current interval as integer; two large co-prime multipliers (1_000_003 and
         // 9_999_991) mix the seed with each character of the stock ID so that each stock
         // follows a distinct price path. The modulus 10_000 normalises the result to a
         // [0, 1) range used to apply the stock's volatility factor.
-        const seed = Math.floor(Date.now() / (3600 * 1000));
+        const seed = Math.floor(time / STOCK_PRICE_INTERVAL_MS);
         let price = stock.basePrice;
         for (let i = 0; i < stockId.length; i++) {
             const h = (seed * 1000003 + stockId.charCodeAt(i) * 9999991) % 10000;
             price *= (1 + stock.volatility * (h / 10000 - 0.5));
         }
         return Math.max(0.01, Math.round(price * 100) / 100);
+    }
+
+    function getStockTrend(stockId, time = Date.now()) {
+        const current = getStockPrice(stockId, time);
+        const previous = getStockPrice(stockId, time - STOCK_PRICE_INTERVAL_MS);
+        const delta = Math.round((current - previous) * 100) / 100;
+        const deltaPct = previous > 0 ? (delta / previous) * 100 : 0;
+        return { current, previous, delta, deltaPct };
+    }
+
+    function formatSigned(value, digits = 2) {
+        const amount = n(value, 0);
+        return `${amount >= 0 ? '+' : ''}${amount.toFixed(digits)}`;
+    }
+
+    function renderStocksFeatureViews() {
+        renderStocksTab();
+        renderBusinessTab();
+        renderPortfolioTab();
     }
 
     window.switchStocksTab = function(panel) {
@@ -1015,15 +1050,18 @@
     function renderStocksTab() {
         const listEl = document.getElementById('stocks-list');
         if (!listEl) return;
+        const now = Date.now();
         listEl.innerHTML = STOCKS_CATALOG.map(s => {
-            const price = getStockPrice(s.id);
+            const { current: price, delta, deltaPct } = getStockTrend(s.id, now);
             const owned = n(extState.stocks.portfolio[s.id]?.shares, 0);
             const avgBuy = n(extState.stocks.portfolio[s.id]?.avgPrice, 0);
             const pnl = owned > 0 ? (price - avgBuy) * owned : 0;
+            const deltaColor = delta >= 0 ? 'var(--g)' : 'var(--r)';
+            const deltaLabel = `${formatSigned(delta)} BB (${formatSigned(deltaPct)}%)`;
             return `<div class="stock-card">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
                     <div><span style="font-size:1.4rem;">${esc(s.icon)}</span> <b style="color:var(--p);">${esc(s.id)}</b><br><span style="font-size:11px; color:var(--text2);">${esc(s.name)} • ${esc(s.sector)}</span></div>
-                    <div style="text-align:right;"><div style="font-size:16px; font-weight:900;">${price.toFixed(2)} BB</div>${owned > 0 ? `<div style="font-size:11px; color:${pnl >= 0 ? 'var(--g)' : 'var(--r)'};">${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}</div>` : ''}</div>
+                    <div style="text-align:right;"><div style="font-size:16px; font-weight:900;">${price.toFixed(2)} BB</div><div style="font-size:11px; color:${deltaColor};">${deltaLabel}</div>${owned > 0 ? `<div style="font-size:11px; color:${pnl >= 0 ? 'var(--g)' : 'var(--r)'};">${formatSigned(pnl)} BB</div>` : ''}</div>
                 </div>
                 ${owned > 0 ? `<div style="font-size:11px; color:var(--text2); margin-bottom:8px;">Моє: ${owned} акцій • Сер. купівля: ${avgBuy.toFixed(2)}</div>` : ''}
                 <div style="display:flex; gap:6px;">
@@ -1038,14 +1076,17 @@
         STOCKS_CATALOG.forEach(s => {
             const p = extState.stocks.portfolio[s.id];
             if (!p?.shares) return;
-            const price = getStockPrice(s.id);
+            const price = getStockPrice(s.id, now);
             totalValue += price * p.shares;
             totalPnl += (price - n(p.avgPrice)) * p.shares;
         });
         const valEl = document.getElementById('stocks-portfolio-value');
         const pnlEl = document.getElementById('stocks-portfolio-pnl');
         if (valEl) valEl.textContent = `${totalValue.toFixed(2)} BB`;
-        if (pnlEl) { pnlEl.textContent = `${totalPnl >= 0 ? '+' : ''}${totalPnl.toFixed(2)} BB`; pnlEl.style.color = totalPnl >= 0 ? 'var(--g)' : 'var(--r)'; }
+        if (pnlEl) {
+            pnlEl.textContent = `${formatSigned(totalPnl)} BB`;
+            pnlEl.style.color = totalPnl >= 0 ? 'var(--g)' : 'var(--r)';
+        }
     }
 
     window.buyStock = async function(stockId) {
@@ -1064,7 +1105,7 @@
         extState.stocks.portfolio[stockId] = { shares: newShares, avgPrice: Math.round(newAvg * 100) / 100 };
         await saveStocksData();
         showGN(`✅ Куплено ${qty} акцій ${stockId} за ${total.toFixed(2)} BB`);
-        renderStocksTab();
+        renderStocksFeatureViews();
     };
 
     window.sellStock = async function(stockId) {
@@ -1082,23 +1123,24 @@
         else extState.stocks.portfolio[stockId].shares = remaining;
         await saveStocksData();
         showGN(`✅ Продано ${qty} акцій ${stockId}: +${total.toFixed(2)} BB`);
-        renderStocksTab();
+        renderStocksFeatureViews();
     };
 
     function renderBusinessTab() {
         const listEl = document.getElementById('business-list');
         if (!listEl) return;
+        const now = Date.now();
         listEl.innerHTML = BUSINESS_CATALOG.map(b => {
             const owned = extState.stocks.businesses[b.id];
-            const level = owned ? n(owned.level, 1) : 0;
             const isOwned = !!owned;
-            const upgradePrice = isOwned ? Math.round(b.price * level * 0.5) : b.price;
-            const income = isOwned ? Math.round(b.dailyIncome * level * 100) / 100 : b.dailyIncome;
-            const pending = isOwned ? n(owned.pendingIncome, 0) : 0;
+            const ownedLevel = Math.max(1, n(owned?.level, 1));
+            const upgradePrice = isOwned ? Math.round(b.price * ownedLevel * 0.5) : b.price;
+            const income = isOwned ? getBusinessDailyIncome(b, ownedLevel) : b.dailyIncome;
+            const pending = isOwned ? getBusinessPendingIncome(b, owned, now) : 0;
             return `<div class="business-card ${isOwned ? 'owned' : ''}">
                 <div style="font-size:2rem; margin-bottom:6px;">${esc(b.icon)}</div>
                 <div style="font-size:13px; font-weight:900; color:var(--p); margin-bottom:4px;">${esc(b.name)}</div>
-                ${isOwned ? `<div class="pill success" style="margin-bottom:6px;">Рівень ${level}</div>` : ''}
+                ${isOwned ? `<div class="pill success" style="margin-bottom:6px;">Рівень ${ownedLevel}</div>` : ''}
                 <div style="font-size:11px; color:var(--text2);">💰 Дохід: ${income.toFixed(2)} BB/добу</div>
                 ${isOwned && pending > 0 ? `<div style="font-size:12px; color:var(--g); margin-top:4px;">💵 Накопичено: ${pending.toFixed(4)} BB</div>` : ''}
                 <div style="margin-top:10px; display:flex; gap:6px;">
@@ -1124,7 +1166,7 @@
         extState.stocks.businesses[bId] = { level: 1, boughtAt: Date.now(), lastCollectedAt: Date.now(), pendingIncome: 0 };
         await saveStocksData();
         showGN(`✅ ${b.icon} ${b.name} куплено!`);
-        renderBusinessTab();
+        renderStocksFeatureViews();
     };
 
     window.upgradeBusiness = async function(bId) {
@@ -1139,10 +1181,13 @@
         const r = await adjustUserBalanceFirebase(u, -upgradePrice);
         if (!r?.success) { showGN('❌ Помилка'); return; }
         if (typeof gameState !== 'undefined') { gameState.balance = r.balance; updateHeader(); }
+        const now = Date.now();
+        owned.pendingIncome = getBusinessPendingIncome(b, owned, now);
+        owned.lastCollectedAt = now;
         owned.level = level + 1;
         await saveStocksData();
         showGN(`⬆ ${b.name} покращено до рівня ${level + 1}!`);
-        renderBusinessTab();
+        renderStocksFeatureViews();
     };
 
     window.collectBusinessIncome = async function(bId) {
@@ -1151,18 +1196,16 @@
         const owned = extState.stocks.businesses[bId];
         if (!b || !owned) return;
         const now = Date.now();
-        const elapsed = (now - n(owned.lastCollectedAt, now)) / (24 * 3600 * 1000);
-        const level = n(owned.level, 1);
-        const income = Math.round(b.dailyIncome * level * elapsed * 10000) / 10000;
-        if (income < 0.0001) { showGN('❌ Ще мало накопичено'); return; }
-        const r = await adjustUserBalanceFirebase(u, income);
+        const pendingIncome = getBusinessPendingIncome(b, owned, now);
+        if (pendingIncome < 0.0001) { showGN('❌ Ще мало накопичено'); return; }
+        const r = await adjustUserBalanceFirebase(u, pendingIncome);
         if (!r?.success) { showGN('❌ Помилка'); return; }
         if (typeof gameState !== 'undefined') { gameState.balance = r.balance; updateHeader(); }
         owned.lastCollectedAt = now;
         owned.pendingIncome = 0;
         await saveStocksData();
-        showGN(`✅ Зібрано: +${income.toFixed(4)} BB з ${b.name}`);
-        renderBusinessTab();
+        showGN(`✅ Зібрано: +${pendingIncome.toFixed(4)} BB з ${b.name}`);
+        renderStocksFeatureViews();
     };
 
     function renderPortfolioTab() {
@@ -1175,7 +1218,7 @@
                 const p = extState.stocks.portfolio[s.id];
                 const price = getStockPrice(s.id);
                 const pnl = (price - n(p.avgPrice)) * n(p.shares);
-                return `<div class="activity-card"><b style="color:var(--p);">${esc(s.icon)} ${esc(s.id)}</b> — ${n(p.shares)} акцій <span style="color:${pnl >= 0 ? 'var(--g)' : 'var(--r)'};">${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)} BB</span></div>`;
+                return `<div class="activity-card"><b style="color:var(--p);">${esc(s.icon)} ${esc(s.id)}</b> — ${n(p.shares)} акцій • ${price.toFixed(2)} BB <span style="color:${pnl >= 0 ? 'var(--g)' : 'var(--r)'};">${formatSigned(pnl)} BB</span></div>`;
             }).join('');
         }
         if (bizEl) {
@@ -1183,7 +1226,8 @@
             if (!bizEntries.length) { bizEl.innerHTML = '<div style="color:var(--text2); font-size:13px;">Немає бізнесу</div>'; }
             else bizEl.innerHTML = bizEntries.map(b => {
                 const ow = extState.stocks.businesses[b.id];
-                return `<div class="activity-card"><b style="color:var(--p);">${esc(b.icon)} ${esc(b.name)}</b> Рівень ${n(ow.level,1)} | Дохід: ${(b.dailyIncome * n(ow.level,1)).toFixed(2)} BB/добу</div>`;
+                const pending = getBusinessPendingIncome(b, ow);
+                return `<div class="activity-card"><b style="color:var(--p);">${esc(b.icon)} ${esc(b.name)}</b> Рівень ${n(ow.level,1)} | Дохід: ${getBusinessDailyIncome(b, n(ow.level,1)).toFixed(2)} BB/добу | Накопичено: ${pending.toFixed(4)} BB</div>`;
             }).join('');
         }
     }
@@ -1208,7 +1252,7 @@
         await loadStocksData();
         renderWorkTab();
         renderBankTab();
-        renderStocksTab();
+        renderStocksFeatureViews();
         renderWeeklyQuest();
         startWorkCooldownTick();
     }
@@ -1228,7 +1272,7 @@
         if (typeof origHandleTabOpen === 'function') origHandleTabOpen(tabNum);
         if (tabNum === 16) { renderWorkTab(); }
         if (tabNum === 17) { renderBankTab(); }
-        if (tabNum === 18) { renderStocksTab(); }
+        if (tabNum === 18) { renderStocksFeatureViews(); }
         if (tabNum === 14) { renderWeeklyQuest(); }
     };
 

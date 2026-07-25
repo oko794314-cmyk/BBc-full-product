@@ -502,15 +502,17 @@ async function transferCoinsFirebase(fromUser, toUser, amount, feeOverride) {
         const db = firebase.database();
         const { amount: normalizedAmount, fee } = resolveTransferFee(amount, feeOverride);
         const totalAmount = Number((normalizedAmount + fee).toFixed(4));
-        
-        // Завантажити дані обох користувачів
-        const fromSnapshot = await db.ref(`users/${fromUser}`).once('value');
-        const toSnapshot = await db.ref(`users/${toUser}`).once('value');
-        
-        const fromData = fromSnapshot.val();
+
+        // Завантажити лише потрібні дані паралельно для швидшої передачі
+        const [fromBalanceSnapshot, toSnapshot] = await Promise.all([
+            db.ref(`users/${fromUser}/balance`).once('value'),
+            db.ref(`users/${toUser}`).once('value')
+        ]);
+
+        const fromBalance = firebaseNumber(fromBalanceSnapshot.val(), 0);
         const toData = toSnapshot.val();
-        
-        if (!fromData || !toData) {
+
+        if (!toData) {
             throw new Error('Користувач не знайдений');
         }
 
@@ -523,13 +525,13 @@ async function transferCoinsFirebase(fromUser, toUser, amount, feeOverride) {
         }
         
         // Перевірити баланс
-        if (firebaseNumber(fromData.balance, 0) < totalAmount) {
+        if (fromBalance < totalAmount) {
             throw new Error('Недостатньо коштів');
         }
-        
-        const newFromBalance = Number((firebaseNumber(fromData.balance, 0) - totalAmount).toFixed(4));
+
+        const newFromBalance = Number((fromBalance - totalAmount).toFixed(4));
         const newToBalance = Number((firebaseNumber(toData.balance, 0) + normalizedAmount).toFixed(4));
-        
+
         await db.ref().update({
             [`users/${fromUser}/balance`]: newFromBalance,
             [`users/${fromUser}/balanceUpdatedAt`]: firebase.database.ServerValue.TIMESTAMP,
@@ -575,8 +577,11 @@ async function transferCoinsFirebase(fromUser, toUser, amount, feeOverride) {
 async function updateMiningBalanceFirebase(username, newBalance) {
     try {
         const db = firebase.database();
-        await db.ref(`users/${username}/balance`).set(newBalance);
-        await db.ref(`users/${username}/miningUpdatedAt`).set(firebase.database.ServerValue.TIMESTAMP);
+        await db.ref(`users/${username}`).update({
+            balance: newBalance,
+            balanceUpdatedAt: firebase.database.ServerValue.TIMESTAMP,
+            miningUpdatedAt: firebase.database.ServerValue.TIMESTAMP
+        });
         updateSyncIndicator(true);
         return true;
     } catch (error) {
