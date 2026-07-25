@@ -1,60 +1,63 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 380">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 560">
   <defs>
-    <linearGradient id="fg" x1="0" y1="0" x2="0.4" y2="1">
+    <linearGradient id="wf" x1="0" y1="0" x2="0.3" y2="1">
       <stop offset="0%" stop-color="#ffffff"/>
-      <stop offset="100%" stop-color="#d0d0d0"/>
+      <stop offset="100%" stop-color="#e8e8e8"/>
     </linearGradient>
-    <linearGradient id="sg" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="#b0b0b0"/>
-      <stop offset="100%" stop-color="#888888"/>
+    <linearGradient id="gs" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#aaaaaa"/>
+      <stop offset="100%" stop-color="#777777"/>
     </linearGradient>
-    <filter id="drop">
-      <feDropShadow dx="3" dy="5" stdDeviation="7" flood-color="#000" flood-opacity="0.8"/>
-    </filter>
+    <linearGradient id="gd" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#999999"/>
+      <stop offset="100%" stop-color="#555555"/>
+    </linearGradient>
   </defs>
 
-  <!-- Background -->
-  <rect width="280" height="380" fill="#0d0d0d"/>
+  <rect width="400" height="560" fill="#0a0a0a"/>
 
-  <!--
-    BB monogram: two B letters stacked, second rotated 180°.
-    Top B: spine left, bumps right.
-    Bottom B: spine right, bumps left (180° rotation of top B).
-    Overlap in middle creates diamond negative space.
-  -->
+  <!-- ═══ TOP B (bumps point RIGHT) ═══ -->
+  <!-- Left outer shadow face (left hex side of top B) -->
+  <polygon points="90,140  160,60  160,140" fill="url(#gs)"/>
+  <polygon points="90,140  90,280  160,280  160,140" fill="url(#gd)"/>
 
-  <!-- === TOP B === -->
-  <!-- Left vertical bar -->
-  <rect x="68" y="42" width="28" height="158" rx="2" fill="url(#fg)" filter="url(#drop)"/>
-  <!-- Top horizontal bar -->
-  <rect x="68" y="42" width="88" height="22" rx="4" fill="url(#fg)" filter="url(#drop)"/>
-  <!-- Middle horizontal bar -->
-  <rect x="68" y="118" width="76" height="22" rx="4" fill="url(#fg)" filter="url(#drop)"/>
-  <!-- Bottom of top-B horizontal bar -->
-  <rect x="68" y="178" width="88" height="22" rx="4" fill="url(#fg)" filter="url(#drop)"/>
-  <!-- Top bump (right side, upper) -->
-  <path d="M156,42 Q205,42 205,86 Q205,129 156,140 L156,120 Q182,120 182,86 Q182,64 156,64 Z"
-        fill="url(#fg)" filter="url(#drop)"/>
-  <!-- Bottom bump (right side, lower) of top B -->
-  <path d="M144,140 Q200,140 200,158 Q200,178 144,178 L144,159 Q174,159 174,158 Q174,150 144,150 Z"
-        fill="url(#sg)" filter="url(#drop)"/>
+  <!-- Top B front face (white) — hexagon outline shape -->
+  <!-- Outer border of top B: top-left→top-right→upper-bump-tip→mid-right→lower-bump-tip→bottom-right→bottom-left -->
+  <polygon points="160,60  310,60  310,135  350,175  310,215  310,280  160,280" fill="url(#wf)"/>
 
-  <!-- === CENTER FOLD === -->
-  <line x1="50" y1="200" x2="230" y2="200" stroke="#000" stroke-width="4" opacity="0.6"/>
+  <!-- Cutout triangles (negative space that creates the B bumps) -->
+  <!-- Upper triangle cutout -->
+  <polygon points="195,75  300,75  300,135  260,135  195,100" fill="#0a0a0a"/>
+  <!-- Lower triangle cutout -->
+  <polygon points="195,175  260,175  300,215  300,265  195,265" fill="#0a0a0a"/>
 
-  <!-- === BOTTOM B (rotated 180° of top B) === -->
-  <!-- Right vertical bar -->
-  <rect x="184" y="180" width="28" height="158" rx="2" fill="url(#fg)" filter="url(#drop)"/>
-  <!-- Top of bottom-B horizontal bar (at top of bottom section) -->
-  <rect x="124" y="180" width="88" height="22" rx="4" fill="url(#fg)" filter="url(#drop)"/>
-  <!-- Middle horizontal bar -->
-  <rect x="136" y="240" width="76" height="22" rx="4" fill="url(#fg)" filter="url(#drop)"/>
-  <!-- Bottom horizontal bar -->
-  <rect x="124" y="316" width="88" height="22" rx="4" fill="url(#fg)" filter="url(#drop)"/>
-  <!-- Top bump (left side, upper of bottom B) -->
-  <path d="M124,180 Q75,180 75,224 Q75,267 124,278 L124,258 Q98,258 98,224 Q98,202 124,202 Z"
-        fill="url(#fg)" filter="url(#drop)"/>
-  <!-- Lower bump left of bottom B -->
-  <path d="M136,262 Q80,262 80,280 Q80,316 136,316 L136,297 Q106,297 106,280 Q106,272 136,272 Z"
-        fill="url(#sg)" filter="url(#drop)"/>
+  <!-- Vertical spine white bar (shared center line) -->
+  <rect x="160" y="60" width="35" height="440" fill="url(#wf)"/>
+
+  <!-- ═══ BOTTOM B (bumps point LEFT, 180° rotation of top B) ═══ -->
+  <!-- Right outer shadow face -->
+  <polygon points="310,280  240,360  240,280" fill="url(#gs)"/>
+  <polygon points="310,280  310,420  240,420  240,280" fill="url(#gd)"/>
+
+  <!-- Bottom shadow face below -->
+  <polygon points="310,420  240,500  160,500  90,420  90,280  160,280  160,420" fill="url(#gd)"/>
+
+  <!-- Bottom B front face (white) — mirror of top -->
+  <polygon points="240,280  90,280  90,355  50,395  90,435  90,500  240,500" fill="url(#wf)"/>
+
+  <!-- Upper triangle cutout bottom B -->
+  <polygon points="205,295  100,295  100,355  140,355  205,320" fill="#0a0a0a"/>
+  <!-- Lower triangle cutout bottom B -->
+  <polygon points="205,395  140,395  100,435  100,485  205,485" fill="#0a0a0a"/>
+
+  <!-- Shadow on top B right (right side faces of the B bumps) -->
+  <polygon points="310,60  350,100  350,175  310,135" fill="url(#gs)"/>
+  <polygon points="310,215  350,175  350,250  310,280" fill="url(#gd)"/>
+
+  <!-- Shadow on bottom B left -->
+  <polygon points="90,280  50,320  50,395  90,355" fill="url(#gs)"/>
+  <polygon points="90,435  50,395  50,460  90,500" fill="url(#gd)"/>
+
+  <!-- Center fold crease shadow -->
+  <rect x="90" y="272" width="220" height="16" fill="rgba(0,0,0,0.45)" rx="2"/>
 </svg>
