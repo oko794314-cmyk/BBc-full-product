@@ -327,7 +327,8 @@
         closeMiniGameOverlay();
         const { prof, u } = _workMiniGameState;
         if (!prof || !u) return;
-        const baseReward = Number.isFinite(Number(options.rewardOverride)) ? Number(options.rewardOverride) : prof.reward;
+        const rewardOverride = typeof options.rewardOverride === 'number' ? options.rewardOverride : Number(options.rewardOverride);
+        const baseReward = Number.isFinite(rewardOverride) ? rewardOverride : prof.reward;
         const penaltyAmount = Math.min(penalties * 0.10, baseReward * 0.5);
         const actualReward = Math.max(0.01, baseReward - penaltyAmount);
         extState.work.xp += prof.xpGain;
@@ -983,13 +984,22 @@
 
     /* ── TAX AGENT: Collect taxes from owned real estate ── */
     function startTaxAgentGame() {
+        const TAX_AGENT_BASE_REWARD = 0.25;
+        const TAX_AGENT_LEVEL_BONUS = 0.05;
+        const TAX_AGENT_PRICE_FACTOR = 0.002;
+        const TAX_AGENT_PROPERTY_CAP = 2.5;
         const catalog = typeof realEstateCatalog === 'undefined' ? [] : realEstateCatalog;
         const state = typeof realEstateState === 'undefined' ? { properties: {} } : realEstateState;
         const ownedEntries = catalog
             .filter(definition => state.properties?.[definition.id])
             .map(definition => {
                 const level = Math.max(1, n(state.properties[definition.id]?.level, 1));
-                const taxAmount = Number(Math.min(2.5, 0.25 + (level * 0.05) + (n(definition.price, 0) * 0.002)).toFixed(2));
+                // Higher-level and more expensive properties bring a larger tax payment,
+                // but each property is capped to keep the profession balanced.
+                const taxAmount = Number(Math.min(
+                    TAX_AGENT_PROPERTY_CAP,
+                    TAX_AGENT_BASE_REWARD + (level * TAX_AGENT_LEVEL_BONUS) + (n(definition.price, 0) * TAX_AGENT_PRICE_FACTOR)
+                ).toFixed(2));
                 return { definition, level, taxAmount };
             });
 
