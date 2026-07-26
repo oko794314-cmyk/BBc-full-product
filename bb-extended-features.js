@@ -1952,7 +1952,7 @@
         let pass = '';
         if (hasPass) { pass = prompt('Введіть пароль турніру:') || ''; }
         const tx = await db().ref(`tournaments/${tid}`).transaction(current => {
-            if (!current) return;
+            if (current === null) return null;
             if (current.status !== 'waiting') return;
             if (current.password && current.password !== pass) return;
             const players = current.players && typeof current.players === 'object' ? current.players : {};
