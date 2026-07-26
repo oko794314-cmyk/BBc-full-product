@@ -6096,6 +6096,7 @@
             return `data:image/svg+xml,${svg}`;
         }
 
+        // Deterministic string hash (djb2-style) so each match keeps stable odds across rerenders/refreshes.
         function hashMatchId(input) {
             const str = String(input || '');
             let hash = 0;

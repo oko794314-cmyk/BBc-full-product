@@ -1285,7 +1285,7 @@
                 loan.lastAutoRepayDate = today;
                 if (paid <= 0) {
                     await appendBankRecord({
-                        type: 'penalty',
+                        type: 'repay_attempt',
                         currency: loan.currency,
                         amount: 0,
                         note: `Авто-списання по кредиту #${lid.slice(-4)} не виконано (недостатньо коштів)`,
@@ -1999,6 +1999,7 @@
         const u = getUser(); if (!u) return;
         const snap = await db().ref(`tournaments/${tid}`).once('value');
         const t = snap.val();
+        // Support repository-specific delegated starter roles if they are configured on tournament object.
         const canStart = !!t && (t.host === u || !!t.startInitiators?.[u] || !!t.moderators?.[u] || !!t.admins?.[u]);
         if (!canStart) { showGN('❌ Тільки хост/уповноважений ініціатор може запустити'); return; }
         if (t.status !== 'waiting') { showGN('❌ Турнір уже запущено або завершено'); return; }
@@ -2368,6 +2369,7 @@
 
     async function awardTournamentTop3(tid, tournamentRaw, top3 = {}) {
         const lockRef = db().ref(`tournaments/${tid}/rewardsIssuedAt`);
+        // Returning undefined aborts transaction when rewards were already issued (idempotent one-time awarding).
         const lock = await lockRef.transaction(v => (v ? undefined : Date.now()));
         if (!lock.committed) return tournamentRaw?.awardedRewards || {};
         const awardedRewards = {};
