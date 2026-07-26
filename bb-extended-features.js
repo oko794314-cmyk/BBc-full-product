@@ -1913,15 +1913,42 @@
             createdAt: Date.now()
         });
         tournamentState.activeTournamentId = tid;
+        // Save to user profile so we can recover on page reload
+        await db().ref(`users/${u}/activeTournamentId`).set(tid);
         showGN(`✅ Турнір "${name}" створено!`);
         document.getElementById('tournament-name-input').value = '';
         document.getElementById('tournament-pass-input').value = '';
+        // Start watching for tournament to go active
+        watchTournamentStart(tid);
         loadTournaments();
     };
 
     window.loadTournaments = async function() {
+        const u = getUser();
         const listEl = document.getElementById('tournament-list');
         if (!listEl) return;
+
+        // First check if this user has an active tournament they should be watching
+        if (u) {
+            const activeTidSnap = await db().ref(`users/${u}/activeTournamentId`).once('value');
+            const activeTid = activeTidSnap.val();
+            if (activeTid) {
+                const tSnap = await db().ref(`tournaments/${activeTid}`).once('value');
+                const t = tSnap.val();
+                if (t && t.status === 'active' && t.players?.[u]) {
+                    // Tournament already started — redirect to bracket
+                    viewTournamentBracket(activeTid);
+                    return;
+                } else if (!t || t.status === 'completed') {
+                    // Stale reference — clean up
+                    await db().ref(`users/${u}/activeTournamentId`).remove();
+                } else if (t && t.status === 'waiting') {
+                    // Still waiting — make sure we are watching for start
+                    watchTournamentStart(activeTid);
+                }
+            }
+        }
+
         const snap = await db().ref('tournaments').orderByChild('status').equalTo('waiting').limitToLast(20).once('value');
         const raw = snap.val() || {};
         const tours = Object.values(raw).sort((a, b) => n(b.createdAt) - n(a.createdAt));
@@ -1931,12 +1958,14 @@
             const hasPass = !!t.password;
             const isHost = t.host === getUser();
             const joined = !!(t.players || {})[getUser()];
+            const playerNames = Object.keys(t.players || {}).map(p => esc(p)).join(', ');
             return `<div class="tournament-item ${isHost || joined ? 'my-tournament' : ''}">
-                <div>
+                <div style="flex:1; min-width:0;">
                     <div style="font-size:13px; font-weight:900; color:var(--p);">${esc(t.name)}</div>
-                    <div style="font-size:11px; color:var(--text2);">Хост: ${esc(t.host)} • ${pCount}/${MAX_PLAYERS} гравців ${hasPass ? '🔒' : ''}</div>
+                    <div style="font-size:11px; color:var(--text2);">Хост: ${esc(t.host)} • ${pCount}/${MAX_PLAYERS} ${hasPass ? '🔒' : ''}</div>
+                    <div style="font-size:10px; color:#555; margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">👥 ${playerNames}</div>
                 </div>
-                <div style="display:flex; gap:6px;">
+                <div style="display:flex; gap:6px; flex-shrink:0;">
                     ${!joined && pCount < MAX_PLAYERS ? `<button class="btn" style="padding:8px 12px; font-size:11px; width:auto;" onclick="joinTournament('${esc(t.id)}', ${hasPass})">ПРИЄДНАТИСЬ</button>` : ''}
                     ${(isHost || joined) && pCount >= 2 ? `<button class="btn" style="padding:8px 12px; font-size:11px; width:auto; background:var(--g); color:#000;" onclick="viewTournamentBracket('${esc(t.id)}')">СІТКА</button>` : ''}
                     ${isHost && t.status === 'waiting' ? `<button class="btn" style="padding:8px 12px; font-size:11px; width:auto; background:var(--gold); color:#000;" onclick="startTournament('${esc(t.id)}')">СТАРТ</button>` : ''}
@@ -1967,8 +1996,42 @@
             return;
         }
         showGN(`✅ Ви приєдналися до турніру "${t.name || ''}"`);
+        tournamentState.activeTournamentId = tid;
+        // Save to user profile so non-host players get redirected when start fires
+        await db().ref(`users/${u}/activeTournamentId`).set(tid);
+        // Watch for tournament to go active
+        watchTournamentStart(tid);
         loadTournaments();
     };
+
+    // Watches a waiting tournament; auto-opens bracket the moment it goes 'active'.
+    function watchTournamentStart(tid) {
+        if (!tid) return;
+        // Avoid duplicate watchers for the same tournament
+        if (watchTournamentStart._tid === tid) return;
+        watchTournamentStart._tid = tid;
+        const ref = db().ref(`tournaments/${tid}/status`);
+        ref.on('value', snap => {
+            const status = snap.val();
+            if (status === 'active') {
+                ref.off('value');
+                watchTournamentStart._tid = null;
+                // Only redirect if the tournament tab is currently visible
+                const casinoTournament = document.getElementById('casino-tournament');
+                if (casinoTournament && casinoTournament.style.display !== 'none') {
+                    viewTournamentBracket(tid);
+                } else {
+                    // Show notification; they'll see it when they open the tab
+                    if (typeof showGN === 'function') showGN('🏆 Турнір розпочато! Відкрий вкладку Турнір.');
+                }
+            } else if (status === 'completed') {
+                ref.off('value');
+                watchTournamentStart._tid = null;
+                const user = getUser();
+                if (user) db().ref(`users/${user}/activeTournamentId`).remove();
+            }
+        });
+    }
 
     async function syncGroupChatMembers(groupId, members = []) {
         if (!groupId || !members.length) return;
@@ -2069,14 +2132,50 @@
         const t = snap.val();
         if (!t) return;
         tournamentState.activeTournamentId = tid;
+        // Hide lobby, show bracket
+        const lobbySection = document.getElementById('tournament-lobby-section');
+        if (lobbySection) lobbySection.style.display = 'none';
         const bracketSection = document.getElementById('tournament-bracket-section');
         if (bracketSection) bracketSection.style.display = 'block';
         const titleEl = document.getElementById('tournament-title-display');
         if (titleEl) titleEl.textContent = `🏆 ${t.name}`;
+        // Show participant list
+        const playersEl = document.getElementById('tournament-players-display');
+        if (playersEl) {
+            const pNames = Object.keys(t.players || {}).map(p => esc(p)).join(' • ');
+            playersEl.textContent = `👥 Гравці: ${pNames}`;
+        }
+        // Show chat button if group chat exists
+        const chatBtn = document.getElementById('tournament-chat-btn');
+        if (chatBtn && t.groupChatId) {
+            chatBtn.style.display = 'inline-flex';
+            chatBtn.setAttribute('data-group', t.groupChatId);
+        }
         const normalized = { ...t, bracket: normalizeBracket(t.bracket) };
         renderBracketUI(normalized);
         checkMyTournamentMatch(normalized);
         setupTournamentListener(tid);
+    };
+
+    window.closeTournamentBracket = function() {
+        const lobbySection = document.getElementById('tournament-lobby-section');
+        if (lobbySection) lobbySection.style.display = 'block';
+        const bracketSection = document.getElementById('tournament-bracket-section');
+        if (bracketSection) bracketSection.style.display = 'none';
+        // Detach listener only if tournament is completed
+        if (!tournamentState.activeTournamentId) {
+            if (_tourneyListenerRef) { _tourneyListenerRef.off('value'); _tourneyListenerRef = null; _tourneyListenerTid = null; }
+        }
+        loadTournaments();
+    };
+
+    window.openTournamentChat = function() {
+        const chatBtn = document.getElementById('tournament-chat-btn');
+        const groupId = chatBtn?.getAttribute('data-group');
+        if (!groupId) return;
+        // Open group chat if the function exists
+        if (typeof openGroupChat === 'function') openGroupChat(groupId);
+        else if (typeof showGN === 'function') showGN('💬 Відкрий розділ Чат для спілкування');
     };
 
     function setupTournamentListener(tid) {
@@ -2092,6 +2191,13 @@
             if (!raw) return;
             const t = { ...raw, bracket: normalizeBracket(raw.bracket) };
             renderBracketUI(t);
+
+            // Update players display
+            const playersEl = document.getElementById('tournament-players-display');
+            if (playersEl) {
+                const pNames = Object.keys(raw.players || {}).map(p => esc(p)).join(' • ');
+                playersEl.textContent = `👥 Гравці: ${pNames}`;
+            }
 
             const m = tournamentState.myMatchId;
             if (m && m.tid === tid) {
@@ -2109,22 +2215,35 @@
                                 const icons = { rock: '✊', scissors: '✌️', paper: '🖐️' };
                                 const myChoice = u === m.p1 ? match.p1Choice : match.p2Choice;
                                 const oppChoice = u === m.p1 ? match.p2Choice : match.p1Choice;
-                                resEl.innerHTML = `${icons[myChoice] || '?'} vs ${icons[oppChoice] || '?'} → ${match.winner === u ? '<span style="color:var(--g);">✅ Ви виграли!</span>' : '<span style="color:var(--r);">❌ Ви програли</span>'}`;
+                                const won = match.winner === u;
+                                resEl.innerHTML = `${icons[myChoice] || '?'} vs ${icons[oppChoice] || '?'} → ${won
+                                    ? '<span style="color:var(--g);">✅ Ви виграли!</span>'
+                                    : '<span style="color:var(--r);">❌ Ви програли</span>'}`;
                             }
                             tournamentState.myMatchId = null;
-                            setTimeout(() => {
-                                if (t.status === 'completed' && t.winner === getUser()) {
-                                    checkPendingMysteryBox();
-                                } else {
-                                    viewTournamentBracket(tid);
-                                }
-                            }, 2000);
+                            if (t.status === 'completed') {
+                                // Clear activeTournamentId for all players
+                                const u2 = getUser();
+                                if (u2) db().ref(`users/${u2}/activeTournamentId`).remove();
+                                if (_tourneyListenerRef) { _tourneyListenerRef.off('value'); _tourneyListenerRef = null; _tourneyListenerTid = null; }
+                                setTimeout(() => {
+                                    if (t.winner === getUser()) checkPendingMysteryBox();
+                                    else viewTournamentBracket(tid);
+                                }, 2500);
+                            } else {
+                                setTimeout(() => viewTournamentBracket(tid), 2000);
+                            }
                             return;
                         }
                     }
                 }
             } else if (!tournamentState.myMatchId) {
                 checkMyTournamentMatch(t);
+            }
+
+            if (raw.status === 'completed') {
+                const u = getUser();
+                if (u) db().ref(`users/${u}/activeTournamentId`).remove();
             }
         });
     }
@@ -2134,7 +2253,9 @@
         if (!el) return;
         const bracket = t.bracket || [];
         const u = getUser();
-        const stageNames = ['1/8', '1/4 Фінал', 'Півфінал', 'Фінал'];
+        // Stage names: computed relative to the end of the bracket so the last round is always "Фінал"
+        const stageNamesFromEnd = ['Фінал', 'Півфінал', '1/4 Фінал', '1/8', '1/16', '1/32'];
+        const totalRounds = bracket.length;
         const getChoiceEmoji = (choice) => ({ rock: '✊', scissors: '✌️', paper: '🖐️' }[choice] || '❔');
         const renderMatchMeta = (match) => {
             if (match.status === 'done') {
@@ -2145,7 +2266,7 @@
                 return `${resultLine}${choicesLine}`;
             }
             if (match.status === 'pending' && match.p1 && match.p2) {
-                return `<div style="font-size:9px;color:var(--text2);text-align:center;">⚔️ Триває...</div>`;
+                return `<div style="font-size:9px;color:var(--gold);text-align:center;font-weight:900;">⚔️ Триває...</div>`;
             }
             if (match.status === 'queued' && match.p1 && match.p2) {
                 return `<div style="font-size:9px;color:var(--text2);text-align:center;">⏳ Очікує черги</div>`;
@@ -2170,14 +2291,19 @@
         }
 
         el.innerHTML = spectatorBanner + bracket.map((round, ri) => {
+            const stageName = stageNamesFromEnd[totalRounds - 1 - ri] || `Раунд ${ri + 1}`;
             return `<div style="margin-bottom:14px;">
-                <div class="bracket-stage-label">${stageNames[ri] || `Раунд ${ri + 1}`}</div>
-                ${round.map(m => `<div class="bracket-match">
-                    <div class="bracket-player ${m.winner === m.p1 ? 'winner' : (m.winner && m.p2 ? 'loser' : '')}">${esc(m.p1 || '—')}</div>
-                    <div style="font-size:10px;color:#555;text-align:center;margin:2px 0;">vs</div>
-                    <div class="bracket-player ${m.winner === m.p2 ? 'winner' : (m.winner && m.p2 ? 'loser' : '')}">${esc(m.p2 || (m.status === 'waiting' ? '?' : 'BYE'))}</div>
-                    ${renderMatchMeta(m)}
-                </div>`).join('')}
+                <div class="bracket-stage-label">${stageName}</div>
+                ${round.map(m => {
+                    const isMyMatch = m.p1 === u || m.p2 === u;
+                    const borderStyle = isMyMatch && m.status === 'pending' ? 'border-color:rgba(240,185,11,0.5);' : '';
+                    return `<div class="bracket-match" style="${borderStyle}">
+                        <div class="bracket-player ${m.winner === m.p1 ? 'winner' : (m.winner && m.p2 ? 'loser' : '')}">${esc(m.p1 || '—')}</div>
+                        <div style="font-size:10px;color:#555;text-align:center;margin:2px 0;">vs</div>
+                        <div class="bracket-player ${m.winner === m.p2 ? 'winner' : (m.winner && m.p2 ? 'loser' : '')}">${esc(m.p2 || (m.status === 'waiting' ? '?' : 'BYE'))}</div>
+                        ${renderMatchMeta(m)}
+                    </div>`;
+                }).join('')}
             </div>`;
         }).join('');
 
@@ -2186,6 +2312,7 @@
                 <div style="font-size:1.6rem; margin-bottom:6px;">🏆</div>
                 <div style="font-size:14px; font-weight:900; color:var(--gold);">Переможець: ${esc(t.winner)}</div>
                 <div style="font-size:11px;color:var(--text2);margin-top:4px;">🎁 Нагороджений Містері Боксом!</div>
+                <button class="btn" onclick="closeTournamentBracket()" style="margin-top:12px; background:var(--gold); color:#000; font-size:11px;">← ДО СПИСКУ</button>
             </div>`;
         }
     }
@@ -3048,6 +3175,7 @@
         minesState.active = false;
         tournamentState.activeTournamentId = null;
         tournamentState.myMatchId = null;
+        watchTournamentStart._tid = null;
         if (_tourneyListenerRef) { _tourneyListenerRef.off('value'); _tourneyListenerRef = null; _tourneyListenerTid = null; }
     }
 

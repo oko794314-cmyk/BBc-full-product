@@ -950,7 +950,10 @@
                     <!-- Результат -->
                     <div id="rps-online-result-section" style="display:none;">
                         <div id="rps-online-result-msg" class="rps-online-result"></div>
-                        <button class="btn" onclick="rpsOnlineCloseMatch()" style="background:var(--p); color:#000; margin-top:8px; font-size:11px;">ЗАКРИТИ</button>
+                        <div style="display:flex; gap:8px; margin-top:10px;">
+                            <button class="btn" onclick="rpsOnlinePlayAgain()" style="background:var(--g); color:#000; flex:1; font-size:11px;">🔄 ГРАТИ ЩЕ</button>
+                            <button class="btn" onclick="rpsOnlineCloseMatch()" style="background:#1a1a1a; border:1px solid #444; color:#aaa; flex:1; font-size:11px;">🚪 ВИЙТИ</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -959,28 +962,37 @@
 
         <!-- Турнір КНП -->
         <div id="casino-tournament" style="display:none;">
-            <div class="glass">
-                <p style="font-size:12px; color:var(--p); margin:0 0 10px; font-weight:900; letter-spacing:1px;">🏆 ТУРНІР КНП</p>
-                <div id="tournament-my-status"></div>
-                <div id="tournament-create-section">
-                    <input type="text" id="tournament-name-input" placeholder="Назва турніру..." style="margin-bottom:8px;">
-                    <input type="password" id="tournament-pass-input" placeholder="Пароль (не обов'язково)" style="margin-bottom:8px;">
-                    <button class="btn" onclick="createTournament()" style="margin-bottom:12px;">➕ СТВОРИТИ ТУРНІР</button>
+            <div id="tournament-lobby-section">
+                <div class="glass">
+                    <p style="font-size:12px; color:var(--p); margin:0 0 10px; font-weight:900; letter-spacing:1px;">🏆 ТУРНІР КНП</p>
+                    <div id="tournament-my-status"></div>
+                    <div id="tournament-create-section">
+                        <input type="text" id="tournament-name-input" placeholder="Назва турніру..." style="margin-bottom:8px;">
+                        <input type="password" id="tournament-pass-input" placeholder="Пароль (не обов'язково)" style="margin-bottom:8px;">
+                        <button class="btn" onclick="createTournament()" style="margin-bottom:12px;">➕ СТВОРИТИ ТУРНІР</button>
+                    </div>
                 </div>
-            </div>
-            <div class="glass">
-                <p style="font-size:11px; color:var(--text2); margin:0 0 10px; letter-spacing:1px; text-transform:uppercase;">ВІДКРИТІ ТУРНІРИ</p>
-                <div id="tournament-list"></div>
-                <button class="btn secondary-btn" onclick="loadTournaments()" style="margin-top:10px; font-size:11px;">🔄 ОНОВИТИ</button>
+                <div class="glass">
+                    <p style="font-size:11px; color:var(--text2); margin:0 0 10px; letter-spacing:1px; text-transform:uppercase;">ВІДКРИТІ ТУРНІРИ</p>
+                    <div id="tournament-list"></div>
+                    <button class="btn secondary-btn" onclick="loadTournaments()" style="margin-top:10px; font-size:11px;">🔄 ОНОВИТИ</button>
+                </div>
             </div>
             <div id="tournament-bracket-section" style="display:none;">
                 <div class="glass">
-                    <p style="font-size:12px; color:var(--p); margin:0 0 12px; font-weight:900;">🏟️ СІТКА ТУРНІРУ</p>
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+                        <p style="font-size:12px; color:var(--p); margin:0; font-weight:900;">🏟️ СІТКА ТУРНІРУ</p>
+                        <div style="display:flex; gap:6px;">
+                            <button id="tournament-chat-btn" class="btn" onclick="openTournamentChat()" style="display:none; padding:6px 10px; font-size:11px; width:auto; background:var(--card); border-color:var(--border); color:var(--text2);">💬 ЧАТ</button>
+                            <button class="btn" onclick="closeTournamentBracket()" style="padding:6px 10px; font-size:11px; width:auto; background:#1a1a1a; border:1px solid #333; color:#aaa;">✕ НАЗАД</button>
+                        </div>
+                    </div>
                     <div id="tournament-title-display" style="font-size:14px; color:var(--gold); margin-bottom:8px;"></div>
+                    <div id="tournament-players-display" style="font-size:11px; color:var(--text2); margin-bottom:10px;"></div>
                     <div id="tournament-bracket"></div>
                     <div id="tournament-match-area" style="display:none; margin-top:15px;">
                         <div class="glass" style="text-align:center; background:rgba(240,185,11,0.05); border-color:rgba(240,185,11,0.3);">
-                            <p style="margin:0 0 8px; font-size:11px; color:var(--gold); letter-spacing:2px;">ВАШ МАТ</p>
+                            <p style="margin:0 0 8px; font-size:11px; color:var(--gold); letter-spacing:2px;">⚔️ ВАШ МАТ</p>
                             <div id="tournament-match-vs" style="font-size:13px; color:var(--text); margin-bottom:12px;"></div>
                             <div style="display:flex; gap:8px; justify-content:center;">
                                 <button class="rps-choice-btn" onclick="tournamentChoose('rock')">✊<br><small style="font-size:8px;">КАМІНЬ</small></button>
@@ -5293,6 +5305,25 @@
         document.getElementById('rps-online-opponent').value = '';
         document.getElementById('rps-online-bet').value = '';
     }
+
+    async function rpsOnlinePlayAgain() {
+        const matchData = rpsOnlineState.matchData;
+        const myUser = gameState.user;
+        const opponent = matchData
+            ? (matchData.player1 === myUser ? matchData.player2 : matchData.player1)
+            : null;
+        const bet = matchData ? matchData.bet : null;
+        await rpsOnlineCloseMatch();
+        if (opponent) {
+            const oppEl = document.getElementById('rps-online-opponent');
+            if (oppEl) oppEl.value = opponent;
+        }
+        if (bet) {
+            const betEl = document.getElementById('rps-online-bet');
+            if (betEl) betEl.value = Number(bet).toFixed(2);
+        }
+    }
+    window.rpsOnlinePlayAgain = rpsOnlinePlayAgain;
 
     function switchCasinoTab(type) {
         document.getElementById('casino-roulette').style.display = type === 'roulette' ? 'block' : 'none';
