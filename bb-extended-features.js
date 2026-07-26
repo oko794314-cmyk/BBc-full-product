@@ -1995,12 +1995,20 @@
         return res.groupId;
     }
 
+    function canUserStartTournament(tournament, user) {
+        if (!tournament || !user) return false;
+        return tournament.host === user
+            || !!tournament.startInitiators?.[user]
+            || !!tournament.moderators?.[user]
+            || !!tournament.admins?.[user];
+    }
+
     window.startTournament = async function(tid) {
         const u = getUser(); if (!u) return;
         const snap = await db().ref(`tournaments/${tid}`).once('value');
         const t = snap.val();
         // Support repository-specific delegated starter roles if they are configured on tournament object.
-        const canStart = !!t && (t.host === u || !!t.startInitiators?.[u] || !!t.moderators?.[u] || !!t.admins?.[u]);
+        const canStart = canUserStartTournament(t, u);
         if (!canStart) { showGN('❌ Тільки хост/уповноважений ініціатор може запустити'); return; }
         if (t.status !== 'waiting') { showGN('❌ Турнір уже запущено або завершено'); return; }
         const players = Object.keys(t.players || {});
@@ -2126,6 +2134,7 @@
         const bracket = t.bracket || [];
         const u = getUser();
         const stageNames = ['1/8', '1/4 Фінал', 'Півфінал', 'Фінал'];
+        const getChoiceEmoji = (choice) => ({ rock: '✊', scissors: '✌️', paper: '🖐️' }[choice] || '❔');
 
         // Spectator live-match banner (shows who is playing but NOT their choice)
         const activeMatches = [];
@@ -2151,7 +2160,7 @@
                     <div style="font-size:10px;color:#555;text-align:center;margin:2px 0;">vs</div>
                     <div class="bracket-player ${m.winner === m.p2 ? 'winner' : (m.winner && m.p2 ? 'loser' : '')}">${esc(m.p2 || (m.status === 'waiting' ? '?' : 'BYE'))}</div>
                     ${m.status === 'done' ? `<div style="font-size:9px;color:var(--text2);text-align:center;">🏆 ${esc(m.winner)}</div>
-                    ${m.p1Choice && m.p2Choice ? `<div style="font-size:9px;color:var(--text2);text-align:center;">${esc(m.p1)} ${m.p1Choice === 'rock' ? '✊' : m.p1Choice === 'scissors' ? '✌️' : '🖐️'} vs ${m.p2Choice === 'rock' ? '✊' : m.p2Choice === 'scissors' ? '✌️' : '🖐️'} ${esc(m.p2 || '')}</div>` : ''}` : ''}
+                    ${m.p1Choice && m.p2Choice ? `<div style="font-size:9px;color:var(--text2);text-align:center;">${esc(m.p1)} ${getChoiceEmoji(m.p1Choice)} vs ${getChoiceEmoji(m.p2Choice)} ${esc(m.p2 || '')}</div>` : ''}` : ''}
                     ${m.status === 'pending' && m.p1 && m.p2 ? `<div style="font-size:9px;color:var(--text2);text-align:center;">⚔️ Триває...</div>` : ''}
                     ${m.status === 'queued' && m.p1 && m.p2 ? `<div style="font-size:9px;color:var(--text2);text-align:center;">⏳ Очікує черги</div>` : ''}
                 </div>`).join('')}
@@ -2284,7 +2293,7 @@
             const awarded = await awardTournamentTop3(tid, raw, top3);
             const top3Text = Object.entries(top3)
                 .sort((a, b) => n(a[0], 99) - n(b[0], 99))
-                .map(([place, user]) => `${place}. ${esc(user)}${awarded?.[place]?.rarity ? ` — 🎁 ${awarded[place].rarity}` : ''}`)
+                .map(([place, user]) => `${place}. ${esc(user)}${awarded?.[place]?.rarity ? ` — 🎁 ${awarded?.[place]?.rarity}` : ''}`)
                 .join(' • ');
             await db().ref('newsPosts').push({
                 title: `🏆 Турнір "${esc(raw.name)}" завершено!`,
