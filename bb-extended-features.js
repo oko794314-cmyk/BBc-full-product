@@ -2394,7 +2394,11 @@
         const lockRef = db().ref(`tournaments/${tid}/rewardsIssuedAt`);
         // Returning undefined aborts transaction when rewards were already issued (idempotent one-time awarding).
         const lock = await lockRef.transaction(v => (v ? undefined : Date.now()));
-        if (!lock.committed) return tournamentRaw?.awardedRewards || {};
+        if (!lock.committed) {
+            if (tournamentRaw?.awardedRewards) return tournamentRaw.awardedRewards;
+            const existingRewardsSnap = await db().ref(`tournaments/${tid}/awardedRewards`).once('value');
+            return existingRewardsSnap.val() || {};
+        }
         const awardedRewards = {};
         for (const place of [1, 2, 3]) {
             const user = top3[place];
