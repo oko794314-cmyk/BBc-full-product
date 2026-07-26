@@ -1806,6 +1806,20 @@
     const tournamentState = { activeTournamentId: null, myMatchId: null };
     let _tourneyListenerRef = null;
     let _tourneyListenerTid = null;
+    let _startWatcherRef = null;
+    let _startWatcherTid = null;
+
+    function formatPlayerList(players) {
+        return Object.keys(players || {}).map(p => esc(p)).join(' • ');
+    }
+
+    function cleanupTournamentListener() {
+        if (_tourneyListenerRef) {
+            _tourneyListenerRef.off('value');
+            _tourneyListenerRef = null;
+            _tourneyListenerTid = null;
+        }
+    }
 
     /* ── Mystery Box prize table + top-3 rarity mapping ── */
     const TOURNAMENT_TOP3_BOX_RARITY = { '1': 'legendary', '2': 'epic', '3': 'rare' };
@@ -1958,7 +1972,7 @@
             const hasPass = !!t.password;
             const isHost = t.host === getUser();
             const joined = !!(t.players || {})[getUser()];
-            const playerNames = Object.keys(t.players || {}).map(p => esc(p)).join(', ');
+            const playerNames = formatPlayerList(t.players);
             return `<div class="tournament-item ${isHost || joined ? 'my-tournament' : ''}">
                 <div style="flex:1; min-width:0;">
                     <div style="font-size:13px; font-weight:900; color:var(--p);">${esc(t.name)}</div>
@@ -2008,14 +2022,17 @@
     function watchTournamentStart(tid) {
         if (!tid) return;
         // Avoid duplicate watchers for the same tournament
-        if (watchTournamentStart._tid === tid) return;
-        watchTournamentStart._tid = tid;
-        const ref = db().ref(`tournaments/${tid}/status`);
-        ref.on('value', snap => {
+        if (_startWatcherTid === tid) return;
+        // Cancel any previous watcher
+        if (_startWatcherRef) { _startWatcherRef.off('value'); _startWatcherRef = null; }
+        _startWatcherTid = tid;
+        _startWatcherRef = db().ref(`tournaments/${tid}/status`);
+        _startWatcherRef.on('value', snap => {
             const status = snap.val();
             if (status === 'active') {
-                ref.off('value');
-                watchTournamentStart._tid = null;
+                _startWatcherRef.off('value');
+                _startWatcherRef = null;
+                _startWatcherTid = null;
                 // Only redirect if the tournament tab is currently visible
                 const casinoTournament = document.getElementById('casino-tournament');
                 if (casinoTournament && casinoTournament.style.display !== 'none') {
@@ -2025,8 +2042,9 @@
                     if (typeof showGN === 'function') showGN('🏆 Турнір розпочато! Відкрий вкладку Турнір.');
                 }
             } else if (status === 'completed') {
-                ref.off('value');
-                watchTournamentStart._tid = null;
+                _startWatcherRef.off('value');
+                _startWatcherRef = null;
+                _startWatcherTid = null;
                 const user = getUser();
                 if (user) db().ref(`users/${user}/activeTournamentId`).remove();
             }
@@ -2141,10 +2159,7 @@
         if (titleEl) titleEl.textContent = `🏆 ${t.name}`;
         // Show participant list
         const playersEl = document.getElementById('tournament-players-display');
-        if (playersEl) {
-            const pNames = Object.keys(t.players || {}).map(p => esc(p)).join(' • ');
-            playersEl.textContent = `👥 Гравці: ${pNames}`;
-        }
+        if (playersEl) playersEl.textContent = `👥 Гравці: ${formatPlayerList(t.players)}`;
         // Show chat button if group chat exists
         const chatBtn = document.getElementById('tournament-chat-btn');
         if (chatBtn && t.groupChatId) {
@@ -2164,7 +2179,7 @@
         if (bracketSection) bracketSection.style.display = 'none';
         // Detach listener only if tournament is completed
         if (!tournamentState.activeTournamentId) {
-            if (_tourneyListenerRef) { _tourneyListenerRef.off('value'); _tourneyListenerRef = null; _tourneyListenerTid = null; }
+            cleanupTournamentListener();
         }
         loadTournaments();
     };
@@ -2180,8 +2195,7 @@
 
     function setupTournamentListener(tid) {
         if (_tourneyListenerRef && _tourneyListenerTid !== tid) {
-            _tourneyListenerRef.off('value');
-            _tourneyListenerRef = null;
+            cleanupTournamentListener();
         }
         if (_tourneyListenerRef) return; // Already listening to same tid
         _tourneyListenerTid = tid;
@@ -2194,10 +2208,7 @@
 
             // Update players display
             const playersEl = document.getElementById('tournament-players-display');
-            if (playersEl) {
-                const pNames = Object.keys(raw.players || {}).map(p => esc(p)).join(' • ');
-                playersEl.textContent = `👥 Гравці: ${pNames}`;
-            }
+            if (playersEl) playersEl.textContent = `👥 Гравці: ${formatPlayerList(raw.players)}`;
 
             const m = tournamentState.myMatchId;
             if (m && m.tid === tid) {
@@ -2225,7 +2236,7 @@
                                 // Clear activeTournamentId for all players
                                 const u2 = getUser();
                                 if (u2) db().ref(`users/${u2}/activeTournamentId`).remove();
-                                if (_tourneyListenerRef) { _tourneyListenerRef.off('value'); _tourneyListenerRef = null; _tourneyListenerTid = null; }
+                                cleanupTournamentListener();
                                 setTimeout(() => {
                                     if (t.winner === getUser()) checkPendingMysteryBox();
                                     else viewTournamentBracket(tid);
@@ -3175,8 +3186,8 @@
         minesState.active = false;
         tournamentState.activeTournamentId = null;
         tournamentState.myMatchId = null;
-        watchTournamentStart._tid = null;
-        if (_tourneyListenerRef) { _tourneyListenerRef.off('value'); _tourneyListenerRef = null; _tourneyListenerTid = null; }
+        if (_startWatcherRef) { _startWatcherRef.off('value'); _startWatcherRef = null; _startWatcherTid = null; }
+        cleanupTournamentListener();
     }
 
     /* Extend handleExtendedTabOpen for new tabs */
