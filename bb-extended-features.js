@@ -1830,16 +1830,42 @@
     /* ── Mystery Box prize table + top-3 rarity mapping ── */
     const TOURNAMENT_TOP3_BOX_RARITY = { '1': 'legendary', '2': 'epic', '3': 'rare' };
     const MYSTERY_BOX_PRIZES = [
-        { type: 'coins', label: '50 BB Монет',          amount: 50,  rarity: 'rare',      weight: 30 },
-        { type: 'coins', label: '100 BB Монет',         amount: 100, rarity: 'rare',      weight: 20 },
-        { type: 'coins', label: '250 BB Монет',         amount: 250, rarity: 'epic',      weight: 14 },
-        { type: 'usdt',  label: '1 USDT',               amount: 1,   rarity: 'rare',      weight: 24 },
-        { type: 'usdt',  label: '3 USDT',               amount: 3,   rarity: 'epic',      weight: 10 },
-        { type: 'frame', label: 'Золота рамка',         itemId: 'frame_gold',    rarity: 'epic',      weight: 8 },
-        { type: 'frame', label: 'Діамантова рамка',     itemId: 'frame_diamond', rarity: 'legendary', weight: 4 },
-        { type: 'bg',    label: 'Крипто темрява (фон)', itemId: 'bg_crypto',     rarity: 'epic',      weight: 8 },
-        { type: 'bg',    label: 'Матриця (фон)',        itemId: 'bg_matrix',     rarity: 'epic',      weight: 6 },
-        { type: 'title', label: 'Титул "ЛЕГЕНДА"',      itemId: 'title_legend',  rarity: 'legendary', weight: 4 },
+        // ── RARE (3rd place) ──────────────────────────────────────────
+        { type: 'coins', label: '25 BB Монет',          amount: 25,  rarity: 'rare',      weight: 20 },
+        { type: 'coins', label: '50 BB Монет',          amount: 50,  rarity: 'rare',      weight: 18 },
+        { type: 'coins', label: '100 BB Монет',         amount: 100, rarity: 'rare',      weight: 12 },
+        { type: 'usdt',  label: '1 USDT',               amount: 1,   rarity: 'rare',      weight: 20 },
+        { type: 'usdt',  label: '2 USDT',               amount: 2,   rarity: 'rare',      weight: 10 },
+        { type: 'frame', label: 'Неонова рамка',        itemId: 'frame_neon',    rarity: 'rare',      weight: 10 },
+        { type: 'frame', label: 'Червона рамка',        itemId: 'frame_red',     rarity: 'rare',      weight: 8 },
+        { type: 'bg',    label: 'Фон Космос',           itemId: 'bg_space',      rarity: 'rare',      weight: 8 },
+        { type: 'bg',    label: 'Фіолетова галактика',  itemId: 'bg_purple',     rarity: 'rare',      weight: 7 },
+        { type: 'bg',    label: 'Захід сонця (фон)',    itemId: 'bg_sunset',     rarity: 'rare',      weight: 7 },
+        // ── EPIC (2nd place) ─────────────────────────────────────────
+        { type: 'coins', label: '250 BB Монет',         amount: 250, rarity: 'epic',      weight: 16 },
+        { type: 'coins', label: '500 BB Монет',         amount: 500, rarity: 'epic',      weight: 8 },
+        { type: 'usdt',  label: '3 USDT',               amount: 3,   rarity: 'epic',      weight: 14 },
+        { type: 'usdt',  label: '5 USDT',               amount: 5,   rarity: 'epic',      weight: 8 },
+        { type: 'frame', label: 'Золота рамка',         itemId: 'frame_gold',    rarity: 'epic',      weight: 12 },
+        { type: 'frame', label: 'Кіберпанк рамка',     itemId: 'frame_cyan',    rarity: 'epic',      weight: 10 },
+        { type: 'frame', label: 'Обсидіанова рамка',   itemId: 'frame_obsidian',rarity: 'epic',      weight: 8 },
+        { type: 'bg',    label: 'Неоновий Мегаполіс',  itemId: 'bg_neon',       rarity: 'epic',      weight: 10 },
+        { type: 'bg',    label: 'Крипто темрява (фон)', itemId: 'bg_crypto',    rarity: 'epic',      weight: 8 },
+        { type: 'bg',    label: 'Матриця (фон)',        itemId: 'bg_matrix',     rarity: 'epic',      weight: 8 },
+        { type: 'title', label: 'Титул "ІНВЕСТОР"',    itemId: 'title_investor', rarity: 'epic',     weight: 10 },
+        { type: 'title', label: 'Титул "КРИПТО БОС"',  itemId: 'title_boss',    rarity: 'epic',      weight: 8 },
+        // ── LEGENDARY (1st place) ────────────────────────────────────
+        { type: 'coins', label: '1000 BB Монет',        amount: 1000, rarity: 'legendary', weight: 14 },
+        { type: 'coins', label: '2500 BB Монет',        amount: 2500, rarity: 'legendary', weight: 6 },
+        { type: 'usdt',  label: '10 USDT',              amount: 10,   rarity: 'legendary', weight: 12 },
+        { type: 'usdt',  label: '25 USDT',              amount: 25,   rarity: 'legendary', weight: 5 },
+        { type: 'frame', label: 'Діамантова рамка',     itemId: 'frame_diamond', rarity: 'legendary', weight: 14 },
+        { type: 'frame', label: 'Binance рамка',        itemId: 'frame_binance', rarity: 'legendary', weight: 12 },
+        { type: 'bg',    label: 'Лава (фон)',           itemId: 'bg_lava',       rarity: 'legendary', weight: 12 },
+        { type: 'bg',    label: 'Кібер-Океан (фон)',    itemId: 'bg_ocean',      rarity: 'legendary', weight: 10 },
+        { type: 'title', label: 'Титул "КИТ"',         itemId: 'title_whale',   rarity: 'legendary', weight: 12 },
+        { type: 'title', label: 'Титул "ДІАМАНТ"',     itemId: 'title_diamond', rarity: 'legendary', weight: 10 },
+        { type: 'title', label: 'Титул "ЛЕГЕНДА"',     itemId: 'title_legend',  rarity: 'legendary', weight: 8 },
     ];
 
     function pickPrize(rarity = null) {

@@ -425,6 +425,13 @@
         if (userData?.createdAt && !state.accountHub.stats.registeredAt) {
             state.accountHub.stats.registeredAt = userData.createdAt;
         }
+        // Sync tournamentsWon from the direct field updated by the tournament system
+        if (userData?.tournamentsWon != null) {
+            state.accountHub.stats.tournamentsWon = Math.max(
+                num(state.accountHub.stats.tournamentsWon, 0),
+                num(userData.tournamentsWon, 0)
+            );
+        }
     }
 
     async function saveAccountHub() {
