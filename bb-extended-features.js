@@ -12,6 +12,7 @@
     function n(v, f = 0) { return Number.isFinite(Number(v)) ? Number(v) : f; }
     function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
     function uid(p = 'id') { return `${p}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`; }
+    function round2(v) { return Math.round(n(v, 0) * 100) / 100; }
     function dateKey(ts = Date.now()) {
         const d = new Date(ts);
         return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -66,6 +67,7 @@
         bank: { loans: {}, history: [], bootstrapped: false },
         stocks: { portfolio: {}, businesses: {} },
         workCooldownTimer: null,
+        debtProcessingTimer: null,
         tournamentListener: null
     };
 
@@ -1258,20 +1260,37 @@
     async function checkOverdueLoans() {
         const u = getUser(); if (!u) return;
         const now = Date.now();
+        const today = dateKey(now);
         let changed = false;
         for (const lid of Object.keys(extState.bank.loans)) {
             const loan = extState.bank.loans[lid];
             if (loan.status !== 'active') continue;
-            if (now > loan.dueAt && !loan.penaltyApplied) {
-                const penalty = Math.round(loan.remaining * LOAN_PENALTY * 100) / 100;
-                loan.remaining = Math.round((loan.remaining + penalty) * 100) / 100;
-                loan.penaltyApplied = true;
-                await appendBankRecord({ type: 'penalty', currency: loan.currency, amount: penalty, note: `Штраф по кредиту #${lid.slice(-4)}`, ts: now });
-                showGN(`⚠️ Штраф: +${penalty.toFixed(2)} ${loan.currency.toUpperCase()} по кредиту!`);
-                // Try auto-repay
-                if ((loan.currency === 'bb' && getBalance() >= loan.remaining) ||
-                    (loan.currency === 'usdt' && getUsdt() >= loan.remaining)) {
-                    await autoRepayLoan(lid);
+            if (now <= loan.dueAt) continue;
+            if (loan.lastPenaltyDate !== today) {
+                const penalty = round2(loan.remaining * LOAN_PENALTY);
+                loan.remaining = round2(loan.remaining + penalty);
+                loan.lastPenaltyDate = today;
+                await appendBankRecord({
+                    type: 'penalty',
+                    currency: loan.currency,
+                    amount: penalty,
+                    note: `Щоденний штраф по кредиту #${lid.slice(-4)}`,
+                    ts: now
+                });
+                showGN(`⚠️ Щоденний штраф: +${penalty.toFixed(2)} ${loan.currency.toUpperCase()} по кредиту`);
+                changed = true;
+            }
+            if (loan.lastAutoRepayDate !== today) {
+                const paid = await autoRepayLoan(lid, null, 'Щоденне авто-списання');
+                loan.lastAutoRepayDate = today;
+                if (paid <= 0) {
+                    await appendBankRecord({
+                        type: 'repay_attempt',
+                        currency: loan.currency,
+                        amount: 0,
+                        note: `Авто-списання по кредиту #${lid.slice(-4)} не виконано (недостатньо коштів)`,
+                        ts: now
+                    });
                 }
                 changed = true;
             }
@@ -1279,26 +1298,42 @@
         if (changed) await saveBankData();
     }
 
-    async function autoRepayLoan(lid) {
+    async function autoRepayLoan(lid, maxAmount = null, notePrefix = 'Авто-погашення') {
         const u = getUser(); if (!u) return;
         const loan = extState.bank.loans[lid];
-        if (!loan || loan.status !== 'active') return;
-        const amount = loan.remaining;
+        if (!loan || loan.status !== 'active') return 0;
+        const maxAllowed = maxAmount == null ? loan.remaining : maxAmount;
+        const amount = Math.max(0, Math.min(n(loan.remaining, 0), n(maxAllowed, 0)));
+        if (amount <= 0) return 0;
+        let paid = 0;
         if (loan.currency === 'bb') {
-            if (getBalance() < amount) return;
-            const r = await adjustUserBalanceFirebase(u, -amount);
-            if (!r?.success) return;
+            const available = getBalance();
+            paid = Math.min(available, amount);
+            if (paid <= 0) return 0;
+            const r = await adjustUserBalanceFirebase(u, -paid);
+            if (!r?.success) return 0;
             if (typeof gameState !== 'undefined') gameState.balance = r.balance;
         } else {
             const cur = await loadUsdt(u);
-            if (cur < amount) return;
-            await saveUsdt(u, cur - amount);
+            paid = Math.min(cur, amount);
+            if (paid <= 0) return 0;
+            await saveUsdt(u, cur - paid);
         }
-        loan.status = 'repaid';
-        loan.repaidAt = Date.now();
-        await appendBankRecord({ type: 'repay', currency: loan.currency, amount, note: `Авто-погашення кредиту #${lid.slice(-4)}`, ts: Date.now() });
-        showGN(`✅ Кредит авто-погашено: -${amount.toFixed(2)} ${loan.currency.toUpperCase()}`);
+        loan.remaining = Math.max(0, round2(loan.remaining - paid));
+        if (loan.remaining <= 0) {
+            loan.status = 'repaid';
+            loan.repaidAt = Date.now();
+        }
+        await appendBankRecord({
+            type: 'repay',
+            currency: loan.currency,
+            amount: paid,
+            note: `${notePrefix} кредиту #${lid.slice(-4)}${loan.status === 'repaid' ? ' (повністю)' : ' (частково)'}`,
+            ts: Date.now()
+        });
+        showGN(`✅ ${notePrefix}: -${paid.toFixed(2)} ${loan.currency.toUpperCase()}${loan.status === 'repaid' ? ' (кредит закрито)' : ''}`);
         if (typeof updateHeader === 'function') updateHeader();
+        return paid;
     }
 
     window.takeLoan = async function() {
@@ -1772,29 +1807,35 @@
     let _tourneyListenerRef = null;
     let _tourneyListenerTid = null;
 
-    /* ── Mystery Box prize table ── */
+    /* ── Mystery Box prize table + top-3 rarity mapping ── */
+    const TOURNAMENT_TOP3_BOX_RARITY = { '1': 'legendary', '2': 'epic', '3': 'rare' };
     const MYSTERY_BOX_PRIZES = [
-        { type: 'coins', label: '50 BB Монет',         amount: 50,  weight: 28 },
-        { type: 'coins', label: '100 BB Монет',        amount: 100, weight: 18 },
-        { type: 'coins', label: '250 BB Монет',        amount: 250, weight: 8  },
-        { type: 'usdt',  label: '1 USDT',              amount: 1,   weight: 24 },
-        { type: 'usdt',  label: '3 USDT',              amount: 3,   weight: 12 },
-        { type: 'frame', label: 'Золота рамка',        itemId: 'frame_gold',    weight: 5 },
-        { type: 'frame', label: 'Діамантова рамка',    itemId: 'frame_diamond', weight: 2 },
-        { type: 'bg',    label: 'Крипто темрява (фон)', itemId: 'bg_crypto',    weight: 5 },
-        { type: 'bg',    label: 'Матриця (фон)',        itemId: 'bg_matrix',    weight: 4 },
-        { type: 'title', label: 'Титул "ЛЕГЕНДА"',     itemId: 'title_legend',  weight: 2 },
+        { type: 'coins', label: '50 BB Монет',          amount: 50,  rarity: 'rare',      weight: 30 },
+        { type: 'coins', label: '100 BB Монет',         amount: 100, rarity: 'rare',      weight: 20 },
+        { type: 'coins', label: '250 BB Монет',         amount: 250, rarity: 'epic',      weight: 14 },
+        { type: 'usdt',  label: '1 USDT',               amount: 1,   rarity: 'rare',      weight: 24 },
+        { type: 'usdt',  label: '3 USDT',               amount: 3,   rarity: 'epic',      weight: 10 },
+        { type: 'frame', label: 'Золота рамка',         itemId: 'frame_gold',    rarity: 'epic',      weight: 8 },
+        { type: 'frame', label: 'Діамантова рамка',     itemId: 'frame_diamond', rarity: 'legendary', weight: 4 },
+        { type: 'bg',    label: 'Крипто темрява (фон)', itemId: 'bg_crypto',     rarity: 'epic',      weight: 8 },
+        { type: 'bg',    label: 'Матриця (фон)',        itemId: 'bg_matrix',     rarity: 'epic',      weight: 6 },
+        { type: 'title', label: 'Титул "ЛЕГЕНДА"',      itemId: 'title_legend',  rarity: 'legendary', weight: 4 },
     ];
 
-    function pickPrize() {
-        const total = MYSTERY_BOX_PRIZES.reduce((s, p) => s + p.weight, 0);
+    function pickPrize(rarity = null) {
+        const pool = rarity
+            ? MYSTERY_BOX_PRIZES.filter(p => p.rarity === rarity)
+            : MYSTERY_BOX_PRIZES;
+        const source = pool.length ? pool : MYSTERY_BOX_PRIZES;
+        const total = source.reduce((s, p) => s + p.weight, 0);
         let r = Math.random() * total;
-        for (const p of MYSTERY_BOX_PRIZES) { r -= p.weight; if (r <= 0) return p; }
-        return MYSTERY_BOX_PRIZES[0];
+        for (const p of source) { r -= p.weight; if (r <= 0) return p; }
+        return source[0];
     }
 
-    async function awardMysteryBox(username) {
-        const prize = pickPrize();
+    async function awardMysteryBox(username, options = {}) {
+        const rarity = options?.rarity || null;
+        const prize = pickPrize(rarity);
         if (prize.type === 'coins') {
             await db().ref(`users/${username}/balance`).transaction(v => n(v, 0) + prize.amount);
         } else if (prize.type === 'usdt') {
@@ -1807,7 +1848,12 @@
                 return arr;
             });
         }
-        await db().ref(`users/${username}/pendingMysteryBox`).set({ prize, awardedAt: Date.now() });
+        await db().ref(`users/${username}/pendingMysteryBox`).set({
+            prize,
+            awardedAt: Date.now(),
+            tournamentId: options?.tournamentId || null,
+            place: options?.place || null
+        });
         return prize;
     }
 
@@ -1817,12 +1863,13 @@
         const box = snap.val();
         if (!box) return;
         await db().ref(`users/${u}/pendingMysteryBox`).remove();
-        showMysteryBoxReveal(box.prize);
+        showMysteryBoxReveal(box.prize, box.place);
     }
 
-    function showMysteryBoxReveal(prize) {
+    function showMysteryBoxReveal(prize, place = null) {
         const existing = document.getElementById('mystery-box-overlay');
         if (existing) existing.remove();
+        const placeText = ['1', '2', '3'].includes(String(place)) ? ` за ${place} місце` : '';
         const ov = document.createElement('div');
         ov.id = 'mystery-box-overlay';
         ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:20px;';
@@ -1831,7 +1878,7 @@
             <div style="text-align:center;">
                 <div class="loot-open-anim revealed" style="font-size:5rem;">🎁</div>
                 <div style="font-size:20px;font-weight:900;color:var(--gold);margin:16px 0 8px;">🏆 ВИ ВИГРАЛИ ТУРНІР!</div>
-                <div style="font-size:13px;color:var(--text2);margin-bottom:20px;">Ваш приз — Містері Бокс</div>
+                <div style="font-size:13px;color:var(--text2);margin-bottom:20px;">Ваш приз — Містері Бокс${placeText}</div>
                 <div style="font-size:3rem;margin:12px 0;">${typeIcons[prize.type] || '🎁'}</div>
                 <div style="font-size:22px;font-weight:900;color:var(--p);margin-bottom:6px;">${esc(prize.label)}</div>
                 <button class="btn" style="margin-top:16px;background:var(--gold);color:#000;padding:12px 32px;font-size:14px;" onclick="document.getElementById('mystery-box-overlay').remove()">ЗАБРАТИ 🎉</button>
@@ -1904,27 +1951,73 @@
         const u = getUser(); if (!u) return;
         let pass = '';
         if (hasPass) { pass = prompt('Введіть пароль турніру:') || ''; }
-        const snap = await db().ref(`tournaments/${tid}`).once('value');
-        const t = snap.val();
-        if (!t) { showGN('❌ Турнір не знайдено'); return; }
-        if (t.password && t.password !== pass) { showGN('❌ Невірний пароль'); return; }
-        const pCount = Object.keys(t.players || {}).length;
-        if (pCount >= MAX_PLAYERS) { showGN('❌ Турнір заповнений'); return; }
-        await db().ref(`tournaments/${tid}/players/${u}`).set({ name: u, joinedAt: Date.now() });
-        showGN(`✅ Ви приєдналися до турніру "${t.name}"`);
+        const tx = await db().ref(`tournaments/${tid}`).transaction(current => {
+            if (!current) return;
+            if (current.status !== 'waiting') return;
+            if (current.password && current.password !== pass) return;
+            const players = current.players && typeof current.players === 'object' ? current.players : {};
+            if (!players[u] && Object.keys(players).length >= MAX_PLAYERS) return;
+            players[u] = players[u] || { name: u, joinedAt: Date.now() };
+            current.players = players;
+            return current;
+        });
+        const t = tx.snapshot.val();
+        if (!tx.committed || !t) {
+            showGN('❌ Неможливо приєднатися (турнір вже стартував/заповнений/пароль невірний)');
+            return;
+        }
+        showGN(`✅ Ви приєдналися до турніру "${t.name || ''}"`);
         loadTournaments();
     };
+
+    async function syncGroupChatMembers(groupId, members = []) {
+        if (!groupId || !members.length) return;
+        const uniqueMembers = [...new Set(members)];
+        const updates = {};
+        uniqueMembers.forEach(member => {
+            updates[`users/${member}/groups/${groupId}`] = true;
+        });
+        await db().ref().update(updates);
+        await db().ref(`groupChats/${groupId}/info/members`).set(uniqueMembers);
+    }
+
+    async function ensureTournamentGroupChat(tid, tournament, players) {
+        if (!tid || !tournament || !players?.length) return null;
+        const groupName = `🏆 Турнір: ${tournament.name || tid}`;
+        if (tournament.groupChatId) {
+            await syncGroupChatMembers(tournament.groupChatId, players);
+            return tournament.groupChatId;
+        }
+        if (typeof createGroupChatFirebase !== 'function') return null;
+        const creator = tournament.host || players[0];
+        const res = await createGroupChatFirebase(creator, groupName, players);
+        if (!res?.success || !res.groupId) return null;
+        await db().ref(`tournaments/${tid}/groupChatId`).set(res.groupId);
+        return res.groupId;
+    }
+
+    function canUserStartTournament(tournament, user) {
+        if (!tournament || !user) return false;
+        return tournament.host === user
+            || !!tournament.startInitiators?.[user]
+            || !!tournament.moderators?.[user]
+            || !!tournament.admins?.[user];
+    }
 
     window.startTournament = async function(tid) {
         const u = getUser(); if (!u) return;
         const snap = await db().ref(`tournaments/${tid}`).once('value');
         const t = snap.val();
-        if (!t || t.host !== u) { showGN('❌ Тільки хост може запустити'); return; }
+        // Support repository-specific delegated starter roles if they are configured on tournament object.
+        const canStart = canUserStartTournament(t, u);
+        if (!canStart) { showGN('❌ Тільки хост/уповноважений ініціатор може запустити'); return; }
+        if (t.status !== 'waiting') { showGN('❌ Турнір уже запущено або завершено'); return; }
         const players = Object.keys(t.players || {});
         if (players.length < 2) { showGN('❌ Потрібно мінімум 2 гравці'); return; }
         const shuffled = [...players].sort(() => Math.random() - 0.5);
         const bracket = buildBracket(shuffled);
-        await db().ref(`tournaments/${tid}`).update({ status: 'active', bracket, bracketPlayers: shuffled });
+        await db().ref(`tournaments/${tid}`).update({ status: 'active', bracket, bracketPlayers: shuffled, startedAt: Date.now() });
+        await ensureTournamentGroupChat(tid, t, shuffled);
         await db().ref('newsPosts').push({
             title: `🏆 Турнір "${esc(t.name)}" розпочато!`,
             text: `Організатор: ${esc(u)} • Гравці: ${players.length} • Переможець отримає 🎁 Містері Бокс з призами!`,
@@ -1940,9 +2033,11 @@
         const rounds = [];
         // Round 1: actual match-ups between real players
         const r1 = [];
+        let pendingAssigned = false;
         for (let i = 0; i < players.length; i += 2) {
             if (i + 1 < players.length) {
-                r1.push({ p1: players[i], p2: players[i + 1], winner: null, status: 'pending' });
+                r1.push({ p1: players[i], p2: players[i + 1], winner: null, status: pendingAssigned ? 'queued' : 'pending' });
+                pendingAssigned = true;
             } else {
                 // Odd player out gets a bye (auto-advance)
                 r1.push({ p1: players[i], p2: null, winner: players[i], status: 'bye' });
@@ -1959,6 +2054,13 @@
             }
             rounds.push(round);
         }
+        let changed = true;
+        let guard = 0;
+        while (changed && guard < 16) {
+            changed = advanceBracket(rounds);
+            guard++;
+        }
+        activateNextPendingMatch(rounds);
         return rounds;
     }
 
@@ -2033,6 +2135,23 @@
         const bracket = t.bracket || [];
         const u = getUser();
         const stageNames = ['1/8', '1/4 Фінал', 'Півфінал', 'Фінал'];
+        const getChoiceEmoji = (choice) => ({ rock: '✊', scissors: '✌️', paper: '🖐️' }[choice] || '❔');
+        const renderMatchMeta = (match) => {
+            if (match.status === 'done') {
+                const resultLine = `<div style="font-size:9px;color:var(--text2);text-align:center;">🏆 ${esc(match.winner)}</div>`;
+                const choicesLine = (match.p1Choice && match.p2Choice)
+                    ? `<div style="font-size:9px;color:var(--text2);text-align:center;">${esc(match.p1)} ${getChoiceEmoji(match.p1Choice)} vs ${getChoiceEmoji(match.p2Choice)} ${esc(match.p2 || '')}</div>`
+                    : '';
+                return `${resultLine}${choicesLine}`;
+            }
+            if (match.status === 'pending' && match.p1 && match.p2) {
+                return `<div style="font-size:9px;color:var(--text2);text-align:center;">⚔️ Триває...</div>`;
+            }
+            if (match.status === 'queued' && match.p1 && match.p2) {
+                return `<div style="font-size:9px;color:var(--text2);text-align:center;">⏳ Очікує черги</div>`;
+            }
+            return '';
+        };
 
         // Spectator live-match banner (shows who is playing but NOT their choice)
         const activeMatches = [];
@@ -2057,8 +2176,7 @@
                     <div class="bracket-player ${m.winner === m.p1 ? 'winner' : (m.winner && m.p2 ? 'loser' : '')}">${esc(m.p1 || '—')}</div>
                     <div style="font-size:10px;color:#555;text-align:center;margin:2px 0;">vs</div>
                     <div class="bracket-player ${m.winner === m.p2 ? 'winner' : (m.winner && m.p2 ? 'loser' : '')}">${esc(m.p2 || (m.status === 'waiting' ? '?' : 'BYE'))}</div>
-                    ${m.status === 'done' ? `<div style="font-size:9px;color:var(--text2);text-align:center;">🏆 ${esc(m.winner)}</div>` : ''}
-                    ${m.status === 'pending' && m.p1 && m.p2 ? `<div style="font-size:9px;color:var(--text2);text-align:center;">⚔️ Триває...</div>` : ''}
+                    ${renderMatchMeta(m)}
                 </div>`).join('')}
             </div>`;
         }).join('');
@@ -2117,6 +2235,7 @@
         const m = tournamentState.myMatchId;
         if (!m) return;
         const { tid, ri, mi, p1, p2 } = m;
+        if (u !== p1 && u !== p2) { showGN('❌ Ви не є учасником цього матчу'); return; }
 
         // Immediately lock UI – prevent double-clicks
         document.querySelectorAll('#tournament-match-area .rps-choice-btn').forEach(b => b.disabled = true);
@@ -2166,7 +2285,13 @@
         bracket[ri][mi].p1Choice = p1Choice;
         bracket[ri][mi].p2Choice = p2Choice;
 
-        advanceBracket(bracket);
+        let changed = true;
+        let guard = 0;
+        while (changed && guard < 16) {
+            changed = advanceBracket(bracket);
+            guard++;
+        }
+        activateNextPendingMatch(bracket);
 
         const lastRound = bracket[bracket.length - 1];
         const tournamentDone = lastRound.length === 1 && lastRound[0].winner;
@@ -2177,13 +2302,19 @@
             updates.status = 'completed';
             updates.winner = winnerUser;
             await db().ref(`users/${winnerUser}/tournamentsWon`).transaction(v => (n(v, 0) + 1));
+            const top3 = getTournamentTop3Users(bracket);
+            updates.top3 = top3;
+            const awarded = await awardTournamentTop3(tid, raw, top3);
+            const top3Text = Object.entries(top3)
+                .sort((a, b) => n(a[0], 99) - n(b[0], 99))
+                .map(([place, user]) => `${place}. ${esc(user)}${awarded?.[place]?.rarity ? ` — 🎁 ${awarded?.[place]?.rarity}` : ''}`)
+                .join(' • ');
             await db().ref('newsPosts').push({
                 title: `🏆 Турнір "${esc(raw.name)}" завершено!`,
-                text: `Переможець: ${esc(winnerUser)} 🎊 — нагороджений Містері Боксом!`,
+                text: `Переможець: ${esc(winnerUser)} 🎊\nТоп-3: ${top3Text || esc(winnerUser)}`,
                 type: 'tournament_result',
                 createdAt: Date.now()
             });
-            await awardMysteryBox(winnerUser);
         }
 
         await db().ref(`tournaments/${tid}`).update(updates);
@@ -2196,20 +2327,88 @@
     }
 
     function advanceBracket(bracket) {
+        let changed = false;
         for (let ri = 0; ri < bracket.length - 1; ri++) {
             for (let mi = 0; mi < bracket[ri].length; mi++) {
                 const m = bracket[ri][mi];
                 if (!m.winner) continue;
                 const nextMi = Math.floor(mi / 2);
                 const nextMatch = bracket[ri + 1]?.[nextMi];
-                // Only write into uninitialised slots (status: 'waiting')
-                if (!nextMatch || nextMatch.status !== 'waiting') continue;
-                if (mi % 2 === 0) nextMatch.p1 = m.winner;
-                else nextMatch.p2 = m.winner;
-                // Once both players are known, the match becomes pending
-                if (nextMatch.p1 && nextMatch.p2) nextMatch.status = 'pending';
+                if (!nextMatch) continue;
+                if (mi % 2 === 0) {
+                    if (!nextMatch.p1) {
+                        nextMatch.p1 = m.winner;
+                        changed = true;
+                    }
+                } else {
+                    if (!nextMatch.p2) {
+                        nextMatch.p2 = m.winner;
+                        changed = true;
+                    }
+                }
+                // Once both players are known, the match waits in queue
+                if (nextMatch.p1 && nextMatch.p2 && nextMatch.status === 'waiting') {
+                    nextMatch.status = 'queued';
+                    changed = true;
+                }
             }
         }
+        return changed;
+    }
+
+    function activateNextPendingMatch(bracket) {
+        for (const round of bracket) {
+            for (const match of round) {
+                if (match.status === 'pending') return false;
+            }
+        }
+        for (const round of bracket) {
+            for (const match of round) {
+                if (match.status === 'queued' && match.p1 && match.p2) {
+                    match.status = 'pending';
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    function getTournamentTop3Users(bracket) {
+        const top = {};
+        const finalRound = bracket?.[bracket.length - 1] || [];
+        const final = finalRound[0];
+        if (final?.winner) {
+            top[1] = final.winner;
+            if (final.p1 && final.p2) top[2] = final.winner === final.p1 ? final.p2 : final.p1;
+        }
+        const semiRound = bracket?.[bracket.length - 2] || [];
+        const semiLosers = semiRound
+            .filter(m => m?.status === 'done' && m.p1 && m.p2 && m.winner)
+            .map(m => (m.winner === m.p1 ? m.p2 : m.p1))
+            .filter(Boolean);
+        if (semiLosers.length > 0) top[3] = semiLosers[0];
+        return top;
+    }
+
+    async function awardTournamentTop3(tid, tournamentRaw, top3 = {}) {
+        const lockRef = db().ref(`tournaments/${tid}/rewardsIssuedAt`);
+        // Returning undefined aborts transaction when rewards were already issued (idempotent one-time awarding).
+        const lock = await lockRef.transaction(v => (v ? undefined : Date.now()));
+        if (!lock.committed) {
+            if (tournamentRaw?.awardedRewards) return tournamentRaw.awardedRewards;
+            const existingRewardsSnap = await db().ref(`tournaments/${tid}/awardedRewards`).once('value');
+            return existingRewardsSnap.val() || {};
+        }
+        const awardedRewards = {};
+        for (const place of [1, 2, 3]) {
+            const user = top3[place];
+            if (!user) continue;
+            const rarity = TOURNAMENT_TOP3_BOX_RARITY[String(place)] || null;
+            const prize = await awardMysteryBox(user, { rarity, tournamentId: tid, place });
+            awardedRewards[place] = { user, rarity, prizeLabel: prize?.label || null, awardedAt: Date.now() };
+        }
+        await db().ref(`tournaments/${tid}/awardedRewards`).set(awardedRewards);
+        return awardedRewards;
     }
 
     /* ────────────────────────────────────────────────────── */
@@ -2833,6 +3032,9 @@
         renderStocksFeatureViews();
         renderWeeklyQuest();
         startWorkCooldownTick();
+        if (extState.debtProcessingTimer) clearInterval(extState.debtProcessingTimer);
+        extState.debtProcessingTimer = setInterval(() => { checkOverdueLoans(); }, 60 * 60 * 1000);
+        checkOverdueLoans();
         // Check and generate a tax bill if 2+ days have passed since the last one
         setTimeout(() => checkAndGenerateTaxBill(), 3000);
     }
@@ -2842,6 +3044,7 @@
         extState.bank = { loans: {}, history: [], bootstrapped: false };
         extState.stocks = { portfolio: {}, businesses: {} };
         if (extState.workCooldownTimer) { clearInterval(extState.workCooldownTimer); extState.workCooldownTimer = null; }
+        if (extState.debtProcessingTimer) { clearInterval(extState.debtProcessingTimer); extState.debtProcessingTimer = null; }
         minesState.active = false;
         tournamentState.activeTournamentId = null;
         tournamentState.myMatchId = null;

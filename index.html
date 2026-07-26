@@ -1718,6 +1718,9 @@
                 </div>
                 <label for="sport-match-search" style="display:block;font-size:11px;color:var(--text2);">Пошук матчів</label>
                 <input id="sport-match-search" type="text" aria-label="Пошук матчів" placeholder="🔎 Пошук матчу або ліги..." style="margin-top:10px;">
+                <div style="margin-top:10px;">
+                    <button class="btn secondary-btn" style="width:auto;padding:8px 14px;font-size:12px;" onclick="refreshSportMatches()">Оновити</button>
+                </div>
             </div>
             <div id="sport-matches-list" style="display:flex;flex-direction:column;gap:10px;">
                 <div style="text-align:center;color:var(--text2);padding:30px;">⏳ Завантаження матчів...</div>
@@ -4282,11 +4285,17 @@
         modal.style.display = 'flex';
         document.getElementById('fp-name').textContent = username;
         document.getElementById('fp-body').innerHTML = '<div style="color:var(--text2);text-align:center;">Завантаження...</div>';
+        const getProfileProfession = (data) =>
+            String(data.profession || data.workData?.profession || data.workData?.jobName || data.workData?.jobId || '—');
+        const getProfileTitle = (data) =>
+            String(data.activeTitle || data.title || data.profileTitle || '—');
         try {
             const snap = await firebase.database().ref(`users/${username}`).once('value');
             const data = snap.val() || {};
             const bal = Number(data.balance || 0).toFixed(4);
             const usdt = Number(data.usdt || 0).toFixed(2);
+            const profession = getProfileProfession(data);
+            const title = getProfileTitle(data);
             const fallbackAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(username)}`;
             const safeAvatar = (data.avatarUrl && /^https?:\/\//.test(data.avatarUrl))
                 ? escapeHtml(data.avatarUrl) : fallbackAvatar;
@@ -4309,6 +4318,8 @@
                 <div class="profile-stat-card"><div style="font-size:11px;color:var(--text2);">USDT</div><b style="color:#26A17B;">${escapeHtml(usdt)} USDT</b></div>
                 <div class="profile-stat-card"><div style="font-size:11px;color:var(--text2);">Рівень</div><b>${escapeHtml(String(data.level || 1))}</b></div>
                 <div class="profile-stat-card"><div style="font-size:11px;color:var(--text2);">Досягнення</div><b>${escapeHtml(String(data.achievementsCount || 0))}</b></div>
+                <div class="profile-stat-card"><div style="font-size:11px;color:var(--text2);">Професія</div><b>${escapeHtml(profession)}</b></div>
+                <div class="profile-stat-card"><div style="font-size:11px;color:var(--text2);">Титул</div><b>${escapeHtml(title)}</b></div>
             `;
             body.appendChild(statsDiv);
             const btnDiv = document.createElement('div');
@@ -6085,14 +6096,48 @@
             return `data:image/svg+xml,${svg}`;
         }
 
-        // Odds generation (random, since live standings are not fetched)
-        function generateOdds() {
-            let home = +(1.5 + Math.random() * 1.5).toFixed(2);
-            let draw = +(2.8 + Math.random() * 0.8).toFixed(2);
-            let away = +(1.5 + Math.random() * 1.5).toFixed(2);
-            home = Math.max(1.15, Math.min(home, 6.0));
-            away = Math.max(1.15, Math.min(away, 6.0));
-            return { home, draw, away };
+        // Deterministic string hash (djb2-style) so each match keeps stable odds across rerenders/refreshes.
+        function hashMatchId(input) {
+            const str = String(input || '');
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                hash = ((hash << 5) - hash) + str.charCodeAt(i);
+                hash |= 0;
+            }
+            return Math.abs(hash);
+        }
+
+        function buildFixedOdds(matchId) {
+            const seed = hashMatchId(matchId);
+            const home = +(1.30 + ((seed % 210) / 100)).toFixed(2);
+            const draw = +(2.20 + (((seed >> 3) % 140) / 100)).toFixed(2);
+            const away = +(1.30 + (((seed >> 6) % 210) / 100)).toFixed(2);
+            return {
+                home: Math.max(1.15, Math.min(home, 6.0)),
+                draw: Math.max(1.8, Math.min(draw, 8.0)),
+                away: Math.max(1.15, Math.min(away, 6.0))
+            };
+        }
+
+        function saveSportOddsCache() {
+            try {
+                localStorage.setItem('bbc_sport_odds_cache_v1', JSON.stringify(window._sportState.oddsCache || {}));
+            } catch (error) {
+                console.warn('Не вдалося зберегти кеш коефіцієнтів:', error);
+            }
+        }
+
+        function getFixedOdds(matchId) {
+            const key = String(matchId || '');
+            if (!key) return buildFixedOdds('unknown');
+            const cached = window._sportState.oddsCache?.[key];
+            if (cached && Number.isFinite(Number(cached.home)) && Number.isFinite(Number(cached.draw)) && Number.isFinite(Number(cached.away))) {
+                return cached;
+            }
+            const next = buildFixedOdds(key);
+            window._sportState.oddsCache[key] = next;
+            saveSportOddsCache();
+            return next;
         }
         // 45 minutes matches typical user session length and avoids repeated news spam during frequent refreshes.
         const SPORT_NEWS_THROTTLE_MS = 45 * 60 * 1000;
@@ -6118,6 +6163,7 @@
             refreshTimer: null,
             matchNewsCache: parseJsonSafe(localStorage.getItem('bbc_sport_match_news_cache') || '{}', {}),
             newsThrottle: parseJsonSafe(localStorage.getItem('bbc_sport_news_throttle') || '{}', {}),
+            oddsCache: parseJsonSafe(localStorage.getItem('bbc_sport_odds_cache_v1') || '{}', {}),
             listenersBound: false
         };
 
@@ -6386,7 +6432,7 @@
             const an = m.awayTeam?.shortName || m.awayTeam?.name || '?';
             const hLogo = getLogoUrl(hn, m.homeTeam?.crest);
             const aLogo = getLogoUrl(an, m.awayTeam?.crest);
-            const odds = generateOdds();
+            const odds = getFixedOdds(m.id);
             const live = m.status === 'IN_PLAY' || m.status === 'PAUSED';
             const finished = m.status === 'FINISHED';
             const scoreHtml = (live || finished)
@@ -6523,6 +6569,9 @@
                 loadSportMatches();
                 renderMyBets();
             }
+        };
+        window.refreshSportMatches = function() {
+            loadSportMatches();
         };
 
         window.switchSportTab = function(tab) {
