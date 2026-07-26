@@ -1859,16 +1859,13 @@
         { type: 'coins', label: '2500 BB Монет',        amount: 2500, rarity: 'legendary', weight: 6 },
         { type: 'usdt',  label: '10 USDT',              amount: 10,   rarity: 'legendary', weight: 12 },
         { type: 'usdt',  label: '25 USDT',              amount: 25,   rarity: 'legendary', weight: 5 },
-        { type: 'frame', label: 'Діамантова рамка',     itemId: 'frame_diamond', rarity: 'legendary', weight: 12 },
-        { type: 'frame', label: 'Binance рамка',        itemId: 'frame_binance', rarity: 'legendary', weight: 10 },
-        { type: 'frame', label: 'Обсидіанова рамка',   itemId: 'frame_obsidian',rarity: 'legendary', weight: 8 },
-        { type: 'bg',    label: 'Лава (фон)',           itemId: 'bg_lava',       rarity: 'legendary', weight: 10 },
-        { type: 'bg',    label: 'Кібер-Океан (фон)',    itemId: 'bg_ocean',      rarity: 'legendary', weight: 8 },
-        { type: 'bg',    label: 'Матриця (фон)',        itemId: 'bg_matrix',     rarity: 'legendary', weight: 6 },
-        { type: 'title', label: 'Титул "КИТ"',         itemId: 'title_whale',   rarity: 'legendary', weight: 10 },
-        { type: 'title', label: 'Титул "ДІАМАНТ"',     itemId: 'title_diamond', rarity: 'legendary', weight: 8 },
-        { type: 'title', label: 'Титул "ЛЕГЕНДА"',     itemId: 'title_legend',  rarity: 'legendary', weight: 6 },
-        { type: 'title', label: 'Титул "КРИПТО БОС"',  itemId: 'title_boss',    rarity: 'legendary', weight: 5 },
+        { type: 'frame', label: 'Діамантова рамка',     itemId: 'frame_diamond', rarity: 'legendary', weight: 14 },
+        { type: 'frame', label: 'Binance рамка',        itemId: 'frame_binance', rarity: 'legendary', weight: 12 },
+        { type: 'bg',    label: 'Лава (фон)',           itemId: 'bg_lava',       rarity: 'legendary', weight: 12 },
+        { type: 'bg',    label: 'Кібер-Океан (фон)',    itemId: 'bg_ocean',      rarity: 'legendary', weight: 10 },
+        { type: 'title', label: 'Титул "КИТ"',         itemId: 'title_whale',   rarity: 'legendary', weight: 12 },
+        { type: 'title', label: 'Титул "ДІАМАНТ"',     itemId: 'title_diamond', rarity: 'legendary', weight: 10 },
+        { type: 'title', label: 'Титул "ЛЕГЕНДА"',     itemId: 'title_legend',  rarity: 'legendary', weight: 8 },
     ];
 
     function pickPrize(rarity = null) {
