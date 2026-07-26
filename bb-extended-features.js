@@ -1803,7 +1803,7 @@
     /*  TOURNAMENT RPS                                        */
     /* ────────────────────────────────────────────────────── */
     const MAX_PLAYERS = 16;
-    const tournamentState = { activeTournamentId: null, myMatchId: null };
+    const tournamentState = { activeTournamentId: null, myMatchId: null, chatGroupId: null, drawPromptKey: null };
     let _tourneyListenerRef = null;
     let _tourneyListenerTid = null;
     let _startWatcherRef = null;
@@ -1819,6 +1819,12 @@
             _tourneyListenerRef = null;
             _tourneyListenerTid = null;
         }
+    }
+
+    function cleanupTournamentChatListener() {
+        if (!tournamentState.chatGroupId || typeof removeGroupChatListener !== 'function') return;
+        removeGroupChatListener(tournamentState.chatGroupId);
+        tournamentState.chatGroupId = null;
     }
 
     /* ── Mystery Box prize table + top-3 rarity mapping ── */
@@ -1914,46 +1920,55 @@
         return toArr(bracket).map(round => toArr(round).map(m => m || {}));
     }
 
+    function openTournamentRoom(tid) {
+        if (!tid) return;
+        const nav = document.querySelector('nav');
+        if (nav) nav.style.display = '';
+        if (typeof switchTab === 'function') switchTab(3);
+        if (typeof switchCasinoTab === 'function') switchCasinoTab('tournament');
+        viewTournamentBracket(tid);
+    }
+
     window.createTournament = async function() {
         const u = getUser(); if (!u) { showGN('❌ Не залогінено'); return; }
         const name = document.getElementById('tournament-name-input')?.value.trim();
         const pass = document.getElementById('tournament-pass-input')?.value.trim();
         if (!name) { showGN('❌ Введіть назву'); return; }
         const tid = uid('tour');
-        await db().ref(`tournaments/${tid}`).set({
+        const tournamentData = {
             id: tid, name: esc(name), password: pass || '',
             host: u, status: 'waiting',
             players: { [u]: { name: u, joinedAt: Date.now() } },
             createdAt: Date.now()
-        });
+        };
+        await db().ref(`tournaments/${tid}`).set(tournamentData);
+        await ensureTournamentGroupChat(tid, tournamentData, [u]);
         tournamentState.activeTournamentId = tid;
         // Save to user profile so we can recover on page reload
         await db().ref(`users/${u}/activeTournamentId`).set(tid);
         showGN(`✅ Турнір "${name}" створено!`);
         document.getElementById('tournament-name-input').value = '';
         document.getElementById('tournament-pass-input').value = '';
-        // Start watching for tournament to go active
         watchTournamentStart(tid);
-        loadTournaments();
+        openTournamentRoom(tid);
     };
 
-    window.loadTournaments = async function() {
+    window.loadTournaments = async function(skipAutoOpen = false) {
         const u = getUser();
         const listEl = document.getElementById('tournament-list');
         if (!listEl) return;
 
         // First check if this user has an active tournament they should be watching
-        if (u) {
+        if (u && !skipAutoOpen) {
             const activeTidSnap = await db().ref(`users/${u}/activeTournamentId`).once('value');
             const activeTid = activeTidSnap.val();
             if (activeTid) {
                 const tSnap = await db().ref(`tournaments/${activeTid}`).once('value');
                 const t = tSnap.val();
-                if (t && t.status === 'active' && t.players?.[u]) {
-                    // Tournament already started — redirect to bracket
+                if (t && t.players?.[u] && (t.status === 'waiting' || t.status === 'active')) {
                     viewTournamentBracket(activeTid);
                     return;
-                } else if (!t || t.status === 'completed') {
+                } else if (!t || t.status === 'completed' || t.status === 'cancelled') {
                     // Stale reference — clean up
                     await db().ref(`users/${u}/activeTournamentId`).remove();
                 } else if (t && t.status === 'waiting') {
@@ -2011,42 +2026,30 @@
         }
         showGN(`✅ Ви приєдналися до турніру "${t.name || ''}"`);
         tournamentState.activeTournamentId = tid;
-        // Save to user profile so non-host players get redirected when start fires
         await db().ref(`users/${u}/activeTournamentId`).set(tid);
-        // Watch for tournament to go active
+        await ensureTournamentGroupChat(tid, t, Object.keys(t.players || {}));
         watchTournamentStart(tid);
-        loadTournaments();
+        openTournamentRoom(tid);
     };
 
-    // Watches a waiting tournament; auto-opens bracket the moment it goes 'active'.
     function watchTournamentStart(tid) {
         if (!tid) return;
-        // Avoid duplicate watchers for the same tournament
         if (_startWatcherTid === tid) return;
-        // Cancel any previous watcher
         if (_startWatcherRef) { _startWatcherRef.off('value'); _startWatcherRef = null; }
         _startWatcherTid = tid;
         _startWatcherRef = db().ref(`tournaments/${tid}/status`);
         _startWatcherRef.on('value', snap => {
             const status = snap.val();
             if (status === 'active') {
-                _startWatcherRef.off('value');
-                _startWatcherRef = null;
-                _startWatcherTid = null;
-                // Only redirect if the tournament tab is currently visible
-                const casinoTournament = document.getElementById('casino-tournament');
-                if (casinoTournament && casinoTournament.style.display !== 'none') {
-                    viewTournamentBracket(tid);
-                } else {
-                    // Show notification; they'll see it when they open the tab
-                    if (typeof showGN === 'function') showGN('🏆 Турнір розпочато! Відкрий вкладку Турнір.');
-                }
-            } else if (status === 'completed') {
+                openTournamentRoom(tid);
+                showGN('🏆 Турнір розпочато!');
+            } else if (status === 'completed' || status === 'cancelled') {
                 _startWatcherRef.off('value');
                 _startWatcherRef = null;
                 _startWatcherTid = null;
                 const user = getUser();
                 if (user) db().ref(`users/${user}/activeTournamentId`).remove();
+                if (status === 'cancelled') showGN('🛑 Турнір скасовано організатором');
             }
         });
     }
@@ -2107,7 +2110,28 @@
             author: u
         });
         showGN(`🏆 Турнір "${t.name}" розпочато!`);
-        viewTournamentBracket(tid);
+        openTournamentRoom(tid);
+    };
+
+    window.cancelTournament = async function(tid) {
+        const u = getUser(); if (!u) return;
+        const snap = await db().ref(`tournaments/${tid}`).once('value');
+        const t = snap.val();
+        if (!t) { showGN('❌ Турнір не знайдено'); return; }
+        if (t.host !== u) { showGN('❌ Скасувати може лише організатор'); return; }
+        if (t.status !== 'waiting' && t.status !== 'active') { showGN('❌ Турнір вже завершено'); return; }
+        if (!confirm(`Скасувати турнір "${t.name}"?`)) return;
+        const players = Object.keys(t.players || {});
+        const updates = {
+            [`tournaments/${tid}/status`]: 'cancelled',
+            [`tournaments/${tid}/cancelledAt`]: Date.now(),
+            [`tournaments/${tid}/cancelledBy`]: u
+        };
+        players.forEach(player => {
+            updates[`users/${player}/activeTournamentId`] = null;
+        });
+        await db().ref().update(updates);
+        showGN(`🛑 Турнір "${t.name}" скасовано`);
     };
 
     function buildBracket(players) {
@@ -2150,22 +2174,17 @@
         const t = snap.val();
         if (!t) return;
         tournamentState.activeTournamentId = tid;
-        // Hide lobby, show bracket
         const lobbySection = document.getElementById('tournament-lobby-section');
         if (lobbySection) lobbySection.style.display = 'none';
         const bracketSection = document.getElementById('tournament-bracket-section');
         if (bracketSection) bracketSection.style.display = 'block';
         const titleEl = document.getElementById('tournament-title-display');
         if (titleEl) titleEl.textContent = `🏆 ${t.name}`;
-        // Show participant list
         const playersEl = document.getElementById('tournament-players-display');
         if (playersEl) playersEl.textContent = `👥 Гравці: ${formatPlayerList(t.players)}`;
-        // Show chat button if group chat exists
-        const chatBtn = document.getElementById('tournament-chat-btn');
-        if (chatBtn && t.groupChatId) {
-            chatBtn.style.display = 'inline-flex';
-            chatBtn.setAttribute('data-group', t.groupChatId);
-        }
+        updateTournamentRoomControls(tid, t);
+        updateTournamentInfoNote(t);
+        bindTournamentChat(t.groupChatId);
         const normalized = { ...t, bracket: normalizeBracket(t.bracket) };
         renderBracketUI(normalized);
         checkMyTournamentMatch(normalized);
@@ -2177,20 +2196,117 @@
         if (lobbySection) lobbySection.style.display = 'block';
         const bracketSection = document.getElementById('tournament-bracket-section');
         if (bracketSection) bracketSection.style.display = 'none';
-        // Detach listener only if tournament is completed
-        if (!tournamentState.activeTournamentId) {
-            cleanupTournamentListener();
-        }
-        loadTournaments();
+        cleanupTournamentListener();
+        cleanupTournamentChatListener();
+        tournamentState.activeTournamentId = null;
+        tournamentState.myMatchId = null;
+        tournamentState.drawPromptKey = null;
+        loadTournaments(true);
     };
 
-    window.openTournamentChat = function() {
-        const chatBtn = document.getElementById('tournament-chat-btn');
-        const groupId = chatBtn?.getAttribute('data-group');
-        if (!groupId) return;
-        // Open group chat if the function exists
-        if (typeof openGroupChat === 'function') openGroupChat(groupId);
-        else if (typeof showGN === 'function') showGN('💬 Відкрий розділ Чат для спілкування');
+    function updateTournamentRoomControls(tid, tournament) {
+        const u = getUser();
+        const playerCount = Object.keys(tournament?.players || {}).length;
+        const canStart = canUserStartTournament(tournament, u) && tournament?.status === 'waiting' && playerCount >= 2;
+        const canCancel = tournament?.host === u && (tournament?.status === 'waiting' || tournament?.status === 'active');
+        const startBtn = document.getElementById('tournament-start-btn');
+        const cancelBtn = document.getElementById('tournament-cancel-btn');
+        if (startBtn) {
+            startBtn.style.display = canStart ? 'inline-flex' : 'none';
+            startBtn.setAttribute('data-tid', tid || '');
+        }
+        if (cancelBtn) {
+            cancelBtn.style.display = canCancel ? 'inline-flex' : 'none';
+            cancelBtn.setAttribute('data-tid', tid || '');
+        }
+    }
+
+    function updateTournamentInfoNote(tournament) {
+        const noteEl = document.getElementById('tournament-info-note');
+        if (!noteEl) return;
+        if (tournament?.status === 'waiting') {
+            noteEl.style.display = 'block';
+            noteEl.innerHTML = '⏳ Очікуємо старт від організатора. Тут же доступний чат та актуальний список учасників.';
+            return;
+        }
+        if (tournament?.status === 'active') {
+            noteEl.style.display = 'block';
+            noteEl.innerHTML = '🔥 Турнір активний! Грайте матчі, спілкуйтесь у чаті та стежте за сіткою в реальному часі.';
+            return;
+        }
+        if (tournament?.status === 'cancelled') {
+            noteEl.style.display = 'block';
+            noteEl.innerHTML = '🛑 Турнір скасовано організатором.';
+            return;
+        }
+        noteEl.style.display = 'none';
+    }
+
+    function renderTournamentChatMessages(messages = []) {
+        const box = document.getElementById('tournament-chat-messages');
+        if (!box) return;
+        if (!messages.length) {
+            box.innerHTML = '<div class="tournament-chat-empty">Поки що без повідомлень. Почніть розмову 👋</div>';
+            return;
+        }
+        const me = getUser();
+        box.innerHTML = messages.map(msg => {
+            const isMe = msg.sender === me;
+            const text = esc(msg.text || '');
+            const sender = esc(msg.sender || '---');
+            return `<div class="tournament-chat-row ${isMe ? 'me' : ''}">
+                <div class="bubble">${isMe ? '' : `<div class="author">${sender}</div>`}${text}</div>
+            </div>`;
+        }).join('');
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function bindTournamentChat(groupId) {
+        const input = document.getElementById('tournament-chat-input');
+        if (input) input.value = '';
+        if (!groupId) {
+            cleanupTournamentChatListener();
+            renderTournamentChatMessages([]);
+            if (input) input.disabled = true;
+            return;
+        }
+        if (tournamentState.chatGroupId && tournamentState.chatGroupId !== groupId) {
+            cleanupTournamentChatListener();
+        }
+        tournamentState.chatGroupId = groupId;
+        if (input) input.disabled = false;
+        if (typeof setupGroupChatListener === 'function') {
+            setupGroupChatListener(groupId, (messages) => renderTournamentChatMessages(messages));
+        } else {
+            renderTournamentChatMessages([]);
+        }
+    }
+
+    window.sendTournamentChatMsg = async function() {
+        const groupId = tournamentState.chatGroupId;
+        const u = getUser();
+        const input = document.getElementById('tournament-chat-input');
+        if (!groupId || !u || !input) return;
+        const text = input.value.trim();
+        if (!text) return;
+        input.value = '';
+        if (typeof sendGroupMessageFirebase === 'function') {
+            await sendGroupMessageFirebase(groupId, u, text);
+        }
+    };
+
+    window.handleTournamentChatKeypress = function(event) {
+        if (event.key === 'Enter') window.sendTournamentChatMsg();
+    };
+
+    window.startTournamentFromRoom = function() {
+        const tid = document.getElementById('tournament-start-btn')?.getAttribute('data-tid') || tournamentState.activeTournamentId;
+        if (tid) startTournament(tid);
+    };
+
+    window.cancelTournamentFromRoom = function() {
+        const tid = document.getElementById('tournament-cancel-btn')?.getAttribute('data-tid') || tournamentState.activeTournamentId;
+        if (tid) cancelTournament(tid);
     };
 
     function setupTournamentListener(tid) {
@@ -2205,45 +2321,78 @@
             if (!raw) return;
             const t = { ...raw, bracket: normalizeBracket(raw.bracket) };
             renderBracketUI(t);
+            updateTournamentRoomControls(tid, raw);
+            updateTournamentInfoNote(raw);
+            bindTournamentChat(raw.groupChatId);
 
-            // Update players display
             const playersEl = document.getElementById('tournament-players-display');
             if (playersEl) playersEl.textContent = `👥 Гравці: ${formatPlayerList(raw.players)}`;
 
             const m = tournamentState.myMatchId;
             if (m && m.tid === tid) {
-                // Check if our active match was resolved by the other client
                 const bracket = t.bracket;
+                const me = getUser();
                 for (let ri = 0; ri < bracket.length; ri++) {
                     for (let mi = 0; mi < bracket[ri].length; mi++) {
                         const match = bracket[ri][mi];
-                        if (match.p1 === m.p1 && match.p2 === m.p2 && match.status === 'done') {
-                            const u = getUser();
+                        if (match.p1 === m.p1 && match.p2 === m.p2) {
                             const resEl = document.getElementById('tournament-match-result');
                             const waitEl = document.getElementById('tournament-wait-msg');
-                            if (waitEl) waitEl.style.display = 'none';
-                            if (resEl && match.p1Choice && match.p2Choice) {
+                            const btns = document.querySelectorAll('#tournament-match-area .rps-choice-btn');
+                            if (match.status === 'done') {
+                                if (waitEl) waitEl.style.display = 'none';
                                 const icons = { rock: '✊', scissors: '✌️', paper: '🖐️' };
-                                const myChoice = u === m.p1 ? match.p1Choice : match.p2Choice;
-                                const oppChoice = u === m.p1 ? match.p2Choice : match.p1Choice;
-                                const won = match.winner === u;
-                                resEl.innerHTML = `${icons[myChoice] || '?'} vs ${icons[oppChoice] || '?'} → ${won
-                                    ? '<span style="color:var(--g);">✅ Ви виграли!</span>'
-                                    : '<span style="color:var(--r);">❌ Ви програли</span>'}`;
+                                if (resEl && match.p1Choice && match.p2Choice) {
+                                    const myChoice = me === m.p1 ? match.p1Choice : match.p2Choice;
+                                    const oppChoice = me === m.p1 ? match.p2Choice : match.p1Choice;
+                                    const won = match.winner === me;
+                                    resEl.innerHTML = `${icons[myChoice] || '?'} vs ${icons[oppChoice] || '?'} → ${won
+                                        ? '<span style="color:var(--g);">✅ Ви виграли!</span>'
+                                        : '<span style="color:var(--r);">❌ Ви програли</span>'}`;
+                                }
+                                tournamentState.myMatchId = null;
+                                tournamentState.drawPromptKey = null;
+                                if (t.status === 'completed') {
+                                    const u2 = getUser();
+                                    if (u2) db().ref(`users/${u2}/activeTournamentId`).remove();
+                                    cleanupTournamentListener();
+                                    setTimeout(() => {
+                                        if (t.winner === getUser()) checkPendingMysteryBox();
+                                        else viewTournamentBracket(tid);
+                                    }, 2500);
+                                } else {
+                                    setTimeout(() => viewTournamentBracket(tid), 2000);
+                                }
+                                return;
                             }
-                            tournamentState.myMatchId = null;
-                            if (t.status === 'completed') {
-                                // Clear activeTournamentId for all players
-                                const u2 = getUser();
-                                if (u2) db().ref(`users/${u2}/activeTournamentId`).remove();
-                                cleanupTournamentListener();
-                                setTimeout(() => {
-                                    if (t.winner === getUser()) checkPendingMysteryBox();
-                                    else viewTournamentBracket(tid);
-                                }, 2500);
-                            } else {
-                                setTimeout(() => viewTournamentBracket(tid), 2000);
+                            if (match.status === 'pending') {
+                                const choiceKey = `${ri}_${mi}`;
+                                const alreadyChose = !!raw.choices?.[choiceKey]?.[me];
+                                if (alreadyChose) {
+                                    btns.forEach(b => b.disabled = true);
+                                    if (waitEl) waitEl.style.display = 'block';
+                                } else {
+                                    btns.forEach(b => b.disabled = false);
+                                    if (waitEl) waitEl.style.display = 'none';
+                                }
+                                const drawRound = n(match.drawRound, 0);
+                                const drawKey = `${tid}_${ri}_${mi}_${drawRound}`;
+                                if (resEl && drawRound > 0 && tournamentState.drawPromptKey !== drawKey) {
+                                    tournamentState.drawPromptKey = drawKey;
+                                    resEl.innerHTML = `<span style="color:var(--gold);">🤝 Нічия! Раунд ${drawRound + 1}</span>`;
+                                } else if (resEl && drawRound <= 0) {
+                                    resEl.textContent = '';
+                                }
+                                return;
                             }
+                            if (match.status === 'resolving') {
+                                if (waitEl) waitEl.style.display = 'block';
+                                btns.forEach(b => b.disabled = true);
+                                return;
+                            }
+                            if (resEl) resEl.textContent = '';
+                            if (waitEl) waitEl.style.display = 'none';
+                            btns.forEach(b => b.disabled = false);
                             return;
                         }
                     }
@@ -2252,9 +2401,19 @@
                 checkMyTournamentMatch(t);
             }
 
-            if (raw.status === 'completed') {
+            if (raw.status === 'completed' || raw.status === 'cancelled') {
                 const u = getUser();
                 if (u) db().ref(`users/${u}/activeTournamentId`).remove();
+            }
+            if (raw.status === 'cancelled') {
+                tournamentState.myMatchId = null;
+                cleanupTournamentListener();
+                cleanupTournamentChatListener();
+                showGN('🛑 Турнір скасовано організатором');
+                setTimeout(() => {
+                    closeTournamentBracket();
+                }, 1200);
+                return;
             }
         });
     }
@@ -2264,6 +2423,15 @@
         if (!el) return;
         const bracket = t.bracket || [];
         const u = getUser();
+        if (!bracket.length) {
+            const playersCount = Object.keys(t.players || {}).length;
+            el.innerHTML = `<div class="glass" style="text-align:center; border-color:rgba(240,185,11,0.35);">
+                <div style="font-size:1.4rem; margin-bottom:6px;">🏟️</div>
+                <div style="font-size:13px; color:var(--gold); font-weight:900;">Сітка з'явиться після старту</div>
+                <div style="font-size:11px; color:var(--text2); margin-top:4px;">Зараз у кімнаті: ${playersCount} гравців</div>
+            </div>`;
+            return;
+        }
         // Stage names: computed relative to the end of the bracket so the last round is always "Фінал"
         const stageNamesFromEnd = ['Фінал', 'Півфінал', '1/4 Фінал', '1/8', '1/16', '1/32'];
         const totalRounds = bracket.length;
@@ -2277,7 +2445,8 @@
                 return `${resultLine}${choicesLine}`;
             }
             if (match.status === 'pending' && match.p1 && match.p2) {
-                return `<div style="font-size:9px;color:var(--gold);text-align:center;font-weight:900;">⚔️ Триває...</div>`;
+                const roundText = n(match.drawRound, 0) > 0 ? `Раунд ${n(match.drawRound, 0) + 1}` : 'Раунд 1';
+                return `<div style="font-size:9px;color:var(--gold);text-align:center;font-weight:900;">⚔️ Триває... ${roundText}</div>`;
             }
             if (match.status === 'queued' && match.p1 && match.p2) {
                 return `<div style="font-size:9px;color:var(--text2);text-align:center;">⏳ Очікує черги</div>`;
@@ -2342,7 +2511,13 @@
                     tournamentState.myMatchId = { tid: t.id, ri, mi, p1: match.p1, p2: match.p2 };
                     matchArea.style.display = 'block';
                     matchVs.textContent = `Ваш суперник: ${opp}`;
-                    document.getElementById('tournament-match-result').textContent = '';
+                    const resEl = document.getElementById('tournament-match-result');
+                    if (resEl) {
+                        const drawRound = n(match.drawRound, 0);
+                        resEl.innerHTML = drawRound > 0
+                            ? `<span style="color:var(--gold);">🤝 Нічия! Раунд ${drawRound + 1}</span>`
+                            : '';
+                    }
                     const waitEl = document.getElementById('tournament-wait-msg');
                     if (waitEl) waitEl.style.display = 'none';
                     // Re-enable choice buttons in case this is a reload
@@ -2407,16 +2582,30 @@
         }
 
         const winner = rpsWinnerCheck(p1Choice, p2Choice);
-        let matchWinner;
-        if (winner === 1) matchWinner = p1;
-        else if (winner === 2) matchWinner = p2;
-        else matchWinner = Math.random() < 0.5 ? p1 : p2; // Draw → random
 
         // Load current bracket to propagate advancement
         const snap = await db().ref(`tournaments/${tid}`).once('value');
         const raw = snap.val();
         if (!raw) return;
         const bracket = normalizeBracket(raw.bracket);
+
+        if (winner === 0) {
+            const currentDrawRound = n(bracket?.[ri]?.[mi]?.drawRound, 0);
+            bracket[ri][mi].status = 'pending';
+            bracket[ri][mi].winner = null;
+            bracket[ri][mi].drawRound = currentDrawRound + 1;
+            bracket[ri][mi].p1Choice = null;
+            bracket[ri][mi].p2Choice = null;
+            await db().ref(`tournaments/${tid}`).update({
+                bracket,
+                [`choices/${ri}_${mi}`]: null
+            });
+            return;
+        }
+
+        let matchWinner;
+        if (winner === 1) matchWinner = p1;
+        else matchWinner = p2;
 
         bracket[ri][mi].winner = matchWinner;
         bracket[ri][mi].status = 'done';
@@ -3184,8 +3373,11 @@
         if (extState.workCooldownTimer) { clearInterval(extState.workCooldownTimer); extState.workCooldownTimer = null; }
         if (extState.debtProcessingTimer) { clearInterval(extState.debtProcessingTimer); extState.debtProcessingTimer = null; }
         minesState.active = false;
+        cleanupTournamentChatListener();
         tournamentState.activeTournamentId = null;
         tournamentState.myMatchId = null;
+        tournamentState.chatGroupId = null;
+        tournamentState.drawPromptKey = null;
         if (_startWatcherRef) { _startWatcherRef.off('value'); _startWatcherRef = null; _startWatcherTid = null; }
         cleanupTournamentListener();
     }
