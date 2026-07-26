@@ -1808,7 +1808,7 @@
     let _tourneyListenerTid = null;
 
     /* ── Mystery Box prize table + top-3 rarity mapping ── */
-    const TOURNAMENT_TOP3_BOX_RARITY = { 1: 'legendary', 2: 'epic', 3: 'rare' };
+    const TOURNAMENT_TOP3_BOX_RARITY = { '1': 'legendary', '2': 'epic', '3': 'rare' };
     const MYSTERY_BOX_PRIZES = [
         { type: 'coins', label: '50 BB Монет',          amount: 50,  rarity: 'rare',      weight: 30 },
         { type: 'coins', label: '100 BB Монет',         amount: 100, rarity: 'rare',      weight: 20 },
@@ -1869,6 +1869,7 @@
     function showMysteryBoxReveal(prize, place = null) {
         const existing = document.getElementById('mystery-box-overlay');
         if (existing) existing.remove();
+        const placeText = ['1', '2', '3'].includes(String(place)) ? ` за ${place} місце` : '';
         const ov = document.createElement('div');
         ov.id = 'mystery-box-overlay';
         ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:20px;';
@@ -1877,7 +1878,7 @@
             <div style="text-align:center;">
                 <div class="loot-open-anim revealed" style="font-size:5rem;">🎁</div>
                 <div style="font-size:20px;font-weight:900;color:var(--gold);margin:16px 0 8px;">🏆 ВИ ВИГРАЛИ ТУРНІР!</div>
-                <div style="font-size:13px;color:var(--text2);margin-bottom:20px;">Ваш приз — Містері Бокс${place ? ` за ${place} місце` : ''}</div>
+                <div style="font-size:13px;color:var(--text2);margin-bottom:20px;">Ваш приз — Містері Бокс${placeText}</div>
                 <div style="font-size:3rem;margin:12px 0;">${typeIcons[prize.type] || '🎁'}</div>
                 <div style="font-size:22px;font-weight:900;color:var(--p);margin-bottom:6px;">${esc(prize.label)}</div>
                 <button class="btn" style="margin-top:16px;background:var(--gold);color:#000;padding:12px 32px;font-size:14px;" onclick="document.getElementById('mystery-box-overlay').remove()">ЗАБРАТИ 🎉</button>
@@ -2135,6 +2136,22 @@
         const u = getUser();
         const stageNames = ['1/8', '1/4 Фінал', 'Півфінал', 'Фінал'];
         const getChoiceEmoji = (choice) => ({ rock: '✊', scissors: '✌️', paper: '🖐️' }[choice] || '❔');
+        const renderMatchMeta = (match) => {
+            if (match.status === 'done') {
+                const resultLine = `<div style="font-size:9px;color:var(--text2);text-align:center;">🏆 ${esc(match.winner)}</div>`;
+                const choicesLine = (match.p1Choice && match.p2Choice)
+                    ? `<div style="font-size:9px;color:var(--text2);text-align:center;">${esc(match.p1)} ${getChoiceEmoji(match.p1Choice)} vs ${getChoiceEmoji(match.p2Choice)} ${esc(match.p2 || '')}</div>`
+                    : '';
+                return `${resultLine}${choicesLine}`;
+            }
+            if (match.status === 'pending' && match.p1 && match.p2) {
+                return `<div style="font-size:9px;color:var(--text2);text-align:center;">⚔️ Триває...</div>`;
+            }
+            if (match.status === 'queued' && match.p1 && match.p2) {
+                return `<div style="font-size:9px;color:var(--text2);text-align:center;">⏳ Очікує черги</div>`;
+            }
+            return '';
+        };
 
         // Spectator live-match banner (shows who is playing but NOT their choice)
         const activeMatches = [];
@@ -2159,10 +2176,7 @@
                     <div class="bracket-player ${m.winner === m.p1 ? 'winner' : (m.winner && m.p2 ? 'loser' : '')}">${esc(m.p1 || '—')}</div>
                     <div style="font-size:10px;color:#555;text-align:center;margin:2px 0;">vs</div>
                     <div class="bracket-player ${m.winner === m.p2 ? 'winner' : (m.winner && m.p2 ? 'loser' : '')}">${esc(m.p2 || (m.status === 'waiting' ? '?' : 'BYE'))}</div>
-                    ${m.status === 'done' ? `<div style="font-size:9px;color:var(--text2);text-align:center;">🏆 ${esc(m.winner)}</div>
-                    ${m.p1Choice && m.p2Choice ? `<div style="font-size:9px;color:var(--text2);text-align:center;">${esc(m.p1)} ${getChoiceEmoji(m.p1Choice)} vs ${getChoiceEmoji(m.p2Choice)} ${esc(m.p2 || '')}</div>` : ''}` : ''}
-                    ${m.status === 'pending' && m.p1 && m.p2 ? `<div style="font-size:9px;color:var(--text2);text-align:center;">⚔️ Триває...</div>` : ''}
-                    ${m.status === 'queued' && m.p1 && m.p2 ? `<div style="font-size:9px;color:var(--text2);text-align:center;">⏳ Очікує черги</div>` : ''}
+                    ${renderMatchMeta(m)}
                 </div>`).join('')}
             </div>`;
         }).join('');
@@ -2385,7 +2399,7 @@
         for (const place of [1, 2, 3]) {
             const user = top3[place];
             if (!user) continue;
-            const rarity = TOURNAMENT_TOP3_BOX_RARITY[place] || null;
+            const rarity = TOURNAMENT_TOP3_BOX_RARITY[String(place)] || null;
             const prize = await awardMysteryBox(user, { rarity, tournamentId: tid, place });
             awardedRewards[place] = { user, rarity, prizeLabel: prize?.label || null, awardedAt: Date.now() };
         }
