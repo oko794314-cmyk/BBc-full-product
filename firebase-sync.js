@@ -23,7 +23,9 @@ let firebaseState = {
     rpsMatchListeners: {},
     rpsMatchIdListeners: {},
     rpsOutgoingListeners: {},
-    groupChatListeners: {}
+    groupChatListeners: {},
+    groupListListeners: {},
+    groupListSignatures: {}
 };
 
 /**
@@ -390,16 +392,20 @@ async function removeFriendFirebase(currentUser, friendUsername) {
 async function leaveGroupFirebase(groupId, username) {
     try {
         const db = firebase.database();
-        const groupSnap = await db.ref(`groupChats/${groupId}`).once('value');
-        const group = groupSnap.val();
-        if (!group) return false;
-        const members = (group.members || []).filter(m => m !== username);
+        const groupInfoSnap = await db.ref(`groupChats/${groupId}/info`).once('value');
+        const groupInfo = groupInfoSnap.val();
+        if (!groupInfo) return false;
+        const members = (groupInfo.members || []).filter(m => m !== username);
+        const updates = {
+            [`users/${username}/groups/${groupId}`]: null
+        };
         if (members.length === 0) {
             // Last member leaving — delete the group
-            await db.ref(`groupChats/${groupId}`).remove();
+            updates[`groupChats/${groupId}`] = null;
         } else {
-            await db.ref(`groupChats/${groupId}/members`).set(members);
+            updates[`groupChats/${groupId}/info/members`] = members;
         }
+        await db.ref().update(updates);
         console.log(`🚪 ${username} покинув групу ${groupId}`);
         updateSyncIndicator(true);
         return true;
@@ -765,6 +771,11 @@ function setupAllListenersOnLogin(currentUser) {
     
     // Запрошення на гру
     setupGameInvitationListener(currentUser);
+
+    // Групові чати — миттєве оновлення списку груп
+    setupGroupListListener(currentUser, () => {
+        if (typeof loadGroupChatsList === 'function') loadGroupChatsList();
+    });
     
     // Чати - налаштуються при вході у чат
     gameState.friends.forEach(friend => {
@@ -1119,6 +1130,35 @@ async function createGroupChatFirebase(creatorUsername, groupName, memberUsernam
     }
 }
 
+function setupGroupListListener(currentUser, callback) {
+    const db = firebase.database();
+    const ref = db.ref(`users/${currentUser}/groups`);
+
+    if (firebaseState.groupListListeners[currentUser]) {
+        ref.off('value', firebaseState.groupListListeners[currentUser]);
+    }
+
+    const listener = ref.on('value', (snapshot) => {
+        const groupIds = Object.keys(snapshot.val() || {}).sort();
+        const signature = groupIds.join('|');
+        if (firebaseState.groupListSignatures[currentUser] === signature) return;
+        firebaseState.groupListSignatures[currentUser] = signature;
+        if (typeof callback === 'function') callback();
+    }, (error) => {
+        console.warn(`⚠️ Помилка слухача груп (${currentUser}):`, error);
+    });
+
+    firebaseState.groupListListeners[currentUser] = listener;
+}
+
+function removeGroupListListener(currentUser) {
+    if (!firebaseState.groupListListeners[currentUser]) return;
+    const db = firebase.database();
+    db.ref(`users/${currentUser}/groups`).off('value', firebaseState.groupListListeners[currentUser]);
+    delete firebaseState.groupListListeners[currentUser];
+    delete firebaseState.groupListSignatures[currentUser];
+}
+
 async function sendGroupMessageFirebase(groupId, fromUser, text) {
     try {
         const db = firebase.database();
@@ -1220,6 +1260,10 @@ function removeAllListeners() {
     Object.keys(firebaseState.groupChatListeners || {}).forEach(groupId => {
         db.ref(`groupChats/${groupId}/messages`).off('value', firebaseState.groupChatListeners[groupId]);
     });
+
+    Object.keys(firebaseState.groupListListeners || {}).forEach(user => {
+        db.ref(`users/${user}/groups`).off('value', firebaseState.groupListListeners[user]);
+    });
     
     firebaseState.friendRequestListeners = {};
     firebaseState.gameInvitationListeners = {};
@@ -1231,6 +1275,8 @@ function removeAllListeners() {
     firebaseState.rpsMatchIdListeners = {};
     firebaseState.rpsOutgoingListeners = {};
     firebaseState.groupChatListeners = {};
+    firebaseState.groupListListeners = {};
+    firebaseState.groupListSignatures = {};
     
     console.log('🧹 Всі слухачі видалені');
 }
