@@ -1196,7 +1196,7 @@
     const AUTO_NEWS_PRICE_CHANGE_THRESHOLD = 15; // % change to trigger news
     const autoNewsThrottle = {};
 
-    async function maybePublishAutoNews(type, title, text, pinned = false) {
+    async function maybePublishAutoNews(type, title, text, pinned = false, eventType = 'system') {
         const now = Date.now();
         if (autoNewsThrottle[type] && now - autoNewsThrottle[type] < AUTO_NEWS_THROTTLE_MS) return;
         autoNewsThrottle[type] = now;
@@ -1208,6 +1208,7 @@
                 image: null,
                 pinned: pinned || false,
                 auto: true,
+                type: eventType,
                 createdAt: firebase.database.ServerValue.TIMESTAMP
             });
         } catch (_e) {}
@@ -1230,7 +1231,9 @@
             const drop = Math.abs(pct).toFixed(1);
             maybePublishAutoNews('market_crash',
                 `📉 Ринок впав на ${drop}%`,
-                `Ціна BB Coin різко знизилась на ${drop}% і зараз становить ${currentPrice.toFixed(6)} USDT. Будьте обережні при торгівлі — ринок нестабільний.`
+                `Ціна BB Coin різко знизилась на ${drop}% і зараз становить ${currentPrice.toFixed(6)} USDT. Будьте обережні при торгівлі — ринок нестабільний.`,
+                false,
+                'market'
             );
             _lastAutoNewsPrice = currentPrice;
             _lastAutoNewsPriceAt = now;
@@ -1238,7 +1241,9 @@
             const rise = pct.toFixed(1);
             maybePublishAutoNews('market_pump',
                 `📈 Ринок виріс на ${rise}%`,
-                `Ціна BB Coin зросла на ${rise}% і зараз становить ${currentPrice.toFixed(6)} USDT. Чудовий час для трейдерів! 🚀`
+                `Ціна BB Coin зросла на ${rise}% і зараз становить ${currentPrice.toFixed(6)} USDT. Чудовий час для трейдерів! 🚀`,
+                false,
+                'market'
             );
             _lastAutoNewsPrice = currentPrice;
             _lastAutoNewsPriceAt = now;
@@ -1259,7 +1264,8 @@
         await maybePublishAutoNews('tournament_end_' + (tournamentData.id || ''),
             `🏆 Завершення турніру: ${tournamentData.title}`,
             text,
-            true
+            true,
+            'tournament'
         );
     }
 
@@ -1645,6 +1651,13 @@
         const amountInput = document.getElementById('exchange-order-bb-amount');
         if (amountInput) amountInput.value = '';
         await appendLocalNotification({ type: 'exchange', level: 'info', title: '💹 Нова заявка на біржі', message: summary });
+        await maybePublishAutoNews(
+            `exchange_order_${order.id}`,
+            '💹 Нова заявка на біржі',
+            `${gameState.user} створив(ла) заявку: ${summary}`,
+            false,
+            'exchange'
+        );
         renderExchangeHub();
     }
 
@@ -2000,6 +2013,7 @@
         updateMiniTabState('chart-interval-tabs', 'interval', interval);
         state.selectedCandleIndex = null;
         state.chartShouldSnapToEnd = true;
+        renderCandles();
         reattachCandleHistoryListener();
     }
 

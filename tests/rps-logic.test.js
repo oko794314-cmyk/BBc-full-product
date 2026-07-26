@@ -63,6 +63,81 @@ function canOrdersMatch(order, candidate, currentPrice) {
     return true;
 }
 
+// ===== TOURNAMENT BRACKET FLOW =====
+function advanceBracket(bracket) {
+    let changed = false;
+    for (let ri = 0; ri < bracket.length - 1; ri++) {
+        for (let mi = 0; mi < bracket[ri].length; mi++) {
+            const m = bracket[ri][mi];
+            if (!m?.winner) continue;
+            const nextMi = Math.floor(mi / 2);
+            const next = bracket[ri + 1]?.[nextMi];
+            if (!next) continue;
+            if (mi % 2 === 0 && !next.p1) { next.p1 = m.winner; changed = true; }
+            if (mi % 2 === 1 && !next.p2) { next.p2 = m.winner; changed = true; }
+            if (next.p1 && next.p2 && next.status === 'waiting') { next.status = 'queued'; changed = true; }
+        }
+    }
+    return changed;
+}
+
+function activateNextPendingMatch(bracket) {
+    for (const round of bracket) for (const m of round) if (m.status === 'pending') return false;
+    for (const round of bracket) {
+        for (const m of round) {
+            if (m.status === 'queued' && m.p1 && m.p2) {
+                m.status = 'pending';
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+function buildBracket(players) {
+    const rounds = [];
+    const r1 = [];
+    let pendingAssigned = false;
+    for (let i = 0; i < players.length; i += 2) {
+        if (i + 1 < players.length) {
+            r1.push({ p1: players[i], p2: players[i + 1], winner: null, status: pendingAssigned ? 'queued' : 'pending' });
+            pendingAssigned = true;
+        } else {
+            r1.push({ p1: players[i], p2: null, winner: players[i], status: 'bye' });
+        }
+    }
+    rounds.push(r1);
+    let matchCount = Math.ceil(players.length / 2);
+    while (matchCount > 1) {
+        matchCount = Math.ceil(matchCount / 2);
+        rounds.push(Array.from({ length: matchCount }, () => ({ p1: null, p2: null, winner: null, status: 'waiting' })));
+    }
+    let changed = true;
+    let guard = 0;
+    while (changed && guard < 16) {
+        changed = advanceBracket(rounds);
+        guard++;
+    }
+    activateNextPendingMatch(rounds);
+    return rounds;
+}
+
+function getTournamentTop3Users(bracket) {
+    const top = {};
+    const final = bracket?.[bracket.length - 1]?.[0];
+    if (final?.winner) {
+        top[1] = final.winner;
+        if (final.p1 && final.p2) top[2] = final.winner === final.p1 ? final.p2 : final.p1;
+    }
+    const semis = bracket?.[bracket.length - 2] || [];
+    const semiLosers = semis
+        .filter(m => m?.status === 'done' && m.p1 && m.p2 && m.winner)
+        .map(m => (m.winner === m.p1 ? m.p2 : m.p1))
+        .filter(Boolean);
+    if (semiLosers.length) top[3] = semiLosers[0];
+    return top;
+}
+
 // ===== TESTS =====
 let passed = 0;
 let failed = 0;
@@ -282,6 +357,42 @@ test('no shop item has old high price (>10)', () => {
     shopCatalog.forEach(item => {
         assert(item.price <= 10, `${item.id} still has high price ${item.price}`);
     });
+});
+
+// ----- Tournament Flow Tests -----
+console.log('\n📋 Tournament Flow Tests:');
+
+test('only one pending match exists at start of tournament', () => {
+    const bracket = buildBracket(['u1', 'u2', 'u3', 'u4', 'u5', 'u6']);
+    const pendingCount = bracket.flat().filter(m => m.status === 'pending').length;
+    assertEqual(pendingCount, 1);
+});
+
+test('next queued match becomes pending after previous resolves', () => {
+    const bracket = buildBracket(['u1', 'u2', 'u3', 'u4']);
+    bracket[0][0].winner = 'u1';
+    bracket[0][0].status = 'done';
+    activateNextPendingMatch(bracket);
+    const pending = bracket[0].filter(m => m.status === 'pending');
+    assertEqual(pending.length, 1);
+    assertEqual(pending[0].p1, 'u3');
+    assertEqual(pending[0].p2, 'u4');
+});
+
+test('top-3 extraction returns champion, finalist and semifinal loser', () => {
+    const bracket = [
+        [
+            { p1: 'a', p2: 'b', winner: 'a', status: 'done' },
+            { p1: 'c', p2: 'd', winner: 'c', status: 'done' }
+        ],
+        [
+            { p1: 'a', p2: 'c', winner: 'c', status: 'done' }
+        ]
+    ];
+    const top3 = getTournamentTop3Users(bracket);
+    assertEqual(top3[1], 'c');
+    assertEqual(top3[2], 'a');
+    assertEqual(top3[3], 'b');
 });
 
 // ===== SUMMARY =====
