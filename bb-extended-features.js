@@ -12,6 +12,7 @@
     function n(v, f = 0) { return Number.isFinite(Number(v)) ? Number(v) : f; }
     function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
     function uid(p = 'id') { return `${p}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`; }
+    function round2(v) { return Math.round(n(v, 0) * 100) / 100; }
     function dateKey(ts = Date.now()) {
         const d = new Date(ts);
         return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -1266,8 +1267,8 @@
             if (loan.status !== 'active') continue;
             if (now <= loan.dueAt) continue;
             if (loan.lastPenaltyDate !== today) {
-                const penalty = Math.round(loan.remaining * LOAN_PENALTY * 100) / 100;
-                loan.remaining = Math.round((loan.remaining + penalty) * 100) / 100;
+                const penalty = round2(loan.remaining * LOAN_PENALTY);
+                loan.remaining = round2(loan.remaining + penalty);
                 loan.lastPenaltyDate = today;
                 await appendBankRecord({
                     type: 'penalty',
@@ -1301,7 +1302,8 @@
         const u = getUser(); if (!u) return;
         const loan = extState.bank.loans[lid];
         if (!loan || loan.status !== 'active') return 0;
-        const amount = Math.max(0, Math.min(n(loan.remaining, 0), maxAmount == null ? n(loan.remaining, 0) : n(maxAmount, 0)));
+        const maxAllowed = maxAmount == null ? loan.remaining : maxAmount;
+        const amount = Math.max(0, Math.min(n(loan.remaining, 0), n(maxAllowed, 0)));
         if (amount <= 0) return 0;
         let paid = 0;
         if (loan.currency === 'bb') {
@@ -1317,7 +1319,7 @@
             if (paid <= 0) return 0;
             await saveUsdt(u, cur - paid);
         }
-        loan.remaining = Math.max(0, Math.round((loan.remaining - paid) * 100) / 100);
+        loan.remaining = Math.max(0, round2(loan.remaining - paid));
         if (loan.remaining <= 0) {
             loan.status = 'repaid';
             loan.repaidAt = Date.now();
@@ -2209,7 +2211,7 @@
         const m = tournamentState.myMatchId;
         if (!m) return;
         const { tid, ri, mi, p1, p2 } = m;
-        if (u !== p1 && u !== p2) return;
+        if (u !== p1 && u !== p2) { showGN('❌ Ви не є учасником цього матчу'); return; }
 
         // Immediately lock UI – prevent double-clicks
         document.querySelectorAll('#tournament-match-area .rps-choice-btn').forEach(b => b.disabled = true);

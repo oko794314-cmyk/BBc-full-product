@@ -4285,13 +4285,17 @@
         modal.style.display = 'flex';
         document.getElementById('fp-name').textContent = username;
         document.getElementById('fp-body').innerHTML = '<div style="color:var(--text2);text-align:center;">Завантаження...</div>';
+        const getProfileProfession = (data) =>
+            String(data.profession || data.workData?.profession || data.workData?.jobName || data.workData?.jobId || '—');
+        const getProfileTitle = (data) =>
+            String(data.activeTitle || data.title || data.profileTitle || '—');
         try {
             const snap = await firebase.database().ref(`users/${username}`).once('value');
             const data = snap.val() || {};
             const bal = Number(data.balance || 0).toFixed(4);
             const usdt = Number(data.usdt || 0).toFixed(2);
-            const profession = String(data.profession || data.workData?.profession || data.workData?.jobName || data.workData?.jobId || '—');
-            const title = String(data.activeTitle || data.title || data.profileTitle || '—');
+            const profession = getProfileProfession(data);
+            const title = getProfileTitle(data);
             const fallbackAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(username)}`;
             const safeAvatar = (data.avatarUrl && /^https?:\/\//.test(data.avatarUrl))
                 ? escapeHtml(data.avatarUrl) : fallbackAvatar;
@@ -6115,7 +6119,11 @@
         }
 
         function saveSportOddsCache() {
-            try { localStorage.setItem('bbc_sport_odds_cache_v1', JSON.stringify(window._sportState.oddsCache || {})); } catch (_e) {}
+            try {
+                localStorage.setItem('bbc_sport_odds_cache_v1', JSON.stringify(window._sportState.oddsCache || {}));
+            } catch (error) {
+                console.warn('Не вдалося зберегти кеш коефіцієнтів:', error);
+            }
         }
 
         function getFixedOdds(matchId) {
