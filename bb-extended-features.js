@@ -1462,9 +1462,10 @@
        Each bill has a "Pay" button that deducts the amount from the player's balance.
     ── */
     const TAX_INTERVAL_MS      = 2 * 24 * 60 * 60 * 1000; // 2 real-world days (not game time)
-    // Balance target: entry-level single properties should stay well below 1 USDT, while large upgraded portfolios
+    // Balance target: a single level-1 apartment should stay around 0.44 USDT, while large upgraded portfolios
     // should generate clearly heavier recurring taxes from property count, value, and level.
     const TAX_BILL_BASE        = 0.12;   // flat tax per owned property
+    const TAX_LEVEL_EXPONENT   = 1.25;   // levels grow faster than linearly so upgraded estates get taxed harder
     const TAX_LEVEL_FACTOR     = 0.28;   // progressive extra tax from property level
     const TAX_PRICE_FACTOR     = 0.0020; // property market value contribution to tax amount
     const TAX_COUNT_FACTOR     = 0.10;   // multiplier increase per extra property
@@ -1487,7 +1488,7 @@
             const level = Math.max(1, n(state.properties[def.id]?.level, 1));
             const propertyValue = getTaxablePropertyValue(def, level);
             portfolioValue += propertyValue;
-            total += TAX_BILL_BASE + (Math.pow(level, 1.25) * TAX_LEVEL_FACTOR) + (propertyValue * TAX_PRICE_FACTOR);
+            total += TAX_BILL_BASE + (Math.pow(level, TAX_LEVEL_EXPONENT) * TAX_LEVEL_FACTOR) + (propertyValue * TAX_PRICE_FACTOR);
         });
         const quantityMultiplier = 1 + Math.max(0, ownedProperties.length - 1) * TAX_COUNT_FACTOR;
         const portfolioMultiplier = 1 + (portfolioValue * TAX_PORTFOLIO_FACTOR);

@@ -65,6 +65,7 @@ function canOrdersMatch(order, candidate, currentPrice) {
 
 // ===== REAL ESTATE TAXES =====
 const TAX_BILL_BASE = 0.12;
+const TAX_LEVEL_EXPONENT = 1.25;
 const TAX_LEVEL_FACTOR = 0.28;
 const TAX_PRICE_FACTOR = 0.0020;
 const TAX_COUNT_FACTOR = 0.10;
@@ -89,7 +90,7 @@ function calcTaxBillAmount(catalog, properties) {
         const level = Math.max(1, toFiniteNumber(properties[def.id]?.level, 1));
         const propertyValue = getTaxablePropertyValue(def, level);
         portfolioValue += propertyValue;
-        total += TAX_BILL_BASE + (Math.pow(level, 1.25) * TAX_LEVEL_FACTOR) + (propertyValue * TAX_PRICE_FACTOR);
+        total += TAX_BILL_BASE + (Math.pow(level, TAX_LEVEL_EXPONENT) * TAX_LEVEL_FACTOR) + (propertyValue * TAX_PRICE_FACTOR);
     });
     const quantityMultiplier = 1 + Math.max(0, ownedProperties.length - 1) * TAX_COUNT_FACTOR;
     const portfolioMultiplier = 1 + (portfolioValue * TAX_PORTFOLIO_FACTOR);
