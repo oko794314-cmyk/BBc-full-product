@@ -70,9 +70,13 @@ const TAX_PRICE_FACTOR = 0.0020;
 const TAX_COUNT_FACTOR = 0.10;
 const TAX_PORTFOLIO_FACTOR = 0.00012;
 
+function toFiniteNumber(value, fallback = 0) {
+    return Number.isFinite(Number(value)) ? Number(value) : fallback;
+}
+
 function getTaxablePropertyValue(definition, level) {
-    const basePrice = Math.max(0, Number.isFinite(Number(definition?.price)) ? Number(definition.price) : 0);
-    const upgradeBase = Math.max(0, Number.isFinite(Number(definition?.upgradeBase)) ? Number(definition.upgradeBase) : 0);
+    const basePrice = Math.max(0, toFiniteNumber(definition?.price, 0));
+    const upgradeBase = Math.max(0, toFiniteNumber(definition?.upgradeBase, 0));
     return basePrice + (upgradeBase * Math.max(0, level - 1));
 }
 
@@ -82,7 +86,7 @@ function calcTaxBillAmount(catalog, properties) {
     let total = 0;
     let portfolioValue = 0;
     ownedProperties.forEach(def => {
-        const level = Math.max(1, Number.isFinite(Number(properties[def.id]?.level)) ? Number(properties[def.id].level) : 1);
+        const level = Math.max(1, toFiniteNumber(properties[def.id]?.level, 1));
         const propertyValue = getTaxablePropertyValue(def, level);
         portfolioValue += propertyValue;
         total += TAX_BILL_BASE + (Math.pow(level, 1.25) * TAX_LEVEL_FACTOR) + (propertyValue * TAX_PRICE_FACTOR);
