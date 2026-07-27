@@ -63,6 +63,40 @@ function canOrdersMatch(order, candidate, currentPrice) {
     return true;
 }
 
+// ===== REAL ESTATE TAXES =====
+const TAX_BILL_BASE = 0.12;
+const TAX_LEVEL_EXPONENT = 1.25;
+const TAX_LEVEL_FACTOR = 0.28;
+const TAX_PRICE_FACTOR = 0.0020;
+const TAX_COUNT_FACTOR = 0.10;
+const TAX_PORTFOLIO_FACTOR = 0.00012;
+
+function toFiniteNumber(value, fallback = 0) {
+    return Number.isFinite(Number(value)) ? Number(value) : fallback;
+}
+
+function getTaxablePropertyValue(definition, level) {
+    const basePrice = Math.max(0, toFiniteNumber(definition?.price, 0));
+    const upgradeBase = Math.max(0, toFiniteNumber(definition?.upgradeBase, 0));
+    return basePrice + (upgradeBase * Math.max(0, level - 1));
+}
+
+function calcTaxBillAmount(catalog, properties) {
+    const ownedProperties = catalog.filter(def => !!properties?.[def.id]);
+    if (!ownedProperties.length) return 0;
+    let total = 0;
+    let portfolioValue = 0;
+    ownedProperties.forEach(def => {
+        const level = Math.max(1, toFiniteNumber(properties[def.id]?.level, 1));
+        const propertyValue = getTaxablePropertyValue(def, level);
+        portfolioValue += propertyValue;
+        total += TAX_BILL_BASE + (Math.pow(level, TAX_LEVEL_EXPONENT) * TAX_LEVEL_FACTOR) + (propertyValue * TAX_PRICE_FACTOR);
+    });
+    const quantityMultiplier = 1 + Math.max(0, ownedProperties.length - 1) * TAX_COUNT_FACTOR;
+    const portfolioMultiplier = 1 + (portfolioValue * TAX_PORTFOLIO_FACTOR);
+    return Math.round(total * quantityMultiplier * portfolioMultiplier * 100) / 100;
+}
+
 // ===== TOURNAMENT BRACKET FLOW =====
 function advanceBracket(bracket) {
     let changed = false;
@@ -327,6 +361,39 @@ test('market orders ignore explicit price limits', () => {
 
 test('badge shows 0 not 9+ when no unread', () => {
     assertEqual(badgeDisplay(0), '0');
+});
+
+// ----- Real Estate Tax Tests -----
+console.log('\n📋 Real Estate Tax Tests:');
+
+const taxCatalog = [
+    { id: 'apartment', price: 18, upgradeBase: 9 },
+    { id: 'house', price: 35, upgradeBase: 15 },
+    { id: 'space_station', price: 5000, upgradeBase: 1800 }
+];
+
+test('no real estate means no tax bill', () => {
+    assertEqual(calcTaxBillAmount(taxCatalog, {}), 0);
+});
+
+test('single low-tier property has a small bill', () => {
+    assertEqual(calcTaxBillAmount(taxCatalog, { apartment: { level: 1 } }), 0.44);
+});
+
+test('property level increases taxable market value and tax amount', () => {
+    assertEqual(getTaxablePropertyValue({ price: 18, upgradeBase: 9 }, 3), 36);
+    assertEqual(calcTaxBillAmount(taxCatalog, { apartment: { level: 3 } }), 1.30);
+});
+
+test('multiple properties increase tax through count and portfolio scaling', () => {
+    assertEqual(calcTaxBillAmount(taxCatalog, {
+        apartment: { level: 1 },
+        house: { level: 2 }
+    }), 1.47);
+});
+
+test('luxury property creates a much larger tax bill', () => {
+    assertEqual(calcTaxBillAmount(taxCatalog, { space_station: { level: 2 } }), 26.12);
 });
 
 // ----- Shop Prices Tests -----
