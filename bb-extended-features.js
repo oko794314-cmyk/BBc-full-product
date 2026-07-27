@@ -2283,7 +2283,7 @@
             const rawSender = msg.sender || '';
             const users = typeof allUsers !== 'undefined' ? allUsers : {};
             const avatarUrl = (users[rawSender] || {}).avatar || '';
-            const initials = rawSender.slice(0, 2).toUpperCase() || '?';
+            const initials = esc(rawSender.length >= 2 ? rawSender.slice(0, 2).toUpperCase() : rawSender.toUpperCase() || '?');
             const avatarHtml = `<div class="t-avatar">${avatarUrl ? `<img src="${esc(avatarUrl)}" alt="${sender}">` : initials}</div>`;
             return `<div class="tournament-chat-row ${isMe ? 'me' : ''}">
                 ${avatarHtml}
