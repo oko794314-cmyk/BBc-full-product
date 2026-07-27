@@ -165,13 +165,15 @@
         .chat-messages { flex: 1; overflow-y: auto; margin-bottom: 14px; background: rgba(11,14,17,0.9); border-radius: 14px; border: 1px solid var(--border); padding: 12px; min-height: 150px; }
         .chat-row { display: flex; align-items: flex-end; gap: 8px; margin-bottom: 10px; animation: slideIn 0.22s ease; }
         .chat-row.own { flex-direction: row-reverse; }
+        .chat-row.own .chat-avatar-wrap { display: none; }
         .chat-avatar-wrap { width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(240,185,11,0.4); overflow: hidden; flex-shrink: 0; background: var(--black); display: flex; align-items: center; justify-content: center; }
         .chat-avatar-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
         .chat-avatar-fallback { width: 100%; height: 100%; display:flex; align-items:center; justify-content:center; font-size: 10px; font-weight: 900; color: var(--p); background: linear-gradient(145deg, rgba(240,185,11,0.15), rgba(14,203,129,0.1)); }
         .chat-msg { max-width: min(82%, 430px); border-radius: 14px; padding: 10px 12px; border: 1px solid transparent; }
         .chat-row.own .chat-msg { background: rgba(240,185,11,0.12); border-color: rgba(240,185,11,0.25); border-bottom-right-radius: 5px; }
         .chat-row.other .chat-msg { background: rgba(14,203,129,0.08); border-color: rgba(14,203,129,0.2); border-bottom-left-radius: 5px; }
-        .chat-meta { display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:9px; color:#90a4ae; margin-bottom:4px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .chat-nick { font-size:10px; font-weight:800; color:var(--p); margin-bottom:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .chat-meta { display:flex; align-items:center; justify-content:flex-end; gap:10px; font-size:9px; color:#90a4ae; margin-top:4px; text-transform: uppercase; letter-spacing: 0.5px; }
         .chat-input-wrap { display:flex; gap:8px; position: sticky; bottom: 20px; padding: 8px; border-radius: 12px; background: linear-gradient(180deg, rgba(11,14,17,0), rgba(11,14,17,0.95) 42%); backdrop-filter: blur(2px); z-index: 2; }
         .chat-input-wrap .btn { margin: 0; width: 78px; }
 
@@ -568,8 +570,11 @@
         .tournament-chat-panel { background:linear-gradient(160deg, rgba(240,185,11,0.08), rgba(11,14,17,0.8)); border:1px solid rgba(240,185,11,0.25); border-radius:12px; padding:10px; }
         .tournament-chat-log { max-height:260px; overflow:auto; display:flex; flex-direction:column; gap:8px; padding-right:4px; margin-bottom:10px; }
         .tournament-chat-empty { color:var(--text2); font-size:11px; text-align:center; padding:14px 8px; }
-        .tournament-chat-row { display:flex; }
-        .tournament-chat-row.me { justify-content:flex-end; }
+        .tournament-chat-row { display:flex; align-items:flex-end; gap:6px; }
+        .tournament-chat-row.me { flex-direction:row-reverse; }
+        .tournament-chat-row .t-avatar { width:28px; height:28px; border-radius:50%; overflow:hidden; flex-shrink:0; background:var(--black); border:1px solid rgba(240,185,11,0.3); display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:900; color:var(--p); }
+        .tournament-chat-row .t-avatar img { width:100%; height:100%; object-fit:cover; display:block; }
+        .tournament-chat-row.me .t-avatar { display:none; }
         .tournament-chat-row .bubble { max-width:86%; padding:8px 10px; border-radius:10px; font-size:12px; line-height:1.35; background:var(--card); border:1px solid var(--border); word-break:break-word; }
         .tournament-chat-row.me .bubble { background:rgba(14,203,129,0.14); border-color:rgba(14,203,129,0.35); }
         .tournament-chat-row .author { font-size:9px; color:var(--p); margin-bottom:3px; }
@@ -4492,18 +4497,19 @@
             return;
         }
 
-        container.innerHTML = messages.map(msg => `
-            <div class="chat-row ${msg.from === gameState.user ? 'own' : 'other'}">
+        container.innerHTML = messages.map(msg => {
+            const isOwn = msg.from === gameState.user;
+            return `
+            <div class="chat-row ${isOwn ? 'own' : 'other'}">
                 ${buildChatAvatarHtml(msg.from)}
                 <div class="chat-msg">
-                    <div class="chat-meta">
-                        <span>${escapeHtml(formatUserLabel(msg.from))}</span>
-                        <span>${escapeHtml(formatChatTimestamp(msg.timestamp))}</span>
-                    </div>
+                    ${!isOwn ? `<div class="chat-nick">${escapeHtml(formatUserLabel(msg.from))}</div>` : ''}
                     <div class="chat-text">${escapeHtml(msg.text)}</div>
+                    <div class="chat-meta"><span>${escapeHtml(formatChatTimestamp(msg.timestamp))}</span></div>
                 </div>
             </div>
-        `).join('');
+            `;
+        }).join('');
         attachAvatarFallbackHandlers(container);
 
         container.scrollTop = container.scrollHeight;
@@ -6152,13 +6158,16 @@
         if (!container) return;
         container.innerHTML = messages.map(msg => {
             const isMe = msg.sender === gameState.user;
-            return `<div class="chat-msg-row ${isMe ? 'chat-msg-row-me' : 'chat-msg-row-other'}">
-                <div class="chat-bubble ${isMe ? 'my-bubble' : 'other-bubble'}">
-                    ${!isMe ? `<div style="font-size:9px; color:var(--p); margin-bottom:2px;">${escapeHtml(msg.sender)}</div>` : ''}
-                    ${escapeHtml(msg.text)}
+            return `<div class="chat-row ${isMe ? 'own' : 'other'}">
+                ${buildChatAvatarHtml(msg.sender)}
+                <div class="chat-msg">
+                    ${!isMe ? `<div class="chat-nick">${escapeHtml(formatUserLabel(msg.sender))}</div>` : ''}
+                    <div class="chat-text">${escapeHtml(msg.text)}</div>
+                    <div class="chat-meta"><span>${escapeHtml(formatChatTimestamp(msg.timestamp || 0))}</span></div>
                 </div>
             </div>`;
         }).join('');
+        attachAvatarFallbackHandlers(container);
         container.scrollTop = container.scrollHeight;
     }
 
