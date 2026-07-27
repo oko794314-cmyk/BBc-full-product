@@ -1462,7 +1462,7 @@
        Each bill has a "Pay" button that deducts the amount from the player's balance.
     ── */
     const TAX_INTERVAL_MS      = 2 * 24 * 60 * 60 * 1000; // 2 real-world days (not game time)
-    // Balance target: entry-level housing should stay below 1 USDT, while large upgraded portfolios
+    // Balance target: entry-level single properties should stay well below 1 USDT, while large upgraded portfolios
     // should generate clearly heavier recurring taxes from property count, value, and level.
     const TAX_BILL_BASE        = 0.12;   // flat tax per owned property
     const TAX_LEVEL_FACTOR     = 0.28;   // progressive extra tax from property level
