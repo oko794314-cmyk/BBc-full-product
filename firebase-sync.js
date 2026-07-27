@@ -1408,11 +1408,33 @@ window.setupRpsMatchListener = setupRpsMatchListener;
 window.setupRpsMatchIdListener = setupRpsMatchIdListener;
 window.setupRpsOutgoingInviteListener = setupRpsOutgoingInviteListener;
 
+async function addMemberToGroupFirebase(groupId, newMembers) {
+    try {
+        const db = firebase.database();
+        const infoSnap = await db.ref(`groupChats/${groupId}/info`).once('value');
+        const info = infoSnap.val();
+        if (!info) return false;
+        const membersArr = Array.isArray(newMembers) ? newMembers : [newMembers];
+        const updatedMembers = [...new Set([...(info.members || []), ...membersArr])];
+        const updates = { [`groupChats/${groupId}/info/members`]: updatedMembers };
+        membersArr.forEach(m => {
+            updates[`users/${m}/groups/${groupId}`] = true;
+        });
+        await db.ref().update(updates);
+        updateSyncIndicator(true);
+        return true;
+    } catch (error) {
+        console.error('❌ Помилка додавання учасників до групи:', error);
+        return false;
+    }
+}
+
 // Group chats
 window.createGroupChatFirebase = createGroupChatFirebase;
 window.sendGroupMessageFirebase = sendGroupMessageFirebase;
 window.loadGroupChatsForUserFirebase = loadGroupChatsForUserFirebase;
 window.setupGroupChatListener = setupGroupChatListener;
 window.removeGroupChatListener = removeGroupChatListener;
+window.addMemberToGroupFirebase = addMemberToGroupFirebase;
 
 console.log('✅ firebase-sync.js завантажено');
