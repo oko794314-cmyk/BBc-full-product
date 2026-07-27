@@ -2280,8 +2280,17 @@
             const isMe = msg.sender === me;
             const text = esc(msg.text || '');
             const sender = esc(msg.sender || '---');
+            const rawSender = msg.sender || '';
+            const users = typeof allUsers !== 'undefined' ? allUsers : {};
+            const avatarUrl = (users[rawSender] || {}).avatar || '';
+            const initials = esc(rawSender.length >= 2 ? rawSender.slice(0, 2).toUpperCase() : rawSender.toUpperCase() || '?');
+            const avatarHtml = `<div class="t-avatar">${avatarUrl ? `<img src="${esc(avatarUrl)}" alt="${sender}">` : initials}</div>`;
             return `<div class="tournament-chat-row ${isMe ? 'me' : ''}">
-                <div class="bubble">${isMe ? '' : `<div class="author">${sender}</div>`}${text}</div>
+                ${avatarHtml}
+                <div class="bubble">
+                    ${!isMe ? `<div class="author">${sender}</div>` : ''}
+                    ${text}
+                </div>
             </div>`;
         }).join('');
         box.scrollTop = box.scrollHeight;
