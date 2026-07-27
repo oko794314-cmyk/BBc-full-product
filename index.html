@@ -1132,8 +1132,8 @@
                     <div id="group-chat-header-name" style="font-weight:900; color:var(--p);">---</div>
                     <div id="group-chat-header-members" class="group-members-list"></div>
                 </div>
-                <button class="btn" style="width:auto;padding:7px 10px;font-size:11px;margin:0;flex-shrink:0;" onclick="openAddFriendsToGroupModal()" title="Додати друзів">➕</button>
-                <button class="btn danger-btn" style="width:auto;padding:7px 10px;font-size:11px;margin:0;flex-shrink:0;" onclick="leaveActiveGroup()" title="Покинути групу">🚪</button>
+                <button class="btn" style="width:auto;padding:7px 10px;font-size:11px;margin:0;flex-shrink:0;" onclick="openAddFriendsToGroupModal()" title="Додати друзів" aria-label="Додати друзів">➕</button>
+                <button class="btn danger-btn" style="width:auto;padding:7px 10px;font-size:11px;margin:0;flex-shrink:0;" onclick="leaveActiveGroup()" title="Покинути групу" aria-label="Покинути групу">🚪</button>
             </div>
             <div class="chat-messages" id="group-chat-messages"></div>
             <div class="chat-input-wrap">
@@ -5996,9 +5996,9 @@
             return;
         }
         container.innerHTML = available.map(f => `
-            <div class="friend-select-item" onclick="this.querySelector('input').click()">
+            <div class="friend-select-item">
                 <input type="checkbox" id="fsel-${escapeAttr(containerId)}-${escapeAttr(f)}" value="${escapeAttr(f)}">
-                <label for="fsel-${escapeAttr(containerId)}-${escapeAttr(f)}" onclick="event.stopPropagation()">${escapeHtml(f)}</label>
+                <label for="fsel-${escapeAttr(containerId)}-${escapeAttr(f)}">${escapeHtml(f)}</label>
             </div>
         `).join('');
     }
@@ -6065,7 +6065,7 @@
             showGameNotification(`🚪 Ви покинули групу "${groupName}"`);
             await loadGroupChatsList();
         } else {
-            alert('Не вдалося покинути групу. Спробуйте ще раз.');
+            showGameNotification('❌ Не вдалося покинути групу. Спробуйте ще раз.');
         }
     }
 
@@ -6133,7 +6133,7 @@
             showGameNotification(`🚪 Ви покинули групу "${groupName}"`);
             backToFriendsFromGroup();
         } else {
-            alert('Не вдалося покинути групу. Спробуйте ще раз.');
+            showGameNotification('❌ Не вдалося покинути групу. Спробуйте ще раз.');
         }
     }
 
