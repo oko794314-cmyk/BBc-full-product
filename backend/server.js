@@ -4,6 +4,8 @@ const socketIo = require('socket.io');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const fs = require('fs');
+const path = require('path');
 require('dotenv').config();
 
 const app = express();
@@ -15,12 +17,69 @@ const io = socketIo(server, {
 app.use(cors());
 app.use(express.json());
 
-const SECRET_KEY = 'stick_farm_secret_key_2024';
-const users = {};
+const SECRET_KEY = process.env.SECRET_KEY || 'stick_farm_secret_key_2024';
+
+// ===== PERSISTENT STORAGE =====
+
+const DATA_DIR = path.join(__dirname, 'data');
+const USERS_FILE = path.join(DATA_DIR, 'users.json');
+const MESSAGES_FILE = path.join(DATA_DIR, 'messages.json');
+const TRANSACTIONS_FILE = path.join(DATA_DIR, 'transactions.json');
+
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+function loadJson(filePath, fallback) {
+  try {
+    if (fs.existsSync(filePath)) {
+      return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    }
+  } catch (e) {
+    console.error(`⚠️ Помилка читання ${filePath}:`, e.message);
+  }
+  return fallback;
+}
+
+function saveJson(filePath, data) {
+  try {
+    const tmp = filePath + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf8');
+    fs.renameSync(tmp, filePath);
+  } catch (e) {
+    console.error(`⚠️ Помилка збереження ${filePath}:`, e.message);
+  }
+}
+
+// In-memory store loaded from disk on startup
+const users = loadJson(USERS_FILE, {});
+const messages = loadJson(MESSAGES_FILE, {});
+const transactions = loadJson(TRANSACTIONS_FILE, []);
+
+// Debounced saves to avoid excessive disk I/O
+const _saveTimers = {};
+function scheduleSave(key, filePath, dataGetter) {
+  if (_saveTimers[key]) clearTimeout(_saveTimers[key]);
+  _saveTimers[key] = setTimeout(() => {
+    saveJson(filePath, dataGetter());
+    delete _saveTimers[key];
+  }, 300);
+}
+
+function saveUsers()        { scheduleSave('users',        USERS_FILE,        () => users); }
+function saveMessages()     { scheduleSave('messages',     MESSAGES_FILE,     () => messages); }
+function saveTransactions() { scheduleSave('transactions', TRANSACTIONS_FILE, () => transactions); }
+
+function recordTransaction(username, type, amount, details = null) {
+  transactions.push({ username, type, amount, details, timestamp: Date.now() });
+  saveTransactions();
+}
+
 const devices = {};
-const messages = {};
 const miningIntervals = {};
 const tttGames = {};
+
+console.log(`✅ Завантажено ${Object.keys(users).length} користувачів з диску`);
 
 // ===== AUTHENTICATION =====
 
@@ -45,6 +104,7 @@ app.post('/api/register', async (req, res) => {
     friendRequests: []
   };
 
+  saveUsers();
   const token = jwt.sign({ username }, SECRET_KEY, { expiresIn: '7d' });
   res.json({ token, username });
 });
@@ -127,6 +187,7 @@ io.on('connection', (socket) => {
       }
 
       users[username].balance += 0.0001;
+      saveUsers();
       
       io.to(username).emit('balance_update', {
         balance: users[username].balance,
@@ -179,6 +240,10 @@ io.on('connection', (socket) => {
     users[sender].balance -= amount;
     users[recipient].balance += amount;
 
+    saveUsers();
+    recordTransaction(sender, 'transfer_out', -amount, { to: recipient });
+    recordTransaction(recipient, 'transfer_in', amount, { from: sender });
+
     io.to(sender).emit('balance_update', { balance: users[sender].balance });
     io.to(recipient).emit('balance_update', { balance: users[recipient].balance });
 
@@ -208,6 +273,7 @@ io.on('connection', (socket) => {
     }
 
     users[friendName].friendRequests.push(username);
+    saveUsers();
     io.to(friendName).emit('friend_request_received', { from: username });
     socket.emit('success', { message: 'Запит відправлено' });
   });
@@ -227,6 +293,7 @@ io.on('connection', (socket) => {
     users[username].friends.push(friendName);
     users[friendName].friends.push(username);
 
+    saveUsers();
     io.to(username).emit('friend_list_update', users[username].friends);
     io.to(friendName).emit('friend_list_update', users[friendName].friends);
   });
@@ -251,6 +318,7 @@ io.on('connection', (socket) => {
     };
 
     messages[chatKey].push(msg);
+    saveMessages();
     
     // МИТТЄВЕ ОНОВЛЕННЯ ДЛЯ ОБОХ КОРИСТУВАЧІВ
     io.to(from).emit('new_message', { from: to, ...msg });
@@ -364,6 +432,8 @@ io.on('connection', (socket) => {
     }
 
     users[username].balance -= betAmount;
+    saveUsers();
+    recordTransaction(username, 'roulette_bet', -betAmount, { color });
 
     setTimeout(() => {
       const result = Math.random() * 100;
@@ -385,6 +455,10 @@ io.on('connection', (socket) => {
         won = true;
         winAmount = betAmount * (color === 'green' ? 14 : 2);
         users[username].balance += winAmount;
+        saveUsers();
+        recordTransaction(username, 'roulette_win', winAmount, { color, resultColor: winColor });
+      } else {
+        recordTransaction(username, 'roulette_loss', 0, { color, resultColor: winColor });
       }
 
       io.to(username).emit('spin_result', {
@@ -476,6 +550,7 @@ app.post('/api/change-password', (req, res) => {
   }
 
   users[username].password = bcrypt.hashSync(newPassword, 10);
+  saveUsers();
   res.json({ success: true });
 });
 
@@ -489,11 +564,38 @@ app.get('/api/stats', (req, res) => {
   });
 });
 
+app.get('/api/transactions/:username', (req, res) => {
+  const { username } = req.params;
+  if (!users[username]) {
+    return res.status(404).json({ error: 'Користувача не знайдено' });
+  }
+  const userTx = transactions
+    .filter(t => t.username === username)
+    .slice(-100); // last 100 transactions
+  res.json(userTx);
+});
+
+// ===== GRACEFUL SHUTDOWN — flush pending saves =====
+
+function flushAndExit(signal) {
+  console.log(`\n${signal} отримано, зберігаємо дані...`);
+  Object.values(_saveTimers).forEach(clearTimeout);
+  saveJson(USERS_FILE, users);
+  saveJson(MESSAGES_FILE, messages);
+  saveJson(TRANSACTIONS_FILE, transactions);
+  console.log('✅ Дані збережено. Зупинка сервера.');
+  process.exit(0);
+}
+
+process.on('SIGINT',  () => flushAndExit('SIGINT'));
+process.on('SIGTERM', () => flushAndExit('SIGTERM'));
+
 // ===== ЗАПУСК СЕРВЕРА =====
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`✅ Сервер запущений на http://localhost:${PORT}`);
   console.log(`📡 WebSocket доступний на ws://localhost:${PORT}`);
+  console.log(`💾 Дані зберігаються в: ${DATA_DIR}`);
   console.log(`🎮 Підтримуються: Майнинг, Чат (реальний час), Крестики-нолики, Рулетка`);
 });
