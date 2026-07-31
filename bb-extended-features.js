@@ -2795,19 +2795,36 @@
         { id: 'wq_login7',   title: 'Заходь 7 днів поспіль',              key: 'weeklyLoginDays',    target: 7  }
     ];
 
+    const WEEKLY_QUEST_RESET_DAY = 5; // Friday
+    const WEEKLY_QUEST_ANCHOR = new Date(2024, 0, 5);
+
+    function getWeeklyQuestPeriodStart(input = Date.now()) {
+        const date = new Date(input);
+        date.setHours(0, 0, 0, 0);
+        const diff = (date.getDay() - WEEKLY_QUEST_RESET_DAY + 7) % 7;
+        date.setDate(date.getDate() - diff);
+        return date;
+    }
+
+    function formatWeeklyQuestDateKey(input = Date.now()) {
+        const date = new Date(input);
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    }
+
     function getCurrentWeeklyQuest() {
-        // Rotate weekly quest every Friday
-        const now = new Date();
-        const weekNum = Math.floor(now.getTime() / (7 * 24 * 3600 * 1000));
-        return WEEKLY_QUESTS_POOL[weekNum % WEEKLY_QUESTS_POOL.length];
+        const start = getWeeklyQuestPeriodStart();
+        const anchor = new Date(WEEKLY_QUEST_ANCHOR.getTime());
+        anchor.setHours(0, 0, 0, 0);
+        const diffWeeks = Math.floor((start.getTime() - anchor.getTime()) / (7 * 24 * 3600 * 1000));
+        const index = ((diffWeeks % WEEKLY_QUESTS_POOL.length) + WEEKLY_QUESTS_POOL.length) % WEEKLY_QUESTS_POOL.length;
+        return WEEKLY_QUESTS_POOL[index];
     }
 
     function getWeekKey() {
-        const d = new Date();
-        const day = d.getDay();
-        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-        const mon = new Date(d.setDate(diff));
-        return `${mon.getFullYear()}-W${String(Math.ceil(mon.getDate()/7)).padStart(2,'0')}`;
+        return formatWeeklyQuestDateKey(getWeeklyQuestPeriodStart());
     }
 
     async function getWeeklyQuestProgress(username) {
@@ -2824,6 +2841,17 @@
         await db().ref(`weeklyProgress/${wk}/${username}/${key}`).transaction(v => n(v, 0) + delta);
         // Check completion and promo assignment
         await checkWeeklyQuestCompletion(username);
+    }
+
+    async function registerWeeklyLoginDay(username) {
+        if (!username) return;
+        const wk = getWeekKey();
+        const dayKey = formatWeeklyQuestDateKey();
+        const loginRef = db().ref(`weeklyLoginTracker/${wk}/${username}/${dayKey}`);
+        const result = await loginRef.transaction(current => current || Date.now());
+        if (result.committed) {
+            await incrementWeeklyProgress(username, 'weeklyLoginDays');
+        }
     }
 
     async function checkWeeklyQuestCompletion(username) {
@@ -3397,6 +3425,7 @@
         const u = getUser(); if (!u) return;
         gameState.usdt = await loadUsdt(u);
         if (typeof updateHeader === 'function') updateHeader();
+        await registerWeeklyLoginDay(u);
         await loadWorkState();
         await loadBankData();
         await loadStocksData();

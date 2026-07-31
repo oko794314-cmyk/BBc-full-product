@@ -617,6 +617,7 @@ function setupBalanceListener(currentUser) {
         if (newBalance === null || typeof newBalance !== 'number') return;
         if (newBalance !== gameState.balance) {
             gameState.balance = newBalance;
+            if (typeof updateCachedUser === 'function') updateCachedUser(currentUser, { balance: newBalance });
             if (typeof updateHeader === 'function') updateHeader();
         }
     }, (error) => {
@@ -642,6 +643,7 @@ function setupUsdtListener(currentUser) {
         if (newUsdt === null || typeof newUsdt !== 'number') return;
         if (newUsdt !== gameState.usdt) {
             gameState.usdt = newUsdt;
+            if (typeof updateCachedUser === 'function') updateCachedUser(currentUser, { usdt: newUsdt });
             if (typeof updateHeader === 'function') updateHeader();
         }
     }, (error) => {

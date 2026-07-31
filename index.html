@@ -2230,7 +2230,8 @@
     }
 
     function getUserAvatarUrl(username) {
-        return sanitizeAvatarUrl((allUsers[username] || {}).avatar || '');
+        const userData = allUsers[username] || {};
+        return sanitizeAvatarUrl(userData.avatar || userData.avatarUrl || '');
     }
 
     function getAvatarImageHtml(avatar, alt) {
@@ -4372,9 +4373,7 @@
             const profession = getProfileProfession(data);
             const title = getProfileTitle(data);
             const fallbackAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(username)}`;
-            const safeAvatar = (data.avatarUrl && /^https?:\/\//.test(data.avatarUrl))
-                ? escapeHtml(data.avatarUrl) : fallbackAvatar;
-            const encoded = encodeURIComponent(username);
+            const safeAvatar = sanitizeAvatarUrl(data.avatar || data.avatarUrl || '') || fallbackAvatar;
             const body = document.getElementById('fp-body');
             body.innerHTML = '';
             const avatarDiv = document.createElement('div');
@@ -4389,12 +4388,11 @@
             statsDiv.className = 'profile-stat-grid';
             statsDiv.style.gridTemplateColumns = '1fr 1fr';
             statsDiv.innerHTML = `
+                <div class="profile-stat-card"><div style="font-size:11px;color:var(--text2);">Титул</div><b>${escapeHtml(title)}</b></div>
                 <div class="profile-stat-card"><div style="font-size:11px;color:var(--text2);">BB Баланс</div><b>${escapeHtml(bal)} BB</b></div>
                 <div class="profile-stat-card"><div style="font-size:11px;color:var(--text2);">USDT</div><b style="color:#26A17B;">${escapeHtml(usdt)} USDT</b></div>
-                <div class="profile-stat-card"><div style="font-size:11px;color:var(--text2);">Рівень</div><b>${escapeHtml(String(data.level || 1))}</b></div>
-                <div class="profile-stat-card"><div style="font-size:11px;color:var(--text2);">Досягнення</div><b>${escapeHtml(String(data.achievementsCount || 0))}</b></div>
                 <div class="profile-stat-card"><div style="font-size:11px;color:var(--text2);">Професія</div><b>${escapeHtml(profession)}</b></div>
-                <div class="profile-stat-card"><div style="font-size:11px;color:var(--text2);">Титул</div><b>${escapeHtml(title)}</b></div>
+                <div class="profile-stat-card"><div style="font-size:11px;color:var(--text2);">Рівень</div><b>${escapeHtml(String(data.level || 1))}</b></div>
             `;
             body.appendChild(statsDiv);
             const btnDiv = document.createElement('div');

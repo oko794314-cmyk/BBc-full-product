@@ -119,6 +119,29 @@
         };
     }
 
+    async function syncFreshBbBalance(username = gameState?.user) {
+        if (!username) return num(gameState?.balance, 0);
+        try {
+            const snapshot = await getDb().ref(`users/${username}/balance`).once('value');
+            const freshBalance = num(snapshot.val(), num(gameState?.balance, 0));
+            if (gameState?.user === username) {
+                gameState.balance = freshBalance;
+                if (typeof updateCachedUser === 'function') updateCachedUser(username, { balance: freshBalance });
+                if (typeof updateHeader === 'function') updateHeader();
+            }
+            return freshBalance;
+        } catch (_error) {
+            return num(gameState?.balance, 0);
+        }
+    }
+
+    async function incrementWeeklyTradeProgress(delta = 1) {
+        const username = gameState?.user;
+        const incrementer = window.extFeatures?.incrementWeeklyProgress;
+        if (!username || typeof incrementer !== 'function') return;
+        await incrementer(username, 'weeklyTradeCount', delta);
+    }
+
     function getDefaultAccountHub() {
         return {
             transactions: {},
@@ -1370,6 +1393,7 @@
                 updateCandleHistory(trade)
             ]);
             await addProgress({ totalDeals: 1, totalBought: bbAmount });
+            await incrementWeeklyTradeProgress();
             await appendLocalTransaction({ direction: 'income', amount: bbAmount, source: 'market-buy', reason: 'Купівля BB за USDT', details: `${bbAmount.toFixed(4)} BB за ${usdtCost.toFixed(4)} USDT @ ${currentPrice.toFixed(6)}` });
             checkMarketAutoNews(newPrice);
             if (bbAmountInput) bbAmountInput.value = '';
@@ -1390,7 +1414,7 @@
         const currentPrice = Math.max(MIN_PRICE, num(state.market.currentPrice, 1));
         // Round to 4 dp to match the UI display and keep USDT precision consistent.
         const usdtGain = Number((bbAmount * currentPrice).toFixed(4));
-        const currentBB = num(gameState.balance, 0);
+        const currentBB = await syncFreshBbBalance();
         if (currentBB < bbAmount) {
             alert(`Недостатньо BB. Потрібно: ${bbAmount.toFixed(4)} BB, у вас: ${currentBB.toFixed(4)} BB`);
             return;
@@ -1439,6 +1463,7 @@
                 updateCandleHistory(trade)
             ]);
             await addProgress({ totalDeals: 1, totalSold: bbAmount });
+            await incrementWeeklyTradeProgress();
             await appendLocalTransaction({ direction: 'expense', amount: bbAmount, source: 'market-sell', reason: 'Продаж BB за USDT', details: `${bbAmount.toFixed(4)} BB за ${usdtGain.toFixed(4)} USDT @ ${currentPrice.toFixed(6)}` });
             checkMarketAutoNews(newPrice);
             if (bbAmountInput) bbAmountInput.value = '';
@@ -1609,10 +1634,11 @@
             return;
         }
         if (payload.offer.type === 'bb') {
+            const freshBalance = await syncFreshBbBalance();
             const escrowBreakdown = typeof getBbTransactionBreakdown === 'function'
                 ? getBbTransactionBreakdown(payload.bbAmount)
                 : { total: payload.bbAmount };
-            if (num(gameState.balance, 0) < escrowBreakdown.total) {
+            if (freshBalance < escrowBreakdown.total) {
                 alert(`Недостатньо BB для цієї заявки. Потрібно ${escrowBreakdown.total.toFixed(4)} BB з урахуванням комісії.`);
                 return;
             }
@@ -1687,10 +1713,11 @@
             return;
         }
         if (want.type === 'bb') {
+            const freshBalance = await syncFreshBbBalance();
             const payerBreakdown = typeof getBbTransactionBreakdown === 'function'
                 ? getBbTransactionBreakdown(bbAmount)
                 : { total: bbAmount };
-            if (num(gameState?.balance, 0) < payerBreakdown.total) {
+            if (freshBalance < payerBreakdown.total) {
                 alert(`Недостатньо BB для виконання заявки. Потрібно ${payerBreakdown.total.toFixed(4)} BB з урахуванням комісії.`);
                 return;
             }
@@ -1837,6 +1864,7 @@
                 : (executor === gameState?.user && executorDirection === 'expense' ? executorAmount : 0);
             await updateLocalStats({ totalTrades: 1, exchangeVolume: trade.amount, totalProfit: localBbIncome });
             await addProgress({ totalDeals: 1, totalBought: localBbIncome, totalSold: localBbExpense });
+            await incrementWeeklyTradeProgress();
             await evaluateAchievements();
         }
         await appendLocalNotification({ type: 'exchange', level: 'success', title: '🤝 Угоду завершено', message: trade.summary });
