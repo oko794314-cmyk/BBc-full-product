@@ -1,0 +1,78 @@
+{
+  "rules": {
+    "users": {
+      ".read": true,
+      "$username": {
+        ".write": true,
+        ".validate": "newData.hasChildren(['password', 'balance'])",
+        "password": {
+          ".validate": "newData.isString() && newData.val().length >= 1"
+        },
+        "balance": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "avatar": {
+          ".validate": "!newData.exists() || newData.isString()"
+        },
+        "friends": {
+          ".validate": "!newData.exists() || newData.hasChildren()",
+          "$index": {
+            ".validate": "newData.isString() && newData.val().length >= 1"
+          }
+        },
+        "friendRequests": {
+          ".validate": "!newData.exists() || newData.hasChildren()",
+          "$index": {
+            ".validate": "newData.isString() && newData.val().length >= 1"
+          }
+        },
+        "mining": {
+          ".validate": "!newData.exists() || newData.isBoolean()"
+        },
+        "miningStartTime": {
+          ".validate": "!newData.exists() || newData.isNumber()"
+        },
+        "updatedAt": {
+          ".validate": "!newData.exists() || newData.isNumber()"
+        },
+        "balanceUpdatedAt": {
+          ".validate": "!newData.exists() || newData.isNumber()"
+        },
+        "miningUpdatedAt": {
+          ".validate": "!newData.exists() || newData.isNumber()"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "transactions": {
+      ".read": true,
+      ".write": true,
+      "$txId": {
+        ".validate": "newData.hasChildren(['from', 'to', 'amount', 'timestamp'])",
+        "from": {
+          ".validate": "newData.isString() && newData.val().length >= 1"
+        },
+        "to": {
+          ".validate": "newData.isString() && newData.val().length >= 1"
+        },
+        "amount": {
+          ".validate": "newData.isNumber() && newData.val() > 0"
+        },
+        "fee": {
+          ".validate": "!newData.exists() || (newData.isNumber() && newData.val() >= 0)"
+        },
+        "totalAmount": {
+          ".validate": "!newData.exists() || (newData.isNumber() && newData.val() > 0)"
+        },
+        "timestamp": {
+          ".validate": "newData.isNumber()"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    }
+  }
+}

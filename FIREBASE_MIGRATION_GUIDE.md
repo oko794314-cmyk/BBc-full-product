@@ -115,29 +115,110 @@ bb-coin-aae0a-default-rtdb/
 
 ## 🔐 Security Rules
 
-Додайте ці правила в Firebase Console → Realtime Database → Rules:
+> ⚠️ **Важливо:** Цей проект використовує **власну авторизацію** (username/password у базі даних),
+> а не Firebase Authentication. Тому правила з `auth != null` **не спрацюють** —
+> всі запити будуть відхилені, бо Firebase не знає про вашу сесію.
+> Правила нижче забезпечують валідацію структури даних замість аутентифікації.
+
+Додайте ці правила в Firebase Console → Realtime Database → Rules.
+Файл правил також збережено у `database.rules.json` в корені проекту.
 
 ```json
 {
   "rules": {
     "users": {
-      ".read": "auth != null",
-      ".write": "auth != null",
-      "$uid": {
-        ".validate": "newData.hasChildren(['password', 'balance', 'avatar'])",
-        "password": {".validate": "newData.isString()"},
-        "balance": {".validate": "newData.isNumber()"},
-        "friends": {".validate": "newData.isArray()"},
-        "friendRequests": {".validate": "newData.isArray()"}
+      ".read": true,
+      "$username": {
+        ".write": true,
+        ".validate": "newData.hasChildren(['password', 'balance'])",
+        "password": {
+          ".validate": "newData.isString() && newData.val().length >= 1"
+        },
+        "balance": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "avatar": {
+          ".validate": "!newData.exists() || newData.isString()"
+        },
+        "friends": {
+          ".validate": "!newData.exists() || newData.hasChildren()",
+          "$index": {
+            ".validate": "newData.isString() && newData.val().length >= 1"
+          }
+        },
+        "friendRequests": {
+          ".validate": "!newData.exists() || newData.hasChildren()",
+          "$index": {
+            ".validate": "newData.isString() && newData.val().length >= 1"
+          }
+        },
+        "mining": {
+          ".validate": "!newData.exists() || newData.isBoolean()"
+        },
+        "miningStartTime": {
+          ".validate": "!newData.exists() || newData.isNumber()"
+        },
+        "updatedAt": {
+          ".validate": "!newData.exists() || newData.isNumber()"
+        },
+        "balanceUpdatedAt": {
+          ".validate": "!newData.exists() || newData.isNumber()"
+        },
+        "miningUpdatedAt": {
+          ".validate": "!newData.exists() || newData.isNumber()"
+        },
+        "$other": {
+          ".validate": false
+        }
       }
     },
     "transactions": {
-      ".read": "true",
-      ".write": "true"
+      ".read": true,
+      ".write": true,
+      "$txId": {
+        ".validate": "newData.hasChildren(['from', 'to', 'amount', 'timestamp'])",
+        "from": {
+          ".validate": "newData.isString() && newData.val().length >= 1"
+        },
+        "to": {
+          ".validate": "newData.isString() && newData.val().length >= 1"
+        },
+        "amount": {
+          ".validate": "newData.isNumber() && newData.val() > 0"
+        },
+        "fee": {
+          ".validate": "!newData.exists() || (newData.isNumber() && newData.val() >= 0)"
+        },
+        "totalAmount": {
+          ".validate": "!newData.exists() || (newData.isNumber() && newData.val() > 0)"
+        },
+        "timestamp": {
+          ".validate": "newData.isNumber()"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
     }
   }
 }
 ```
+
+### 📋 Що захищають ці правила
+
+| Правило | Що робить |
+|---------|-----------|
+| `users/.read: true` | Будь-хто може читати список користувачів (потрібно для входу та пошуку друзів) |
+| `users/$username/.write: true` | Будь-хто може писати в запис користувача (немає Firebase Auth) |
+| `.validate` на полях | Захист від некоректних даних: баланс не може бути від'ємним, пароль не може бути порожнім тощо |
+| `$other: {".validate": false}` | Забороняє запис невідомих полів у профіль |
+| `transactions` | Відкрито для читання/запису з валідацією обов'язкових полів |
+
+### 🔒 Підвищення безпеки (для майбутнього)
+
+Щоб краще захистити гру в майбутньому, розгляньте:
+1. **Перейти на Firebase Authentication** — тоді можна буде перевіряти `auth.uid == $username`
+2. **Перенести критичну логіку на backend** (наприклад, переказ монет та нарахування балансу при майнингу)
 
 ---
 

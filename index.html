@@ -2194,9 +2194,16 @@
         return safeStart + (Math.random() * Math.max(safeEnd - safeStart, rouletteMinSegmentRange));
     }
 
+    function normalizeFirebaseArray(val) {
+        if (!val) return [];
+        if (Array.isArray(val)) return val.filter(v => v != null);
+        if (typeof val === 'object') return Object.values(val).filter(v => v != null);
+        return [];
+    }
+
     function formatUserLabel(username) {
         const userData = allUsers[username] || {};
-        const displayName = (userData.displayName || username || '').trim();
+        const displayName = String(userData.displayName || username || '').trim();
         return displayName !== username ? `${displayName} (@${username})` : username;
     }
 
@@ -3658,8 +3665,8 @@
         gameState.avatar = userData.avatar || avatarGallery[0];
         gameState.balance = userData.balance || 0;
         gameState.usdt = userData.usdt || 0;
-        gameState.friends = userData.friends || [];
-        gameState.friendRequests = userData.friendRequests || [];
+        gameState.friends = normalizeFirebaseArray(userData.friends);
+        gameState.friendRequests = normalizeFirebaseArray(userData.friendRequests);
         gameState.privateChatMessages = {};
         gameState.chatMessageSignatures = {};
         gameState.currentChatFriend = null;
@@ -4571,7 +4578,7 @@
         gameState.friendRequests = gameState.friendRequests.filter(name => name !== requester);
         gameState.friends = [...new Set([...gameState.friends, requester])];
         gameState.expandedFriendRequest = null;
-        const requesterFriends = [...new Set([...(allUsers[requester]?.friends || []), gameState.user])];
+        const requesterFriends = [...new Set([...normalizeFirebaseArray(allUsers[requester]?.friends), gameState.user])];
         updateCachedUser(gameState.user, { friends: gameState.friends, friendRequests: gameState.friendRequests });
         updateCachedUser(requester, { friends: requesterFriends });
 
