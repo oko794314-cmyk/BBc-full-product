@@ -2803,11 +2803,14 @@
     }
 
     function getWeekKey() {
+        // ISO 8601 week number: weeks start on Monday, week 1 contains the first Thursday
         const d = new Date();
-        const day = d.getDay();
-        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-        const mon = new Date(d.setDate(diff));
-        return `${mon.getFullYear()}-W${String(Math.ceil(mon.getDate()/7)).padStart(2,'0')}`;
+        const target = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+        const dayOfWeek = target.getUTCDay() || 7; // 1=Mon … 7=Sun
+        target.setUTCDate(target.getUTCDate() + 4 - dayOfWeek); // Thursday of this week
+        const yearStart = new Date(Date.UTC(target.getUTCFullYear(), 0, 1));
+        const weekNum = Math.ceil((((target - yearStart) / 86400000) + 1) / 7);
+        return `${target.getUTCFullYear()}-W${String(weekNum).padStart(2, '0')}`;
     }
 
     async function getWeeklyQuestProgress(username) {
@@ -2837,13 +2840,18 @@
         const doneSnap = await db().ref(`weeklyCompleted/${wk}/${username}`).once('value');
         if (doneSnap.val()) return;
 
+        // Mark as completed regardless of top-3 availability
+        await db().ref(`weeklyCompleted/${wk}/${username}`).set(Date.now());
+
         // Check top-3 slots
         const topSnap = await db().ref(`weeklyTop3/${wk}`).once('value');
         const top3 = topSnap.val() || {};
-        if (Object.keys(top3).length >= 3) return; // already 3 winners
-
-        // Mark completed
-        await db().ref(`weeklyCompleted/${wk}/${username}`).set(Date.now());
+        if (Object.keys(top3).length >= 3) {
+            // Top-3 already claimed – user still gets completion acknowledgement
+            showGN('🏁 Квест виконано! Промокод вже розіграно серед перших 3 учасників цього тижня.');
+            renderWeeklyQuest();
+            return;
+        }
 
         // Generate unique promo code with collision checking
         let promoCode;
@@ -2862,6 +2870,7 @@
         await db().ref(`promoCodes/${promoCode}`).set({ code: promoCode, owner: username, reward, used: false, weekKey: wk, createdAt: Date.now() });
         // Notify user
         await db().ref(`users/${username}/weeklyPromo`).set({ code: promoCode, reward, weekKey: wk });
+        console.log(`🎉 Тижневий квест виконано: ${username} → ${promoCode} (${reward})`);
         showGN(`🎉 Тижневий квест! Ваш промокод: ${promoCode} (${reward})`);
         renderWeeklyQuest();
     }
@@ -2881,6 +2890,12 @@
             const promoData = promoSnap.val();
             if (promoData && promoData.weekKey === wk) {
                 promoHtml = `<div style="margin-top:10px;">🎁 Ваш промокод: <span class="promo-badge">${esc(promoData.code)}</span> → <b style="color:var(--gold);">${esc(promoData.reward)}</b></div>`;
+            } else {
+                // Check if user completed but top-3 was already full
+                const doneSnap = await db().ref(`weeklyCompleted/${wk}/${u}`).once('value');
+                if (doneSnap.val() && progress >= q.target) {
+                    promoHtml = `<div style="margin-top:10px; color:var(--text2); font-size:11px;">✅ Квест виконано! Промокоди вже розіграно серед перших 3 учасників цього тижня.</div>`;
+                }
             }
         }
 
