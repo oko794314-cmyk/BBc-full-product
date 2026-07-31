@@ -15,28 +15,6 @@
 
 ## 🚀 Швидкий старт
 
-### 1️⃣ Отримайте Firebase ключи
-
-```
-1. Перейдіть https://console.firebase.google.com
-2. Виберіть проект: bb-coin-aae0a
-3. Project Settings → Service Accounts
-4. Copy config JSON
-```
-
-### 2️⃣ Оновіть `firebase-config.js`
-
-```javascript
-const firebaseConfig = {
-    apiKey: "AIzaSy...",
-    authDomain: "bb-coin-aae0a.firebaseapp.com",
-    databaseURL: "https://bb-coin-aae0a-default-rtdb.firebaseio.com",
-    projectId: "bb-coin-aae0a",
-    storageBucket: "bb-coin-aae0a.appspot.com",
-    messagingSenderId: "...",
-    appId: "..."
-};
-```
 
 ### 3️⃣ Використовуйте новий HTML файл
 
