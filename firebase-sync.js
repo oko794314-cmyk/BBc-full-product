@@ -116,7 +116,8 @@ function setupFriendRequestListener(currentUser) {
     }
     
     const listener = ref.on('value', (snapshot) => {
-        const requests = snapshot.val() || [];
+        const raw = snapshot.val();
+        const requests = raw == null ? [] : (Array.isArray(raw) ? raw.filter(v => v != null) : Object.values(raw).filter(v => v != null));
         
         // Перевірити нові запити
         if (gameState.friendRequests.length < requests.length) {
@@ -313,9 +314,10 @@ async function acceptFriendRequestFirebase(currentUser, requester) {
             throw new Error('Користувача не знайдено');
         }
 
-        const currentRequests = (currentData.friendRequests || []).filter(name => name !== requester);
-        const currentFriends = [...new Set([...(currentData.friends || []), requester])];
-        const requesterFriends = [...new Set([...(requesterData.friends || []), currentUser])];
+        const normalizeArr = (v) => v == null ? [] : (Array.isArray(v) ? v.filter(x => x != null) : Object.values(v).filter(x => x != null));
+        const currentRequests = normalizeArr(currentData.friendRequests).filter(name => name !== requester);
+        const currentFriends = [...new Set([...normalizeArr(currentData.friends), requester])];
+        const requesterFriends = [...new Set([...normalizeArr(requesterData.friends), currentUser])];
 
         await Promise.all([
             currentRef.child('friendRequests').set(currentRequests),
@@ -370,8 +372,9 @@ async function removeFriendFirebase(currentUser, friendUsername) {
             db.ref(`users/${currentUser}/friends`).once('value'),
             db.ref(`users/${friendUsername}/friends`).once('value')
         ]);
-        const updatedCurrentFriends = (currentSnap.val() || []).filter(f => f !== friendUsername);
-        const updatedFriendFriends = (friendSnap.val() || []).filter(f => f !== currentUser);
+        const normArr = (v) => v == null ? [] : (Array.isArray(v) ? v.filter(x => x != null) : Object.values(v).filter(x => x != null));
+        const updatedCurrentFriends = normArr(currentSnap.val()).filter(f => f !== friendUsername);
+        const updatedFriendFriends = normArr(friendSnap.val()).filter(f => f !== currentUser);
         await Promise.all([
             db.ref(`users/${currentUser}/friends`).set(updatedCurrentFriends),
             db.ref(`users/${friendUsername}/friends`).set(updatedFriendFriends)
