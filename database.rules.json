@@ -1,0 +1,32 @@
+{
+  "rules": {
+    "users": {
+      ".read": true,
+      ".write": true,
+      "$username": {
+        ".validate": "newData.hasChildren(['password', 'balance'])",
+        "password": { ".validate": "newData.isString() && newData.val().length > 0" },
+        "balance": { ".validate": "newData.isNumber()" },
+        "avatar": { ".validate": "!newData.exists() || newData.isString()" },
+        "mining": { ".validate": "!newData.exists() || newData.isBoolean()" },
+        "miningStartTime": { ".validate": "!newData.exists() || newData.isNumber()" },
+        "updatedAt": { ".validate": "!newData.exists() || newData.isNumber()" },
+        "balanceUpdatedAt": { ".validate": "!newData.exists() || newData.isNumber()" },
+        "miningUpdatedAt": { ".validate": "!newData.exists() || newData.isNumber()" }
+      }
+    },
+    "transactions": {
+      ".read": true,
+      ".write": true,
+      "$txid": {
+        ".validate": "newData.hasChildren(['from', 'to', 'amount', 'timestamp'])",
+        "from": { ".validate": "newData.isString()" },
+        "to": { ".validate": "newData.isString()" },
+        "amount": { ".validate": "newData.isNumber() && newData.val() > 0" },
+        "fee": { ".validate": "!newData.exists() || newData.isNumber()" },
+        "totalAmount": { ".validate": "!newData.exists() || newData.isNumber()" },
+        "timestamp": { ".validate": "newData.isNumber()" }
+      }
+    }
+  }
+}
