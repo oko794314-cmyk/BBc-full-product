@@ -462,6 +462,98 @@ test('top-3 extraction returns champion, finalist and semifinal loser', () => {
     assertEqual(top3[3], 'b');
 });
 
+// ----- Week Key Tests -----
+console.log('\n📋 Week Key Tests:');
+
+// Mirrors the fixed getWeekKey() from bb-extended-features.js
+function getWeekKey(date) {
+    const d = date || new Date();
+    const target = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    const dayOfWeek = target.getUTCDay() || 7; // 1=Mon … 7=Sun
+    target.setUTCDate(target.getUTCDate() + 4 - dayOfWeek); // Thursday of this week
+    const yearStart = new Date(Date.UTC(target.getUTCFullYear(), 0, 1));
+    const weekNum = Math.ceil((((target - yearStart) / 86400000) + 1) / 7);
+    return `${target.getUTCFullYear()}-W${String(weekNum).padStart(2, '0')}`;
+}
+
+test('getWeekKey produces unique keys for different weeks in same month', () => {
+    // Monday Jan 6 and Monday Jan 13 must have different week keys
+    const jan6  = getWeekKey(new Date('2025-01-06'));
+    const jan13 = getWeekKey(new Date('2025-01-13'));
+    assert(jan6 !== jan13, `Jan 6 and Jan 13 both returned ${jan6}`);
+});
+
+test('getWeekKey produces unique keys for first weeks of different months', () => {
+    // Old buggy code produced "2025-W01" for both; new code uses ISO week numbers
+    const jan6  = getWeekKey(new Date('2025-01-06'));  // ISO week 2
+    const feb3  = getWeekKey(new Date('2025-02-03'));  // ISO week 6
+    assert(jan6 !== feb3, `Jan 6 and Feb 3 both returned ${jan6}`);
+});
+
+test('getWeekKey same day returns same key', () => {
+    const a = getWeekKey(new Date('2025-07-14'));
+    const b = getWeekKey(new Date('2025-07-14'));
+    assertEqual(a, b);
+});
+
+test('getWeekKey days within the same ISO week share a key', () => {
+    // Monday 2025-01-06 through Sunday 2025-01-12 are all ISO week 2025-W02
+    const mon = getWeekKey(new Date('2025-01-06'));
+    const wed = getWeekKey(new Date('2025-01-08'));
+    const sun = getWeekKey(new Date('2025-01-12'));
+    assertEqual(mon, wed);
+    assertEqual(wed, sun);
+});
+
+test('getWeekKey key format is YYYY-Wnn', () => {
+    const key = getWeekKey(new Date('2025-03-15'));
+    assert(/^\d{4}-W\d{2}$/.test(key), `Key "${key}" does not match YYYY-Wnn format`);
+});
+
+// ----- Auth Case-Insensitive Fallback Tests -----
+console.log('\n📋 Auth Case-Insensitive Fallback Tests:');
+
+// Mirrors the fallback logic from auth() in index.html
+function resolveUsername(inputUsername, db) {
+    // db is a simple object mapping usernames to user data
+    let userData = db[inputUsername] || null;
+    let resolvedUsername = inputUsername;
+    if (!userData) {
+        const lower = inputUsername.toLowerCase();
+        if (lower !== inputUsername && db[lower]) {
+            userData = db[lower];
+            resolvedUsername = lower;
+        }
+    }
+    return { userData, resolvedUsername };
+}
+
+test('auth finds exact-case username', () => {
+    const db = { 'Alice': { password: 'pass' }, 'bob': { password: '1234' } };
+    const { userData, resolvedUsername } = resolveUsername('Alice', db);
+    assert(userData !== null, 'should find Alice');
+    assertEqual(resolvedUsername, 'Alice');
+});
+
+test('auth finds username via lowercase fallback', () => {
+    const db = { 'alice': { password: 'pass' } };
+    const { userData, resolvedUsername } = resolveUsername('Alice', db);
+    assert(userData !== null, 'should find alice via fallback');
+    assertEqual(resolvedUsername, 'alice');
+});
+
+test('auth returns null for completely unknown username', () => {
+    const db = { 'alice': { password: 'pass' } };
+    const { userData } = resolveUsername('bob', db);
+    assert(userData === null, 'bob should not be found');
+});
+
+test('auth does not accidentally match partial lowercase', () => {
+    const db = { 'alice_admin': { password: 'pass' } };
+    const { userData } = resolveUsername('alice', db);
+    assert(userData === null, 'alice should not match alice_admin');
+});
+
 // ===== SUMMARY =====
 console.log(`\n${'='.repeat(40)}`);
 console.log(`Total: ${passed + failed} | ✅ Passed: ${passed} | ❌ Failed: ${failed}`);

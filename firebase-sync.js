@@ -79,7 +79,11 @@ async function loadUserFromFirebase(username) {
         const db = firebase.database();
         const snapshot = await db.ref(`users/${username}`).once('value');
         const userData = snapshot.val();
-        console.log(`✅ Дані ${username} завантажені з Firebase`);
+        if (userData) {
+            console.log(`✅ Дані ${username} завантажені з Firebase`);
+        } else {
+            console.warn(`⚠️ Дані для "${username}" не знайдено в Firebase (users/${username} = null)`);
+        }
         return userData;
     } catch (error) {
         console.error('❌ Помилка завантаження з Firebase:', error);

@@ -3642,9 +3642,25 @@
             return;
         }
 
-        const userData = await loadUserFromFirebase(username);
-        
+        // Try exact username first, then lowercase fallback (case-insensitive recovery)
+        let userData = await loadUserFromFirebase(username);
+        let resolvedUsername = username;
+
         if (!userData) {
+            const lowerUsername = username.toLowerCase();
+            if (lowerUsername !== username) {
+                console.log(`ℹ️ Спроба case-insensitive пошуку: "${lowerUsername}"`);
+                const lowerData = await loadUserFromFirebase(lowerUsername);
+                if (lowerData) {
+                    userData = lowerData;
+                    resolvedUsername = lowerUsername;
+                    console.log(`✅ Знайдено користувача як "${resolvedUsername}" (введено "${username}")`);
+                }
+            }
+        }
+
+        if (!userData) {
+            console.warn(`❌ Користувача не знайдено: "${username}"`);
             alert('Користувача не знайдено!');
             return;
         }
@@ -3653,8 +3669,8 @@
             return;
         }
 
-        gameState.user = username;
-        gameState.displayName = userData.displayName || username;
+        gameState.user = resolvedUsername;
+        gameState.displayName = userData.displayName || resolvedUsername;
         gameState.avatar = userData.avatar || avatarGallery[0];
         gameState.balance = userData.balance || 0;
         gameState.usdt = userData.usdt || 0;
@@ -3671,13 +3687,13 @@
         document.getElementById('main-scr').style.display = 'flex';
 
         // Налаштувати слухачі FIREBASE
-        setupAllListenersOnLogin(username);
+        setupAllListenersOnLogin(resolvedUsername);
         
         updateHeader();
 
         // Завантажити всіх користувачів
         allUsers = await loadAllUsersFromFirebase();
-        updateCachedUser(username, userData);
+        updateCachedUser(resolvedUsername, userData);
         refreshSettingsForm();
         updateFriendRequestsList();
         updateFriendsList();
@@ -3692,7 +3708,7 @@
                 const mSnap = await db.ref(`rpsMatches/${userData.activeRpsMatchId}`).once('value');
                 const mData = mSnap.val();
                 if (mData && mData.status !== 'completed') {
-                    rpsOnlineState.playerNum = mData.player1 === username ? 1 : 2;
+                    rpsOnlineState.playerNum = mData.player1 === resolvedUsername ? 1 : 2;
                     setupRpsMatchListener(userData.activeRpsMatchId, (matchData) => {
                         rpsOnlineState.matchData = matchData;
                     });

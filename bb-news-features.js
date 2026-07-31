@@ -548,7 +548,7 @@
         if (!state.userProgress) return;
         const today = getDateKey();
         const last = state.userProgress.lastLoginDate || '';
-        if (last === today) return;
+        if (last === today) return; // already counted today – no weekly increment either
         if (!last) {
             state.userProgress.loginStreak = 1;
         } else {
@@ -559,6 +559,10 @@
         await saveUserProgress();
         await updateLocalStats({}, { lastLoginAt: new Date().toISOString() });
         await resolveCompletedQuests();
+        // Increment weekly login day counter (once per unique calendar day)
+        if (typeof extFeatures !== 'undefined' && gameState?.user) {
+            await extFeatures.incrementWeeklyProgress(gameState.user, 'weeklyLoginDays').catch(() => {});
+        }
     }
 
     function usersArray() {
@@ -1370,6 +1374,9 @@
                 updateCandleHistory(trade)
             ]);
             await addProgress({ totalDeals: 1, totalBought: bbAmount });
+            if (typeof extFeatures !== 'undefined' && gameState?.user) {
+                await extFeatures.incrementWeeklyProgress(gameState.user, 'weeklyTradeCount').catch(() => {});
+            }
             await appendLocalTransaction({ direction: 'income', amount: bbAmount, source: 'market-buy', reason: 'Купівля BB за USDT', details: `${bbAmount.toFixed(4)} BB за ${usdtCost.toFixed(4)} USDT @ ${currentPrice.toFixed(6)}` });
             checkMarketAutoNews(newPrice);
             if (bbAmountInput) bbAmountInput.value = '';
@@ -1439,6 +1446,9 @@
                 updateCandleHistory(trade)
             ]);
             await addProgress({ totalDeals: 1, totalSold: bbAmount });
+            if (typeof extFeatures !== 'undefined' && gameState?.user) {
+                await extFeatures.incrementWeeklyProgress(gameState.user, 'weeklyTradeCount').catch(() => {});
+            }
             await appendLocalTransaction({ direction: 'expense', amount: bbAmount, source: 'market-sell', reason: 'Продаж BB за USDT', details: `${bbAmount.toFixed(4)} BB за ${usdtGain.toFixed(4)} USDT @ ${currentPrice.toFixed(6)}` });
             checkMarketAutoNews(newPrice);
             if (bbAmountInput) bbAmountInput.value = '';
@@ -1837,6 +1847,9 @@
                 : (executor === gameState?.user && executorDirection === 'expense' ? executorAmount : 0);
             await updateLocalStats({ totalTrades: 1, exchangeVolume: trade.amount, totalProfit: localBbIncome });
             await addProgress({ totalDeals: 1, totalBought: localBbIncome, totalSold: localBbExpense });
+            if (typeof extFeatures !== 'undefined' && gameState?.user) {
+                await extFeatures.incrementWeeklyProgress(gameState.user, 'weeklyTradeCount').catch(() => {});
+            }
             await evaluateAchievements();
         }
         await appendLocalNotification({ type: 'exchange', level: 'success', title: '🤝 Угоду завершено', message: trade.summary });
