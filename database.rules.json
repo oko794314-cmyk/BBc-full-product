@@ -11,20 +11,23 @@
         "balance": {
           ".validate": "newData.isNumber() && newData.val() >= 0"
         },
+        "usdt": {
+          ".validate": "!newData.exists() || (newData.isNumber() && newData.val() >= 0)"
+        },
+        "username": {
+          ".validate": "!newData.exists() || newData.isString()"
+        },
+        "displayName": {
+          ".validate": "!newData.exists() || newData.isString()"
+        },
         "avatar": {
           ".validate": "!newData.exists() || newData.isString()"
         },
-        "friends": {
-          ".validate": "!newData.exists() || newData.hasChildren()",
-          "$index": {
-            ".validate": "newData.isString() && newData.val().length >= 1"
-          }
+        "role": {
+          ".validate": "!newData.exists() || newData.isString()"
         },
-        "friendRequests": {
-          ".validate": "!newData.exists() || newData.hasChildren()",
-          "$index": {
-            ".validate": "newData.isString() && newData.val().length >= 1"
-          }
+        "online": {
+          ".validate": "!newData.exists() || newData.isBoolean()"
         },
         "mining": {
           ".validate": "!newData.exists() || newData.isBoolean()"
@@ -41,8 +44,14 @@
         "miningUpdatedAt": {
           ".validate": "!newData.exists() || newData.isNumber()"
         },
+        "createdAt": {
+          ".validate": "!newData.exists() || newData.isString() || newData.isNumber()"
+        },
+        "tournamentsWon": {
+          ".validate": "!newData.exists() || (newData.isNumber() && newData.val() >= 0)"
+        },
         "$other": {
-          ".validate": false
+          ".validate": true
         }
       }
     },
@@ -50,7 +59,7 @@
       ".read": true,
       ".write": true,
       "$txId": {
-        ".validate": "newData.hasChildren(['from', 'to', 'amount', 'timestamp'])",
+        ".validate": "newData.hasChildren(['from', 'to', 'amount'])",
         "from": {
           ".validate": "newData.isString() && newData.val().length >= 1"
         },
@@ -66,13 +75,87 @@
         "totalAmount": {
           ".validate": "!newData.exists() || (newData.isNumber() && newData.val() > 0)"
         },
+        "currency": {
+          ".validate": "!newData.exists() || newData.isString()"
+        },
         "timestamp": {
-          ".validate": "newData.isNumber()"
+          ".validate": "!newData.exists() || newData.isNumber()"
+        },
+        "ts": {
+          ".validate": "!newData.exists() || newData.isNumber()"
         },
         "$other": {
-          ".validate": false
+          ".validate": true
         }
       }
+    },
+    "chats": {
+      ".read": true,
+      ".write": true
+    },
+    "groupChats": {
+      ".read": true,
+      ".write": true
+    },
+    "config": {
+      ".read": true,
+      ".write": true
+    },
+    "workshopIds": {
+      ".read": true,
+      ".write": true
+    },
+    "workshopMarketplace": {
+      ".read": true,
+      ".write": true
+    },
+    "market": {
+      ".read": true,
+      ".write": true
+    },
+    "marketTrades": {
+      ".read": true,
+      ".write": true
+    },
+    "marketOrders": {
+      ".read": true,
+      ".write": true
+    },
+    "newsPosts": {
+      ".read": true,
+      ".write": true
+    },
+    "userQuestProgress": {
+      ".read": true,
+      ".write": true
+    },
+    "candleHistory": {
+      ".read": true,
+      ".write": true
+    },
+    "rpsMatches": {
+      ".read": true,
+      ".write": true
+    },
+    "promoCodes": {
+      ".read": true,
+      ".write": true
+    },
+    "tournaments": {
+      ".read": true,
+      ".write": true
+    },
+    "weeklyProgress": {
+      ".read": true,
+      ".write": true
+    },
+    "weeklyCompleted": {
+      ".read": true,
+      ".write": true
+    },
+    "weeklyTop3": {
+      ".read": true,
+      ".write": true
     }
   }
 }
