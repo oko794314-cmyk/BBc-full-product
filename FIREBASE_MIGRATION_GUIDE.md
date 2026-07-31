@@ -115,28 +115,63 @@ bb-coin-aae0a-default-rtdb/
 
 ## 🔐 Security Rules
 
-Додайте ці правила в Firebase Console → Realtime Database → Rules:
+> ⚠️ **Важливо:** Цей проект використовує власну систему авторизації (username/password збережені в базі даних) і **не використовує Firebase Authentication**. Тому правила з `auth != null` заблокують весь доступ.
+
+### Варіант 1: Через Firebase Console (швидко)
+
+Перейдіть **Firebase Console → Realtime Database → Rules** і вставте:
 
 ```json
 {
   "rules": {
     "users": {
-      ".read": "auth != null",
-      ".write": "auth != null",
-      "$uid": {
-        ".validate": "newData.hasChildren(['password', 'balance', 'avatar'])",
-        "password": {".validate": "newData.isString()"},
-        "balance": {".validate": "newData.isNumber()"},
-        "friends": {".validate": "newData.isArray()"},
-        "friendRequests": {".validate": "newData.isArray()"}
+      ".read": true,
+      ".write": true,
+      "$username": {
+        ".validate": "newData.hasChildren(['password', 'balance'])",
+        "password": { ".validate": "newData.isString() && newData.val().length > 0" },
+        "balance": { ".validate": "newData.isNumber()" },
+        "avatar": { ".validate": "!newData.exists() || newData.isString()" },
+        "mining": { ".validate": "!newData.exists() || newData.isBoolean()" },
+        "miningStartTime": { ".validate": "!newData.exists() || newData.isNumber()" },
+        "updatedAt": { ".validate": "!newData.exists() || newData.isNumber()" },
+        "balanceUpdatedAt": { ".validate": "!newData.exists() || newData.isNumber()" },
+        "miningUpdatedAt": { ".validate": "!newData.exists() || newData.isNumber()" }
       }
     },
     "transactions": {
-      ".read": "true",
-      ".write": "true"
+      ".read": true,
+      ".write": true,
+      "$txid": {
+        ".validate": "newData.hasChildren(['from', 'to', 'amount', 'timestamp'])",
+        "from": { ".validate": "newData.isString()" },
+        "to": { ".validate": "newData.isString()" },
+        "amount": { ".validate": "newData.isNumber() && newData.val() > 0" },
+        "fee": { ".validate": "!newData.exists() || newData.isNumber()" },
+        "totalAmount": { ".validate": "!newData.exists() || newData.isNumber()" },
+        "timestamp": { ".validate": "newData.isNumber()" }
+      }
     }
   }
 }
+```
+
+### Варіант 2: Через Firebase CLI (рекомендовано)
+
+Файли `firebase.json` та `database.rules.json` вже є в репозиторії.
+
+```bash
+# Встановити Firebase CLI
+npm install -g firebase-tools
+
+# Увійти в акаунт
+firebase login
+
+# Вибрати проект
+firebase use bb-coin-8ec70
+
+# Задеплоїти правила
+firebase deploy --only database
 ```
 
 ---
