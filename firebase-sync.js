@@ -1390,11 +1390,18 @@ async function isAdminUserFirebase(username) {
     try {
         if (!username) return false;
         const db = firebase.database();
-        const [roleSnapshot, aclSnapshot] = await Promise.all([
-            db.ref(`users/${username}/role`).once('value'),
-            db.ref(`config/adminUsers/${username}`).once('value')
-        ]);
-        return roleSnapshot.val() === 'admin' || aclSnapshot.val() === true;
+        const roleSnapshot = await db.ref(`users/${username}/role`).once('value');
+        if (roleSnapshot.val() === 'admin') return true;
+        try {
+            const aclSnapshot = await db.ref(`config/adminUsers/${username}`).once('value');
+            return aclSnapshot.val() === true;
+        } catch (aclError) {
+            if (isFirebasePermissionDenied(aclError)) {
+                logPermissionIssueOnce(`admin_acl_${username}`, '⚠️ Немає доступу до config/adminUsers, використовуємо лише users/{username}/role.', aclError);
+                return false;
+            }
+            throw aclError;
+        }
     } catch (error) {
         console.error('❌ Помилка перевірки адміністратора:', error);
         return false;

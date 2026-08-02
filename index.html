@@ -2963,12 +2963,26 @@
     async function refreshWorkshopMarketplaceState() {
         if (typeof firebase === 'undefined') return;
         const db = firebase.database();
-        const [listingsSnap, pendingSnap] = await Promise.all([
-            db.ref('workshopMarketplace/listings').once('value'),
-            db.ref('workshopMarketplace/pending').once('value')
+        const safeLoadMarketplaceNode = async (path) => {
+            try {
+                const snap = await db.ref(path).once('value');
+                return snap.val() || {};
+            } catch (error) {
+                const msg = String(error?.message || '').toLowerCase();
+                const code = String(error?.code || '').toLowerCase();
+                if (msg.includes('permission_denied') || code.includes('permission')) {
+                    console.warn(`⚠️ Немає доступу до ${path}. Використовую локальний порожній стан.`);
+                    return {};
+                }
+                throw error;
+            }
+        };
+        const [listings, pending] = await Promise.all([
+            safeLoadMarketplaceNode('workshopMarketplace/listings'),
+            safeLoadMarketplaceNode('workshopMarketplace/pending')
         ]);
-        workshopMarketState.listings = listingsSnap.val() || {};
-        workshopMarketState.pending = pendingSnap.val() || {};
+        workshopMarketState.listings = listings;
+        workshopMarketState.pending = pending;
     }
 
     async function saveWorkshopCreation() {
@@ -6622,7 +6636,7 @@
 
         async function fetchMatches() {
             // Gather matches from multiple leagues concurrently; combine and return all
-            const LEAGUES = ['ukr.1', 'eng.1', 'uefa.champions_league', 'esp.1', 'ger.1', 'fra.1'];
+            const LEAGUES = ['eng.1', 'esp.1', 'ger.1', 'fra.1', 'ita.1', 'usa.1'];
             const results = await Promise.allSettled(LEAGUES.map(s => fetchMatchesFromESPN(s)));
             const combined = [];
             for (const r of results) {

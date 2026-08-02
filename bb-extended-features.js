@@ -2810,20 +2810,50 @@
         return `${mon.getFullYear()}-W${String(Math.ceil(mon.getDate()/7)).padStart(2,'0')}`;
     }
 
+    function isPermissionDenied(error) {
+        const code = String(error?.code || '').toLowerCase();
+        const msg = String(error?.message || '').toLowerCase();
+        return code.includes('permission') || msg.includes('permission_denied');
+    }
+
+    async function readWeeklyProgressValue(username, wk, key) {
+        try {
+            const snap = await db().ref(`weeklyProgress/${wk}/${username}/${key}`).once('value');
+            return n(snap.val(), 0);
+        } catch (error) {
+            if (!isPermissionDenied(error)) throw error;
+            const fallbackSnap = await db().ref(`users/${username}/weeklyProgress/${wk}/${key}`).once('value');
+            return n(fallbackSnap.val(), 0);
+        }
+    }
+
     async function getWeeklyQuestProgress(username) {
         if (!username) return 0;
         const wk = getWeekKey();
         const q = getCurrentWeeklyQuest();
-        const snap = await db().ref(`weeklyProgress/${wk}/${username}/${q.key}`).once('value');
-        return n(snap.val(), 0);
+        try {
+            return await readWeeklyProgressValue(username, wk, q.key);
+        } catch (error) {
+            console.warn('⚠️ Не вдалося завантажити weeklyProgress:', error);
+            return 0;
+        }
     }
 
     async function incrementWeeklyProgress(username, key, delta = 1) {
         if (!username) return;
         const wk = getWeekKey();
-        await db().ref(`weeklyProgress/${wk}/${username}/${key}`).transaction(v => n(v, 0) + delta);
-        // Check completion and promo assignment
-        await checkWeeklyQuestCompletion(username);
+        try {
+            await db().ref(`weeklyProgress/${wk}/${username}/${key}`).transaction(v => n(v, 0) + delta);
+        } catch (error) {
+            if (!isPermissionDenied(error)) throw error;
+            await db().ref(`users/${username}/weeklyProgress/${wk}/${key}`).transaction(v => n(v, 0) + delta);
+        }
+        try {
+            // Check completion and promo assignment
+            await checkWeeklyQuestCompletion(username);
+        } catch (error) {
+            console.warn('⚠️ Перевірка weekly-квесту недоступна:', error);
+        }
     }
 
     async function checkWeeklyQuestCompletion(username) {
@@ -2832,38 +2862,47 @@
         const wk = getWeekKey();
         const progress = await getWeeklyQuestProgress(username);
         if (progress < q.target) return;
+        try {
+            // Check if already completed
+            const doneSnap = await db().ref(`weeklyCompleted/${wk}/${username}`).once('value');
+            if (doneSnap.val()) return;
 
-        // Check if already completed
-        const doneSnap = await db().ref(`weeklyCompleted/${wk}/${username}`).once('value');
-        if (doneSnap.val()) return;
+            // Check top-3 slots
+            const topSnap = await db().ref(`weeklyTop3/${wk}`).once('value');
+            const top3 = topSnap.val() || {};
+            if (Object.keys(top3).length >= 3) return; // already 3 winners
 
-        // Check top-3 slots
-        const topSnap = await db().ref(`weeklyTop3/${wk}`).once('value');
-        const top3 = topSnap.val() || {};
-        if (Object.keys(top3).length >= 3) return; // already 3 winners
+            // Mark completed
+            await db().ref(`weeklyCompleted/${wk}/${username}`).set(Date.now());
 
-        // Mark completed
-        await db().ref(`weeklyCompleted/${wk}/${username}`).set(Date.now());
-
-        // Generate unique promo code with collision checking
-        let promoCode;
-        let attempts = 0;
-        do {
-            const part1 = Math.random().toString(36).toUpperCase().slice(2, 6);
-            const part2 = Math.random().toString(36).toUpperCase().slice(2, 6);
-            promoCode = `WEEKLY-${wk}-${part1}${part2}`;
-            const existing = await db().ref(`promoCodes/${promoCode}`).once('value');
-            if (!existing.exists()) break;
-            attempts++;
-        } while (attempts < 5);
-        const rewards = ['10 BB', '50 USDT', '20 BB', '100 BB', 'Рамка золота'];
-        const reward = rewards[Math.floor(Math.random() * rewards.length)];
-        await db().ref(`weeklyTop3/${wk}/${username}`).set({ promoCode, reward, completedAt: Date.now() });
-        await db().ref(`promoCodes/${promoCode}`).set({ code: promoCode, owner: username, reward, used: false, weekKey: wk, createdAt: Date.now() });
-        // Notify user
-        await db().ref(`users/${username}/weeklyPromo`).set({ code: promoCode, reward, weekKey: wk });
-        showGN(`🎉 Тижневий квест! Ваш промокод: ${promoCode} (${reward})`);
-        renderWeeklyQuest();
+            // Generate unique promo code with collision checking
+            let promoCode;
+            let attempts = 0;
+            do {
+                const part1 = Math.random().toString(36).toUpperCase().slice(2, 6);
+                const part2 = Math.random().toString(36).toUpperCase().slice(2, 6);
+                promoCode = `WEEKLY-${wk}-${part1}${part2}`;
+                const existing = await db().ref(`promoCodes/${promoCode}`).once('value');
+                if (!existing.exists()) break;
+                attempts++;
+            } while (attempts < 5);
+            const rewards = ['10 BB', '50 USDT', '20 BB', '100 BB', 'Рамка золота'];
+            const reward = rewards[Math.floor(Math.random() * rewards.length)];
+            await db().ref(`weeklyTop3/${wk}/${username}`).set({ promoCode, reward, completedAt: Date.now() });
+            await db().ref(`promoCodes/${promoCode}`).set({ code: promoCode, owner: username, reward, used: false, weekKey: wk, createdAt: Date.now() });
+            // Notify user
+            await db().ref(`users/${username}/weeklyPromo`).set({ code: promoCode, reward, weekKey: wk });
+            showGN(`🎉 Тижневий квест! Ваш промокод: ${promoCode} (${reward})`);
+            renderWeeklyQuest();
+        } catch (error) {
+            if (!isPermissionDenied(error)) throw error;
+            const doneRef = db().ref(`users/${username}/weeklyCompleted/${wk}`);
+            const doneSnap = await doneRef.once('value');
+            if (doneSnap.val()) return;
+            await doneRef.set(Date.now());
+            showGN('🎉 Тижневий квест виконано!');
+            renderWeeklyQuest();
+        }
     }
 
     async function renderWeeklyQuest() {
@@ -3403,7 +3442,11 @@
         renderWorkTab();
         renderBankTab();
         renderStocksFeatureViews();
-        renderWeeklyQuest();
+        try {
+            await renderWeeklyQuest();
+        } catch (error) {
+            console.warn('⚠️ Weekly quest тимчасово недоступний:', error);
+        }
         startWorkCooldownTick();
         if (extState.debtProcessingTimer) clearInterval(extState.debtProcessingTimer);
         extState.debtProcessingTimer = setInterval(() => { checkOverdueLoans(); }, 60 * 60 * 1000);
