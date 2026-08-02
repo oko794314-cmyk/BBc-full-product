@@ -320,6 +320,62 @@
         .order-card + .order-card, .transaction-item + .transaction-item, .notification-item + .notification-item, .achievement-card + .achievement-card { margin-top:8px; }
         .order-head, .transaction-head, .notification-head { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:8px; }
         .order-meta, .transaction-meta, .notification-meta { display:flex; flex-wrap:wrap; gap:6px; font-size:11px; color:var(--text2); margin-top:4px; }
+
+        /* ── MARKET REDESIGN ─────────────────────────────── */
+        .mkt-view { padding-top: 12px; }
+        .mkt-closed-banner { background: rgba(246,70,93,0.12); border: 1px solid rgba(246,70,93,0.4); border-radius: 12px; padding: 12px 16px; color: #F6465D; margin-bottom: 12px; font-size: 13px; font-weight: 700; }
+        .mkt-topbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 16px; margin-bottom: 10px; flex-wrap: wrap; }
+        .mkt-topbar-left { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+        .mkt-topbar-right { display: flex; align-items: center; gap: 10px; }
+        .mkt-pair-select { background: rgba(10,14,22,0.9); border: 1px solid rgba(240,185,11,0.3); color: var(--p); border-radius: 10px; padding: 8px 12px; font-family: 'Orbitron',sans-serif; font-size: 13px; font-weight: 700; width: auto; margin: 0; cursor: pointer; }
+        .mkt-price-block { display: flex; flex-direction: column; }
+        .mkt-current-price { font-size: 22px; font-weight: 900; color: #0ECB81; letter-spacing: 0.5px; line-height: 1.2; }
+        .mkt-live-time { font-size: 10px; color: var(--text2); }
+        .mkt-refresh-btn { background: rgba(14,203,129,0.14); border: 1px solid rgba(14,203,129,0.35); color: #0ECB81; border-radius: 8px; padding: 7px 14px; font-family: 'Orbitron',sans-serif; font-size: 11px; font-weight: 700; cursor: pointer; letter-spacing: 0.5px; transition: all 0.2s; white-space: nowrap; }
+        .mkt-refresh-btn:hover { background: rgba(14,203,129,0.25); transform: translateY(-1px); }
+        .mkt-chart-wrapper { padding: 10px; margin-bottom: 12px; overflow: hidden; }
+        .mkt-chart-scroll { border-radius: 8px; overflow-x: auto; overflow-y: hidden; cursor: grab; }
+        .mkt-chart-scroll:active { cursor: grabbing; }
+        .mkt-panels-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-bottom: 20px; }
+        .mkt-panel { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+        .mkt-panel-header { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 2px; }
+        .mkt-panel-icon { font-size: 18px; }
+        .mkt-panel-title { font-size: 13px; font-weight: 900; color: var(--p); letter-spacing: 0.5px; text-transform: uppercase; }
+        .mkt-wallet-summary { display: flex; flex-direction: column; gap: 6px; }
+        .mkt-wallet-row { display: flex; justify-content: space-between; align-items: center; font-size: 12px; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+        .mkt-wallet-row b { font-size: 13px; color: var(--text); }
+        .mkt-input { width: 100%; padding: 10px 12px; background: rgba(10,14,20,0.92); border: 1px solid rgba(255,255,255,0.08); color: var(--text); border-radius: 10px; font-family: 'Orbitron',sans-serif; font-size: 13px; margin: 0; }
+        .mkt-input:focus { outline: none; border-color: var(--p); box-shadow: 0 0 0 2px rgba(240,185,11,0.12); }
+        .mkt-pw-section { display: flex; flex-direction: column; gap: 6px; }
+        .mkt-btn-secondary { padding: 9px 14px; border: 1px solid rgba(240,185,11,0.35); border-radius: 10px; background: rgba(240,185,11,0.08); color: var(--gold); font-family: 'Orbitron',sans-serif; font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+        .mkt-btn-secondary:hover { background: rgba(240,185,11,0.18); }
+        .mkt-deposit-section { display: flex; flex-direction: column; gap: 6px; }
+        .mkt-deposit-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .mkt-btn-deposit { padding: 10px; border: none; border-radius: 10px; background: linear-gradient(135deg, rgba(14,203,129,0.25), rgba(14,203,129,0.14)); color: #0ECB81; border: 1px solid rgba(14,203,129,0.35); font-family: 'Orbitron',sans-serif; font-size: 11px; font-weight: 900; cursor: pointer; transition: all 0.2s; }
+        .mkt-btn-deposit:hover { background: linear-gradient(135deg, rgba(14,203,129,0.4), rgba(14,203,129,0.25)); transform: translateY(-1px); }
+        .mkt-btn-withdraw { padding: 10px; border: none; border-radius: 10px; background: linear-gradient(135deg, rgba(246,70,93,0.2), rgba(246,70,93,0.1)); color: #F6465D; border: 1px solid rgba(246,70,93,0.3); font-family: 'Orbitron',sans-serif; font-size: 11px; font-weight: 900; cursor: pointer; transition: all 0.2s; }
+        .mkt-btn-withdraw:hover { background: linear-gradient(135deg, rgba(246,70,93,0.35), rgba(246,70,93,0.2)); transform: translateY(-1px); }
+        .mkt-trade-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .mkt-btn-buy { padding: 14px; border: none; border-radius: 12px; background: linear-gradient(135deg, #1dcf85, #0ea965); color: #03150d; font-family: 'Orbitron',sans-serif; font-size: 13px; font-weight: 900; cursor: pointer; transition: all 0.2s; box-shadow: 0 8px 20px rgba(14,203,129,0.28); }
+        .mkt-btn-buy:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(14,203,129,0.4); }
+        .mkt-btn-sell { padding: 14px; border: none; border-radius: 12px; background: linear-gradient(135deg, #ff5b74, #e53955); color: #fff; font-family: 'Orbitron',sans-serif; font-size: 13px; font-weight: 900; cursor: pointer; transition: all 0.2s; box-shadow: 0 8px 20px rgba(246,70,93,0.28); }
+        .mkt-btn-sell:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(246,70,93,0.4); }
+        .mkt-trade-hint { font-size: 10px; color: var(--text2); text-align: center; }
+        .mkt-bet-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .mkt-btn-up { padding: 14px; border: none; border-radius: 12px; background: linear-gradient(135deg, rgba(14,203,129,0.25), rgba(14,203,129,0.1)); color: #0ECB81; border: 1px solid rgba(14,203,129,0.45); font-family: 'Orbitron',sans-serif; font-size: 13px; font-weight: 900; cursor: pointer; transition: all 0.2s; }
+        .mkt-btn-up:hover { background: linear-gradient(135deg, rgba(14,203,129,0.4), rgba(14,203,129,0.2)); transform: translateY(-2px); }
+        .mkt-btn-down { padding: 14px; border: none; border-radius: 12px; background: linear-gradient(135deg, rgba(246,70,93,0.2), rgba(246,70,93,0.08)); color: #F6465D; border: 1px solid rgba(246,70,93,0.4); font-family: 'Orbitron',sans-serif; font-size: 13px; font-weight: 900; cursor: pointer; transition: all 0.2s; }
+        .mkt-btn-down:hover { background: linear-gradient(135deg, rgba(246,70,93,0.35), rgba(246,70,93,0.15)); transform: translateY(-2px); }
+        .mkt-bets-title { font-size: 11px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; border-top: 1px solid var(--border); padding-top: 8px; }
+        .mkt-bets-list { display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow-y: auto; }
+        @media (max-width: 600px) {
+            .mkt-panels-grid { grid-template-columns: 1fr; }
+            .mkt-current-price { font-size: 18px; }
+            .mkt-topbar { padding: 8px 12px; gap: 8px; }
+        }
+        @media (min-width: 900px) {
+            .mkt-panels-grid { grid-template-columns: 1fr 1fr 1fr; }
+        }
         .pill { display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:999px; border:1px solid var(--border); font-size:11px; text-transform:uppercase; letter-spacing:0.5px; font-weight:700; }
         .pill.buy, .pill.income, .pill.success { color:var(--g); border-color:rgba(14,203,129,0.35); background:rgba(14,203,129,0.08); }
         .pill.sell, .pill.expense, .pill.warning { color:var(--r); border-color:rgba(246,70,93,0.35); background:rgba(246,70,93,0.08); }
@@ -1842,52 +1898,83 @@
     </div>
 
     <!-- ВКЛ.20: CRYPTO MARKET -->
-    <div id="tab20" class="view">
-        <h3 style="margin-top:0;">📉 CRYPTO MARKET</h3>
-        <div id="market-closed-banner" class="glass" style="display:none; border-color:rgba(246,70,93,0.4); color:#F6465D;">
+    <div id="tab20" class="view mkt-view">
+        <!-- Weekend closed banner -->
+        <div id="market-closed-banner" class="mkt-closed-banner" style="display:none;">
             🛑 Ринок тимчасово зачинений у вихідні. Торгівля доступна лише у будні.
         </div>
-        <div class="glass">
-            <div class="exchange-toolbar">
-                <select id="market-pair-select"></select>
-                <div id="market-live-price" class="market-live-price-badge">—</div>
-                <button class="btn secondary-btn" style="width:auto;" onclick="window.marketSim && window.marketSim.refreshNow && window.marketSim.refreshNow()">ОНОВИТИ</button>
+
+        <!-- Top bar: pair selector + price ticker -->
+        <div class="mkt-topbar glass">
+            <div class="mkt-topbar-left">
+                <select id="market-pair-select" class="mkt-pair-select"></select>
+                <div class="mkt-price-block">
+                    <span id="market-live-price" class="mkt-current-price">—</span>
+                </div>
             </div>
-            <div class="market-chart-shell">
-                <canvas id="market-chart-canvas" class="market-chart-canvas" width="960" height="300"></canvas>
+            <div class="mkt-topbar-right">
+                <span id="mkt-live-time" class="mkt-live-time"></span>
+                <button class="mkt-refresh-btn" onclick="window.marketSim && window.marketSim.refreshNow && window.marketSim.refreshNow()" title="Оновити">↻ LIVE</button>
             </div>
         </div>
-        <div class="hub-grid">
-            <div class="hub-card">
-                <h4>👛 Гаманець</h4>
-                <div id="market-wallet-summary" class="market-stats"></div>
-                <div class="exchange-toolbar" style="margin-top:8px;">
-                    <input id="market-wallet-password" type="password" placeholder="Пароль гаманця">
-                    <button class="btn secondary-btn" style="width:auto;" onclick="window.marketSim && window.marketSim.setWalletPassword && window.marketSim.setWalletPassword()">Зберегти пароль</button>
+
+        <!-- Chart section -->
+        <div class="mkt-chart-wrapper glass">
+            <div id="market-chart-scroll" class="chart-scroll-wrap mkt-chart-scroll">
+                <canvas id="market-chart-canvas" style="height:300px;display:block;background:#0B0E11;border-radius:8px;"></canvas>
+            </div>
+        </div>
+
+        <!-- Trading panels grid -->
+        <div class="mkt-panels-grid">
+
+            <!-- Wallet panel -->
+            <div class="mkt-panel glass">
+                <div class="mkt-panel-header">
+                    <span class="mkt-panel-icon">💼</span>
+                    <span class="mkt-panel-title">Гаманець</span>
                 </div>
-                <div class="exchange-toolbar" style="margin-top:8px;">
-                    <input id="market-deposit-amount" type="number" step="0.01" placeholder="Поповнення USDT (може бути в мінус)">
-                    <button class="btn" style="width:auto;" onclick="window.marketSim && window.marketSim.depositUsdt && window.marketSim.depositUsdt()">Поповнити</button>
+                <div id="market-wallet-summary" class="mkt-wallet-summary"></div>
+                <div class="mkt-pw-section">
+                    <input id="market-wallet-password" type="password" class="mkt-input" placeholder="🔑 Пароль гаманця">
+                    <button class="mkt-btn-secondary" onclick="window.marketSim && window.marketSim.setWalletPassword && window.marketSim.setWalletPassword()">Зберегти пароль</button>
+                </div>
+                <div class="mkt-deposit-section">
+                    <input id="market-deposit-amount" type="number" min="0.01" step="0.01" class="mkt-input" placeholder="Сума USDT">
+                    <div class="mkt-deposit-btns">
+                        <button class="mkt-btn-deposit" onclick="window.marketSim && window.marketSim.depositUsdt && window.marketSim.depositUsdt()">↑ Поповнити</button>
+                        <button class="mkt-btn-withdraw" onclick="(function(){ const i=document.getElementById('market-deposit-amount'); if(i && Number(i.value)>0) i.value = '-'+i.value; window.marketSim && window.marketSim.depositUsdt && window.marketSim.depositUsdt(); })()">↓ Вивести</button>
+                    </div>
                 </div>
             </div>
-            <div class="hub-card">
-                <h4>📊 Купівля / Продаж</h4>
-                <div class="exchange-toolbar">
-                    <input id="market-trade-amount" type="number" min="0.000001" step="0.000001" placeholder="Кількість монети">
-                    <button class="btn" style="width:auto;" onclick="window.marketSim && window.marketSim.buyCurrent && window.marketSim.buyCurrent()">Купити</button>
-                    <button class="btn secondary-btn" style="width:auto;" onclick="window.marketSim && window.marketSim.sellCurrent && window.marketSim.sellCurrent()">Продати</button>
+
+            <!-- Buy/Sell panel -->
+            <div class="mkt-panel glass">
+                <div class="mkt-panel-header">
+                    <span class="mkt-panel-icon">📊</span>
+                    <span class="mkt-panel-title">Купівля / Продаж</span>
                 </div>
+                <input id="market-trade-amount" type="number" min="0.000001" step="0.000001" class="mkt-input" placeholder="Кількість монети">
+                <div class="mkt-trade-btns">
+                    <button class="mkt-btn-buy" onclick="window.marketSim && window.marketSim.buyCurrent && window.marketSim.buyCurrent()">▲ КУПИТИ</button>
+                    <button class="mkt-btn-sell" onclick="window.marketSim && window.marketSim.sellCurrent && window.marketSim.sellCurrent()">▼ ПРОДАТИ</button>
+                </div>
+                <div class="mkt-trade-hint">Введіть кількість монет та підтвердіть паролем гаманця</div>
             </div>
-            <div class="hub-card">
-                <h4>🎯 Ставка на рух</h4>
-                <div class="exchange-toolbar">
-                    <input id="market-bet-amount" type="number" min="0.01" step="0.01" placeholder="Ставка USDT">
+
+            <!-- Prediction / Bets panel -->
+            <div class="mkt-panel glass">
+                <div class="mkt-panel-header">
+                    <span class="mkt-panel-icon">🎯</span>
+                    <span class="mkt-panel-title">Прогноз ціни</span>
                 </div>
-                <div class="market-bet-actions">
-                    <button class="btn market-bet-btn-up" style="width:auto;" onclick="window.marketSim && window.marketSim.placeBet && window.marketSim.placeBet('up')">🟢 UP</button>
-                    <button class="btn market-bet-btn-down" style="width:auto;" onclick="window.marketSim && window.marketSim.placeBet && window.marketSim.placeBet('down')">🔴 DOWN</button>
+                <input id="market-bet-amount" type="number" min="0.01" step="0.01" class="mkt-input" placeholder="Сума ставки (USDT)">
+                <div class="mkt-bet-btns">
+                    <button class="mkt-btn-up" onclick="window.marketSim && window.marketSim.placeBet && window.marketSim.placeBet('up')">▲ ЗРОСТЕ</button>
+                    <button class="mkt-btn-down" onclick="window.marketSim && window.marketSim.placeBet && window.marketSim.placeBet('down')">▼ ВПАДЕ</button>
                 </div>
-                <div id="market-open-bets" class="list-stack"></div>
+                <div class="mkt-bets-title">Відкриті позиції</div>
+                <div id="market-open-bets" class="mkt-bets-list"></div>
             </div>
         </div>
     </div>
@@ -4531,8 +4618,8 @@
             const profession = getProfileProfession(data);
             const title = getProfileTitle(data);
             const fallbackAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(username)}`;
-            const safeAvatar = (data.avatarUrl && /^https?:\/\//.test(data.avatarUrl))
-                ? escapeHtml(data.avatarUrl) : fallbackAvatar;
+            const rawAvatar = data.avatar || data.avatarUrl || '';
+            const safeAvatar = (typeof sanitizeAvatarUrl === 'function' ? sanitizeAvatarUrl(rawAvatar) : rawAvatar) || fallbackAvatar;
             const encoded = encodeURIComponent(username);
             const body = document.getElementById('fp-body');
             body.innerHTML = '';
