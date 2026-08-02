@@ -299,11 +299,22 @@
             .market-stats { grid-template-columns:1fr; }
         }
         .hub-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; }
-        .hub-card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:16px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+        .hub-card { background:linear-gradient(180deg, rgba(22,28,36,0.92), rgba(14,18,24,0.96)); border:1px solid rgba(255,255,255,0.08); border-radius:16px; padding:16px; box-shadow: 0 12px 30px rgba(0,0,0,0.28); }
         .hub-card h4 { margin:0 0 10px; color:var(--gold); font-size:14px; }
         .exchange-form-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; }
         .exchange-toolbar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:10px; }
         .exchange-toolbar .btn { width:auto; min-width:120px; margin:0; }
+        .market-chart-shell { margin-top:10px; background:linear-gradient(180deg, #151b26, #101722); border:1px solid rgba(255,255,255,0.08); border-radius:14px; padding:10px; }
+        .market-chart-canvas { width:100%; height:300px; background:#0f1724; border:1px solid rgba(255,255,255,0.08); border-radius:10px; display:block; }
+        .market-live-price-badge { font-size:18px; font-weight:900; color:#0ECB81; min-width:170px; background:rgba(14,203,129,0.08); border:1px solid rgba(14,203,129,0.24); border-radius:999px; padding:8px 12px; }
+        .market-bet-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
+        .market-bet-btn-up { background:linear-gradient(135deg, #1dcf85, #0ea965); color:#03150d; box-shadow:0 10px 22px rgba(14,203,129,0.26); }
+        .market-bet-btn-down { background:linear-gradient(135deg, #ff5b74, #e53955); color:#2a090f; box-shadow:0 10px 22px rgba(246,70,93,0.3); }
+        .market-bet-btn-up:hover, .market-bet-btn-down:hover { transform:translateY(-1px); }
+        .market-open-bet-card { padding:10px; border:1px solid var(--border); border-radius:10px; background:#10151c; }
+        .market-open-bet-head { display:flex; justify-content:space-between; gap:8px; font-size:12px; }
+        .market-open-bet-meta { margin-top:6px; font-size:11px; color:var(--text2); }
+        .market-open-bet-close { margin-top:8px; width:100%; padding:8px; border-radius:10px; border:1px solid rgba(240,185,11,0.4); background:rgba(240,185,11,0.12); color:var(--gold); font-family:'Orbitron',sans-serif; font-weight:700; cursor:pointer; }
         .order-book-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:12px; }
         .order-card, .activity-card, .transaction-item, .notification-item, .achievement-card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px; box-shadow: 0 2px 8px rgba(0,0,0,0.25); }
         .order-card + .order-card, .transaction-item + .transaction-item, .notification-item + .notification-item, .achievement-card + .achievement-card { margin-top:8px; }
@@ -1839,10 +1850,12 @@
         <div class="glass">
             <div class="exchange-toolbar">
                 <select id="market-pair-select"></select>
-                <div id="market-live-price" style="font-size:18px;font-weight:900;color:var(--g);min-width:170px;">—</div>
+                <div id="market-live-price" class="market-live-price-badge">—</div>
                 <button class="btn secondary-btn" style="width:auto;" onclick="window.marketSim && window.marketSim.refreshNow && window.marketSim.refreshNow()">ОНОВИТИ</button>
             </div>
-            <canvas id="market-chart-canvas" width="640" height="260" style="width:100%;height:260px;background:#0B0E11;border:1px solid var(--border);border-radius:10px;display:block;margin-top:10px;"></canvas>
+            <div class="market-chart-shell">
+                <canvas id="market-chart-canvas" class="market-chart-canvas" width="960" height="300"></canvas>
+            </div>
         </div>
         <div class="hub-grid">
             <div class="hub-card">
@@ -1868,12 +1881,11 @@
             <div class="hub-card">
                 <h4>🎯 Ставка на рух</h4>
                 <div class="exchange-toolbar">
-                    <select id="market-bet-direction">
-                        <option value="up">📈 Виросте</option>
-                        <option value="down">📉 Впаде</option>
-                    </select>
                     <input id="market-bet-amount" type="number" min="0.01" step="0.01" placeholder="Ставка USDT">
-                    <button class="btn" style="width:auto;" onclick="window.marketSim && window.marketSim.placeBet && window.marketSim.placeBet()">Ставити</button>
+                </div>
+                <div class="market-bet-actions">
+                    <button class="btn market-bet-btn-up" style="width:auto;" onclick="window.marketSim && window.marketSim.placeBet && window.marketSim.placeBet('up')">🟢 UP</button>
+                    <button class="btn market-bet-btn-down" style="width:auto;" onclick="window.marketSim && window.marketSim.placeBet && window.marketSim.placeBet('down')">🔴 DOWN</button>
                 </div>
                 <div id="market-open-bets" class="list-stack"></div>
             </div>
@@ -2306,8 +2318,17 @@
 
     function formatUserLabel(username) {
         const userData = allUsers[username] || {};
-        const displayName = (userData.displayName || username || '').trim();
-        return displayName !== username ? `${displayName} (@${username})` : username;
+        const rawDisplayName = userData.displayName;
+        const safeDisplayName = typeof rawDisplayName === 'string'
+            ? rawDisplayName.trim()
+            : (rawDisplayName == null ? '' : String(rawDisplayName).trim());
+        const safeUsername = typeof username === 'string'
+            ? username
+            : (username == null ? '' : String(username));
+        const displayName = safeDisplayName || safeUsername;
+        return displayName && safeUsername && displayName !== safeUsername
+            ? `${displayName} (@${safeUsername})`
+            : (displayName || safeUsername || 'Unknown');
     }
 
     function sanitizeAvatarUrl(url) {

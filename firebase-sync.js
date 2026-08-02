@@ -25,8 +25,21 @@ let firebaseState = {
     rpsOutgoingListeners: {},
     groupChatListeners: {},
     groupListListeners: {},
-    groupListSignatures: {}
+    groupListSignatures: {},
+    permissionLogCache: {}
 };
+
+function isFirebasePermissionDenied(error) {
+    const code = String(error?.code || '').toLowerCase();
+    const msg = String(error?.message || '').toLowerCase();
+    return code.includes('permission') || msg.includes('permission_denied');
+}
+
+function logPermissionIssueOnce(key, message, error) {
+    if (firebaseState.permissionLogCache[key]) return;
+    firebaseState.permissionLogCache[key] = true;
+    console.warn(message, error);
+}
 
 /**
  * 🚀 ІНІЦІАЛІЗАЦІЯ FIREBASE
@@ -170,6 +183,10 @@ function setupChatListener(currentUser, friendUsername) {
         }
         
     }, (error) => {
+        if (isFirebasePermissionDenied(error)) {
+            logPermissionIssueOnce(`chat_listener_${chatKey}`, '⚠️ Немає доступу до цього чату (listener).', error);
+            return;
+        }
         console.warn('⚠️ Помилка слухача чату:', error);
     });
     
@@ -181,12 +198,16 @@ function setupChatListener(currentUser, friendUsername) {
  * Використовується як fallback polling, коли realtime listener недоступний.
  */
 async function loadChatMessagesFirebase(currentUser, friendUsername) {
+    const chatKey = [currentUser, friendUsername].sort().join('_');
     try {
         const db = firebase.database();
-        const chatKey = [currentUser, friendUsername].sort().join('_');
         const snapshot = await db.ref(`chats/${chatKey}/messages`).once('value');
         return snapshot.val() || [];
     } catch (error) {
+        if (isFirebasePermissionDenied(error)) {
+            logPermissionIssueOnce(`chat_load_${chatKey}`, '⚠️ Немає доступу до цього чату (load).', error);
+            return [];
+        }
         console.warn('⚠️ Помилка завантаження повідомлень чату:', error);
         return [];
     }
@@ -1182,9 +1203,18 @@ async function loadGroupChatsForUserFirebase(username) {
         const snap = await db.ref(`users/${username}/groups`).once('value');
         const groupIds = Object.keys(snap.val() || {});
         if (!groupIds.length) return { groups: [] };
-        const infos = await Promise.all(groupIds.map(gid =>
-            db.ref(`groupChats/${gid}/info`).once('value').then(s => s.val())
-        ));
+        const infos = await Promise.all(groupIds.map(async (gid) => {
+            try {
+                const infoSnap = await db.ref(`groupChats/${gid}/info`).once('value');
+                return infoSnap.val();
+            } catch (error) {
+                if (isFirebasePermissionDenied(error)) {
+                    logPermissionIssueOnce(`group_info_${gid}`, `⚠️ Немає доступу до групи ${gid}. Пропускаємо.`, error);
+                    return null;
+                }
+                throw error;
+            }
+        }));
         return { groups: infos.filter(Boolean) };
     } catch (error) {
         console.error('❌ Помилка завантаження груп:', error);
@@ -1208,7 +1238,14 @@ function setupGroupChatListener(groupId, callback) {
         callback(messages);
     };
     firebaseState.groupChatListeners[groupId] = handler;
-    ref.on('value', handler);
+    ref.on('value', handler, (error) => {
+        if (isFirebasePermissionDenied(error)) {
+            logPermissionIssueOnce(`group_chat_${groupId}`, `⚠️ Немає доступу до чату групи ${groupId}.`, error);
+            callback([]);
+            return;
+        }
+        console.warn('⚠️ Помилка слухача групового чату:', error);
+    });
 }
 
 function removeGroupChatListener(groupId) {

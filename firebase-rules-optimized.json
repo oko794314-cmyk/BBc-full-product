@@ -39,6 +39,14 @@
         "ts": { ".validate": "!newData.exists() || newData.isNumber()" },
         "currency": { ".validate": "!newData.exists() || newData.isString()" }
       }
+    },
+    "chats": {
+      ".read": true,
+      ".write": true
+    },
+    "groupChats": {
+      ".read": true,
+      ".write": true
     }
   }
 }
