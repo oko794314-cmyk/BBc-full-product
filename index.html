@@ -1830,6 +1830,56 @@
         </div>
     </div>
 
+    <!-- ВКЛ.20: CRYPTO MARKET -->
+    <div id="tab20" class="view">
+        <h3 style="margin-top:0;">📉 CRYPTO MARKET</h3>
+        <div id="market-closed-banner" class="glass" style="display:none; border-color:rgba(246,70,93,0.4); color:#F6465D;">
+            🛑 Ринок тимчасово зачинений у вихідні. Торгівля доступна лише у будні.
+        </div>
+        <div class="glass">
+            <div class="exchange-toolbar">
+                <select id="market-pair-select"></select>
+                <div id="market-live-price" style="font-size:18px;font-weight:900;color:var(--g);min-width:170px;">—</div>
+                <button class="btn secondary-btn" style="width:auto;" onclick="window.marketSim && window.marketSim.refreshNow && window.marketSim.refreshNow()">ОНОВИТИ</button>
+            </div>
+            <canvas id="market-chart-canvas" width="640" height="260" style="width:100%;height:260px;background:#0B0E11;border:1px solid var(--border);border-radius:10px;display:block;margin-top:10px;"></canvas>
+        </div>
+        <div class="hub-grid">
+            <div class="hub-card">
+                <h4>👛 Гаманець</h4>
+                <div id="market-wallet-summary" class="market-stats"></div>
+                <div class="exchange-toolbar" style="margin-top:8px;">
+                    <input id="market-wallet-password" type="password" placeholder="Пароль гаманця">
+                    <button class="btn secondary-btn" style="width:auto;" onclick="window.marketSim && window.marketSim.setWalletPassword && window.marketSim.setWalletPassword()">Зберегти пароль</button>
+                </div>
+                <div class="exchange-toolbar" style="margin-top:8px;">
+                    <input id="market-deposit-amount" type="number" step="0.01" placeholder="Поповнення USDT (може бути в мінус)">
+                    <button class="btn" style="width:auto;" onclick="window.marketSim && window.marketSim.depositUsdt && window.marketSim.depositUsdt()">Поповнити</button>
+                </div>
+            </div>
+            <div class="hub-card">
+                <h4>📊 Купівля / Продаж</h4>
+                <div class="exchange-toolbar">
+                    <input id="market-trade-amount" type="number" min="0.000001" step="0.000001" placeholder="Кількість монети">
+                    <button class="btn" style="width:auto;" onclick="window.marketSim && window.marketSim.buyCurrent && window.marketSim.buyCurrent()">Купити</button>
+                    <button class="btn secondary-btn" style="width:auto;" onclick="window.marketSim && window.marketSim.sellCurrent && window.marketSim.sellCurrent()">Продати</button>
+                </div>
+            </div>
+            <div class="hub-card">
+                <h4>🎯 Ставка на рух</h4>
+                <div class="exchange-toolbar">
+                    <select id="market-bet-direction">
+                        <option value="up">📈 Виросте</option>
+                        <option value="down">📉 Впаде</option>
+                    </select>
+                    <input id="market-bet-amount" type="number" min="0.01" step="0.01" placeholder="Ставка USDT">
+                    <button class="btn" style="width:auto;" onclick="window.marketSim && window.marketSim.placeBet && window.marketSim.placeBet()">Ставити</button>
+                </div>
+                <div id="market-open-bets" class="list-stack"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- НАВІГАЦІЯ -->
     <nav class="app-nav">
         <div class="tab active" onclick="switchTab(1)">⛏️<span>Mining</span></div>
@@ -1851,6 +1901,7 @@
         <div class="tab" onclick="switchTab(17)">🏦<span>Bank</span></div>
         <div class="tab" onclick="switchTab(18)">📈<span>Stocks</span></div>
         <div class="tab" onclick="switchTab(19)">⚽<span>Sport</span></div>
+        <div class="tab" onclick="switchTab(20)">📉<span>Market</span></div>
     </nav>
 </div>
 
@@ -2045,10 +2096,69 @@
     // Prestige target that marks the garage as fully ready for future events.
     const EVENT_READINESS_PRESTIGE_THRESHOLD = 500;
 
+    async function hashTextSHA256(value) {
+        const normalized = String(value ?? '');
+        if (!window.crypto?.subtle || !window.TextEncoder) {
+            throw new Error('SHA-256 not supported');
+        }
+        const data = new TextEncoder().encode(normalized);
+        const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
+        return Array.from(new Uint8Array(hashBuffer)).map(byte => byte.toString(16).padStart(2, '0')).join('');
+    }
+
+    function isPasswordHashStored(passwordValue) {
+        return typeof passwordValue === 'string' && passwordValue.startsWith('sha256:');
+    }
+
+    async function verifyStoredPassword(storedPassword, providedPassword) {
+        if (!storedPassword || typeof providedPassword !== 'string') return false;
+        if (isPasswordHashStored(storedPassword)) {
+            const candidateHash = await hashTextSHA256(providedPassword);
+            return storedPassword === `sha256:${candidateHash}`;
+        }
+        return storedPassword === providedPassword;
+    }
+
+    function clearDailyNonEssentialCache() {
+        const keysToRemove = [
+            'bbc_sport_odds_cache_v1',
+            'bbc_sport_match_news_cache',
+            'bbc_fixtures_fallback_v1',
+            'bbc_market_sim_cache_v1'
+        ];
+        keysToRemove.forEach((key) => {
+            try { localStorage.removeItem(key); } catch (_e) {}
+        });
+    }
+
+    function scheduleDailyCacheCleanup() {
+        const markerKey = 'bbc_cache_last_cleanup_day';
+        const now = new Date();
+        const today = now.toISOString().slice(0, 10);
+        const lastRun = localStorage.getItem(markerKey);
+        if (lastRun !== today) {
+            clearDailyNonEssentialCache();
+            localStorage.setItem(markerKey, today);
+        }
+
+        const nextMidnight = new Date(now);
+        nextMidnight.setHours(24, 0, 0, 0);
+        const initialDelay = Math.max(1000, nextMidnight.getTime() - now.getTime());
+        setTimeout(() => {
+            clearDailyNonEssentialCache();
+            localStorage.setItem(markerKey, new Date().toISOString().slice(0, 10));
+            setInterval(() => {
+                clearDailyNonEssentialCache();
+                localStorage.setItem(markerKey, new Date().toISOString().slice(0, 10));
+            }, 24 * 60 * 60 * 1000);
+        }, initialDelay);
+    }
+
     // ===== ІНІЦІАЛІЗАЦІЯ =====
     document.addEventListener('DOMContentLoaded', () => {
         // Ініціалізувати Firebase
         initFirebaseSync();
+        scheduleDailyCacheCleanup();
         renderRouletteWheel();
         document.getElementById('avatar-file-input').addEventListener('change', handleAvatarFileChange);
         document.getElementById('workshop-bg-photo-input')?.addEventListener('change', handleWorkshopBackgroundPhotoChange);
@@ -3609,10 +3719,11 @@
             return;
         }
 
+        const passwordHash = await hashTextSHA256(password);
         const userData = {
             username: username,
             displayName: username,
-            password: password,
+            password: `sha256:${passwordHash}`,
             balance: 0,
             usdt: 0,
             avatar: avatarGallery[Math.floor(Math.random() * avatarGallery.length)],
@@ -3648,9 +3759,19 @@
             alert('Користувача не знайдено!');
             return;
         }
-        if (userData.password !== password) {
+        const isPasswordValid = await verifyStoredPassword(userData.password, password);
+        if (!isPasswordValid) {
             alert('Неправильний пароль!');
             return;
+        }
+
+        if (!isPasswordHashStored(userData.password)) {
+            try {
+                const upgradedHash = await hashTextSHA256(password);
+                await updateUserPasswordFirebase(username, `sha256:${upgradedHash}`);
+            } catch (_error) {
+                console.warn('⚠️ Не вдалося мігрувати пароль у hash формат');
+            }
         }
 
         gameState.user = username;
@@ -3773,7 +3894,7 @@
         document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
         document.querySelectorAll('nav .tab').forEach(t => t.classList.remove('active'));
         
-        const tabMap = {1: 'tab1', 2: 'tab2', 3: 'tab3', 4: 'tab4', 5: 'tab5', 6: 'tab6', 7: 'tab7', 8: 'tab8', 9: 'tab9', 10: 'tab10', 11: 'tab11', 12: 'tab12', 13: 'tab13', 14: 'tab14', 15: 'tab15', 16: 'tab16', 17: 'tab17', 18: 'tab18', 19: 'tab19'};
+        const tabMap = {1: 'tab1', 2: 'tab2', 3: 'tab3', 4: 'tab4', 5: 'tab5', 6: 'tab6', 7: 'tab7', 8: 'tab8', 9: 'tab9', 10: 'tab10', 11: 'tab11', 12: 'tab12', 13: 'tab13', 14: 'tab14', 15: 'tab15', 16: 'tab16', 17: 'tab17', 18: 'tab18', 19: 'tab19', 20: 'tab20'};
         const tabEl = document.getElementById(tabMap[tabNum]);
         if (tabEl) tabEl.style.display = 'block';
         const tabs = document.querySelectorAll('nav .tab');
@@ -3799,6 +3920,9 @@
         }
         if (tabNum === 19) {
             initSportTab();
+        }
+        if (tabNum === 20 && window.marketSim && typeof window.marketSim.openTab === 'function') {
+            window.marketSim.openTab();
         }
         if (typeof window.handleExtendedTabOpen === 'function') {
             window.handleExtendedTabOpen(tabNum);
@@ -3944,7 +4068,14 @@
         const recvSnap = await firebase.database().ref(`users/${recipient}/usdt`).once('value');
         const recvUsdt = Number(recvSnap.val()) || 0;
         await firebase.database().ref(`users/${recipient}/usdt`).set(Math.round((recvUsdt + amount) * 100) / 100);
-        await firebase.database().ref('transactions').push({ from: gameState.user, to: recipient, amount, currency: 'usdt', ts: Date.now() });
+        await firebase.database().ref('transactions').push({
+            from: gameState.user,
+            to: recipient,
+            amount,
+            currency: 'usdt',
+            timestamp: firebase.database.ServerValue.TIMESTAMP,
+            ts: Date.now()
+        });
         showGameNotification(`💵 Відправлено ${amount.toFixed(2)} USDT → ${recipient}`);
         document.getElementById('transfer-usdt-user').value = '';
         document.getElementById('transfer-usdt-amount').value = '';
@@ -4767,12 +4898,12 @@
         }
 
         const currentUserData = await loadUserFromFirebase(gameState.user);
-        if (!currentUserData || currentUserData.password !== currentPassword) {
+        if (!currentUserData || !(await verifyStoredPassword(currentUserData.password, currentPassword))) {
             alert('Поточний пароль неправильний');
             return;
         }
-
-        const success = await updateUserPasswordFirebase(gameState.user, newPassword);
+        const nextHash = await hashTextSHA256(newPassword);
+        const success = await updateUserPasswordFirebase(gameState.user, `sha256:${nextHash}`);
         if (!success) {
             alert('Не вдалося оновити пароль');
             return;
@@ -6842,6 +6973,7 @@
 </script>
 <script src="bb-news-features.js"></script>
 <script src="bb-extended-features.js"></script>
+<script src="market-sim.js"></script>
 
 
 <!-- Friend Profile Modal -->
