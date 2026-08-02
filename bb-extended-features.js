@@ -2803,11 +2803,16 @@
     }
 
     function getWeekKey() {
+        // Use the Monday date as a unique weekly key (YYYY-W-MM-DD)
         const d = new Date();
         const day = d.getDay();
         const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-        const mon = new Date(d.setDate(diff));
-        return `${mon.getFullYear()}-W${String(Math.ceil(mon.getDate()/7)).padStart(2,'0')}`;
+        const mon = new Date(d);
+        mon.setDate(diff);
+        const y = mon.getFullYear();
+        const m = String(mon.getMonth() + 1).padStart(2, '0');
+        const dm = String(mon.getDate()).padStart(2, '0');
+        return `${y}-W-${m}-${dm}`;
     }
 
     function isPermissionDenied(error) {
@@ -3446,6 +3451,18 @@
             await renderWeeklyQuest();
         } catch (error) {
             console.warn('⚠️ Weekly quest тимчасово недоступний:', error);
+        }
+        // Track daily login for weekly quest (once per calendar day)
+        try {
+            const todayKey = new Date().toISOString().slice(0, 10);
+            const lastLoginKey = `wq_lastlogin_${u}`;
+            const lastLogin = localStorage.getItem(lastLoginKey);
+            if (lastLogin !== todayKey) {
+                localStorage.setItem(lastLoginKey, todayKey);
+                await incrementWeeklyProgress(u, 'weeklyLoginDays');
+            }
+        } catch (error) {
+            console.warn('⚠️ Weekly login tracking failed:', error);
         }
         startWorkCooldownTick();
         if (extState.debtProcessingTimer) clearInterval(extState.debtProcessingTimer);

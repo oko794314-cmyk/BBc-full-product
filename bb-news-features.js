@@ -1388,6 +1388,10 @@
                 updateCandleHistory(trade)
             ]);
             await addProgress({ totalDeals: 1, totalBought: bbAmount });
+            // Increment weekly trade quest progress
+            if (typeof window.extFeatures?.incrementWeeklyProgress === 'function') {
+                window.extFeatures.incrementWeeklyProgress(gameState.user, 'weeklyTradeCount').catch(() => {});
+            }
             await appendLocalTransaction({ direction: 'income', amount: bbAmount, source: 'market-buy', reason: 'Купівля BB за USDT', details: `${bbAmount.toFixed(4)} BB за ${usdtCost.toFixed(4)} USDT @ ${currentPrice.toFixed(6)}` });
             checkMarketAutoNews(newPrice);
             if (bbAmountInput) bbAmountInput.value = '';
@@ -1457,6 +1461,10 @@
                 updateCandleHistory(trade)
             ]);
             await addProgress({ totalDeals: 1, totalSold: bbAmount });
+            // Increment weekly trade quest progress
+            if (typeof window.extFeatures?.incrementWeeklyProgress === 'function') {
+                window.extFeatures.incrementWeeklyProgress(gameState.user, 'weeklyTradeCount').catch(() => {});
+            }
             await appendLocalTransaction({ direction: 'expense', amount: bbAmount, source: 'market-sell', reason: 'Продаж BB за USDT', details: `${bbAmount.toFixed(4)} BB за ${usdtGain.toFixed(4)} USDT @ ${currentPrice.toFixed(6)}` });
             checkMarketAutoNews(newPrice);
             if (bbAmountInput) bbAmountInput.value = '';
@@ -1630,8 +1638,18 @@
             const escrowBreakdown = typeof getBbTransactionBreakdown === 'function'
                 ? getBbTransactionBreakdown(payload.bbAmount)
                 : { total: payload.bbAmount };
-            if (num(gameState.balance, 0) < escrowBreakdown.total) {
-                alert(`Недостатньо BB для цієї заявки. Потрібно ${escrowBreakdown.total.toFixed(4)} BB з урахуванням комісії.`);
+            // Use fresh balance from Firebase to avoid stale cache
+            let currentBalance = num(gameState.balance, 0);
+            try {
+                const balSnap = await getDb().ref(`users/${gameState.user}/balance`).once('value');
+                if (typeof balSnap.val() === 'number') {
+                    currentBalance = balSnap.val();
+                    gameState.balance = currentBalance;
+                    if (typeof updateHeader === 'function') updateHeader();
+                }
+            } catch (_e) { /* use cached value */ }
+            if (currentBalance < escrowBreakdown.total) {
+                alert(`Недостатньо BB для цієї заявки. Потрібно ${escrowBreakdown.total.toFixed(4)} BB з урахуванням комісії. Ваш баланс: ${currentBalance.toFixed(4)} BB.`);
                 return;
             }
         }

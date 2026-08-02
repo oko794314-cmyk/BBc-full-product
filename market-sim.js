@@ -7,7 +7,8 @@
         'TON/USDT': 7.8,
         'ETH/USDT': 3200
     };
-    const CANDLE_COUNT = 140;
+    const CANDLE_COUNT = 80;
+    const CANDLE_STEP_PX = 12;   // pixels per candle (scroll chart)
     const CANDLE_INTERVAL_MS = 60 * 1000;
     const PRICE_TICK_MS = 15000;
     const BET_MULTIPLIER = 38;
@@ -31,7 +32,8 @@
         openBets: [],
         tickTimer: null,
         saveTimer: null,
-        loaded: false
+        loaded: false,
+        sessionPasswordHash: null  // cached after first successful verification
     };
 
     function db() {
@@ -137,19 +139,14 @@
         if (!el) return;
         const usdt = num(state.wallet.usdt, 0);
         const holdings = state.wallet.holdings || {};
-        el.textContent = '';
-        const rows = [
-            { label: '💵 USDT', value: usdt.toFixed(2), color: '#26A17B' },
-            { label: '₿ BTC', value: num(holdings.BTC, 0).toFixed(6), color: '' },
-            { label: '🪙 TON', value: num(holdings.TON, 0).toFixed(6), color: '' },
-            { label: '◆ ETH', value: num(holdings.ETH, 0).toFixed(6), color: '' }
-        ];
-        rows.forEach((row) => {
-            const line = document.createElement('div');
-            line.textContent = `${row.label}: ${row.value}`;
-            if (row.color) line.style.color = row.color;
-            el.appendChild(line);
-        });
+        const mainUsdt = typeof gameState !== 'undefined' ? num(gameState.usdt, 0) : 0;
+        el.innerHTML = `
+            <div class="mkt-wallet-row"><span>💰 Гаманець USDT</span><b style="color:#26A17B;">${usdt.toFixed(2)}</b></div>
+            <div class="mkt-wallet-row"><span>🏦 Основний USDT</span><b style="color:#848E9C;">${mainUsdt.toFixed(2)}</b></div>
+            <div class="mkt-wallet-row"><span>₿ BTC</span><b>${num(holdings.BTC, 0).toFixed(6)}</b></div>
+            <div class="mkt-wallet-row"><span>🪙 TON</span><b>${num(holdings.TON, 0).toFixed(6)}</b></div>
+            <div class="mkt-wallet-row"><span>◆ ETH</span><b>${num(holdings.ETH, 0).toFixed(6)}</b></div>
+        `;
     }
 
     function renderBets() {
@@ -196,20 +193,27 @@
         if (!canvas) return;
         const list = state.history[state.selectedPair] || [];
         const dpr = window.devicePixelRatio || 1;
-        const cssW = canvas.clientWidth || 960;
+
+        // Fixed dimensions for scrollable chart
+        const padLeft = 6;
+        const padRight = 88;
+        const padTop = 14;
+        const padBottom = 28;
+        const step = CANDLE_STEP_PX;
         const cssH = 300;
+        const cssW = Math.max(400, list.length * step + padLeft + padRight);
+
+        canvas.style.width = cssW + 'px';
+        canvas.style.height = cssH + 'px';
         canvas.width = Math.floor(cssW * dpr);
         canvas.height = Math.floor(cssH * dpr);
+
         const ctx = canvas.getContext('2d');
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.scale(dpr, dpr);
 
         const W = cssW;
         const H = cssH;
-        const padLeft = 14;
-        const padRight = 84;
-        const padTop = 14;
-        const padBottom = 28;
         const chartW = W - padLeft - padRight;
         const chartH = H - padTop - padBottom;
         const BG = '#0B0E11';
@@ -267,9 +271,8 @@
             ctx.fillText(formatPrice(price), W - padRight + 5, y);
         }
 
-        const step = chartW / Math.max(1, list.length);
-        const bodyW = Math.max(6, Math.min(16, step * 0.72));
-        const wickW = Math.max(1.5, Math.min(3, bodyW * 0.16));
+        const bodyW = Math.max(4, Math.min(10, step * 0.72));
+        const wickW = Math.max(1, Math.min(2, bodyW * 0.14));
         list.forEach((item, idx) => {
             const cx = padLeft + idx * step + (step / 2);
             const open = num(item.o, min);
@@ -324,13 +327,23 @@
             const tag = formatPrice(last.c);
             ctx.fillStyle = lineColor;
             ctx.beginPath();
-            ctx.roundRect(W - padRight + 2, cy - 10, padRight - 4, 20, 3);
+            if (ctx.roundRect) {
+                ctx.roundRect(W - padRight + 2, cy - 10, padRight - 4, 20, 3);
+            } else {
+                ctx.rect(W - padRight + 2, cy - 10, padRight - 4, 20);
+            }
             ctx.fill();
             ctx.fillStyle = '#000';
             ctx.font = 'bold 10px monospace';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(tag, W - padRight + (padRight - 4) / 2 + 2, cy);
+        }
+
+        // Scroll the chart container to the right so the latest candles are visible
+        const scrollEl = document.getElementById('market-chart-scroll');
+        if (scrollEl && scrollEl.dataset.userScrolled !== '1') {
+            scrollEl.scrollLeft = scrollEl.scrollWidth;
         }
     }
 
@@ -340,6 +353,12 @@
         drawChart();
         renderWallet();
         renderBets();
+        // Update live indicator timestamp
+        const liveEl = document.getElementById('mkt-live-time');
+        if (liveEl) {
+            const now = new Date();
+            liveEl.textContent = `Оновлено ${now.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+        }
     }
 
     function queueSave() {
@@ -430,11 +449,15 @@
 
     async function verifyWalletPassword() {
         const hash = state.wallet.walletPasswordHash || '';
-        const value = getPasswordInputValue();
         if (!hash) {
             alert('Спочатку встановіть пароль гаманця.');
             return false;
         }
+        // Use cached session hash for convenience (user doesn't have to re-enter each time)
+        if (state.sessionPasswordHash && state.sessionPasswordHash === hash) {
+            return true;
+        }
+        const value = getPasswordInputValue();
         if (!value) {
             alert('Введіть пароль гаманця.');
             return false;
@@ -444,6 +467,11 @@
             alert('Невірний пароль гаманця.');
             return false;
         }
+        // Cache for this session
+        state.sessionPasswordHash = hash;
+        // Clear input after successful verification so it's not visible
+        const pwdInput = document.getElementById('market-wallet-password');
+        if (pwdInput) pwdInput.value = '';
         return true;
     }
 
@@ -459,8 +487,11 @@
         }
         const hash = await hashTextSHA256(pwd);
         state.wallet.walletPasswordHash = `sha256:${hash}`;
+        state.sessionPasswordHash = state.wallet.walletPasswordHash; // cache immediately
+        const pwdInput = document.getElementById('market-wallet-password');
+        if (pwdInput) pwdInput.value = '';
         queueSave();
-        if (typeof showGameNotification === 'function') showGameNotification('🔐 Пароль гаманця збережено');
+        if (typeof showGameNotification === 'function') showGameNotification('🔐 Пароль гаманця збережено та запамʼятано на сесію');
     }
 
     async function depositUsdt() {
@@ -468,18 +499,46 @@
         const input = document.getElementById('market-deposit-amount');
         const amount = round(num(input?.value, 0), 2);
         if (!amount) {
-            alert('Введіть суму поповнення (можна відʼємну).');
+            alert('Введіть суму поповнення.');
             return;
         }
-        state.wallet.usdt = round(num(state.wallet.usdt, 0) + amount, 2);
-        if (typeof gameState !== 'undefined') {
-            gameState.usdt = state.wallet.usdt;
-            if (typeof updateHeader === 'function') updateHeader();
+        if (amount > 0) {
+            // Depositing: deduct from main USDT balance
+            const mainUsdt = typeof gameState !== 'undefined' ? round(num(gameState.usdt, 0), 2) : 0;
+            if (mainUsdt < amount) {
+                alert(`Недостатньо USDT. На основному балансі: ${mainUsdt.toFixed(2)} USDT.`);
+                return;
+            }
+            state.wallet.usdt = round(num(state.wallet.usdt, 0) + amount, 2);
+            if (typeof gameState !== 'undefined') {
+                gameState.usdt = round(mainUsdt - amount, 2);
+                if (state.user) {
+                    db().ref(`users/${state.user}/usdt`).set(gameState.usdt).catch(() => {});
+                }
+                if (typeof updateHeader === 'function') updateHeader();
+            }
+        } else {
+            // Withdrawing: deduct from wallet, add to main USDT
+            const walletUsdt = round(num(state.wallet.usdt, 0), 2);
+            if (walletUsdt < -amount) {
+                alert(`Недостатньо USDT у гаманці. В гаманці: ${walletUsdt.toFixed(2)} USDT.`);
+                return;
+            }
+            state.wallet.usdt = round(walletUsdt + amount, 2); // amount is negative
+            if (typeof gameState !== 'undefined') {
+                gameState.usdt = round(num(gameState.usdt, 0) - amount, 2); // subtract negative = add
+                if (state.user) {
+                    db().ref(`users/${state.user}/usdt`).set(gameState.usdt).catch(() => {});
+                }
+                if (typeof updateHeader === 'function') updateHeader();
+            }
         }
         if (input) input.value = '';
         queueSave();
         renderWallet();
-        if (typeof showGameNotification === 'function') showGameNotification(`💵 Баланс USDT змінено на ${amount > 0 ? '+' : ''}${amount.toFixed(2)}`);
+        if (typeof showGameNotification === 'function') {
+            showGameNotification(`💵 ${amount > 0 ? 'Поповнено гаманець на' : 'Виведено з гаманця'} ${Math.abs(amount).toFixed(2)} USDT`);
+        }
     }
 
     async function buyCurrent() {
@@ -583,10 +642,9 @@
         state.user = user;
         await loadState(user);
         state.loaded = true;
-        if (typeof gameState !== 'undefined') {
-            gameState.usdt = round(num(state.wallet.usdt, gameState.usdt), 2);
-            if (typeof updateHeader === 'function') updateHeader();
-        }
+        // Do NOT overwrite gameState.usdt with wallet usdt — they are separate pools.
+        // gameState.usdt = main game USDT; state.wallet.usdt = market wallet USDT.
+        if (typeof updateHeader === 'function') updateHeader();
         refreshSharedMarketData();
         renderAll();
         queueSave();
@@ -608,6 +666,16 @@
             queueSave();
             renderAll();
         });
+
+        // Track manual scroll to prevent auto-scroll interfering with user scroll
+        const scrollEl = document.getElementById('market-chart-scroll');
+        if (scrollEl && scrollEl.dataset.scrollBound !== '1') {
+            scrollEl.dataset.scrollBound = '1';
+            scrollEl.addEventListener('scroll', () => {
+                const atRight = scrollEl.scrollLeft >= scrollEl.scrollWidth - scrollEl.clientWidth - 10;
+                scrollEl.dataset.userScrolled = atRight ? '0' : '1';
+            }, { passive: true });
+        }
     }
 
     function init() {
