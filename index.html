@@ -1920,6 +1920,17 @@
 
         <!-- Chart section -->
         <div class="mkt-chart-wrapper glass">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:8px;">
+                <div class="mini-tabs" id="market-interval-tabs">
+                    <button class="mini-tab active" data-interval="1m" onclick="window.marketSim && window.marketSim.changeInterval('1m')">1хв</button>
+                    <button class="mini-tab" data-interval="5m" onclick="window.marketSim && window.marketSim.changeInterval('5m')">5хв</button>
+                    <button class="mini-tab" data-interval="15m" onclick="window.marketSim && window.marketSim.changeInterval('15m')">15хв</button>
+                    <button class="mini-tab" data-interval="1h" onclick="window.marketSim && window.marketSim.changeInterval('1h')">1г</button>
+                    <button class="mini-tab" data-interval="4h" onclick="window.marketSim && window.marketSim.changeInterval('4h')">4г</button>
+                    <button class="mini-tab" data-interval="1d" onclick="window.marketSim && window.marketSim.changeInterval('1d')">1д</button>
+                </div>
+                <span id="mkt-data-source" style="font-size:10px;color:var(--text2);"></span>
+            </div>
             <div id="market-chart-scroll" class="chart-scroll-wrap mkt-chart-scroll">
                 <canvas id="market-chart-canvas" style="height:300px;display:block;background:#0B0E11;border-radius:8px;"></canvas>
             </div>
@@ -5858,9 +5869,13 @@
             } else if (!canBuy || priceValue === null) {
                 btnDisabled = 'disabled';
             }
+            const workshopListing = item.workshopItem ? workshopMarketState.listings[item.id] : null;
+            const previewHtml = workshopListing
+                ? renderWorkshopItemPreview(workshopListing, true)
+                : `<div class="shop-item-preview">${escapeHtml(item.icon || '🎁')}</div>`;
             return `
                 <div class="shop-item ${owned ? 'owned' : ''} ${equipped ? 'equipped' : ''}">
-                    <div class="shop-item-preview">${escapeHtml(item.icon || '🎁')}</div>
+                    ${previewHtml}
                     <div class="shop-item-name">${escapeHtml(item.name)}</div>
                     <div class="shop-item-price">${owned ? '✓ У вас є' : (priceValue === null ? '—' : `${priceValue.toFixed(2)} BB`)}</div>
                     <div class="feature-note" style="min-height:32px;">${escapeHtml(item.desc || '')}</div>

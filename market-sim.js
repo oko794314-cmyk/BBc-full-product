@@ -29,6 +29,20 @@
         'DOGE/USDT': 0.0092
     };
 
+    // Binance API constants
+    const BINANCE_SYMBOL_MAP = {
+        'BTC/USDT': 'BTCUSDT',
+        'ETH/USDT': 'ETHUSDT',
+        'BNB/USDT': 'BNBUSDT',
+        'SOL/USDT': 'SOLUSDT',
+        'XRP/USDT': 'XRPUSDT',
+        'ADA/USDT': 'ADAUSDT',
+        'TON/USDT': 'TONUSDT',
+        'DOGE/USDT': 'DOGEUSDT'
+    };
+    const BINANCE_REST = 'https://api.binance.com/api/v3/klines';
+    const BINANCE_WS_BASE = 'wss://stream.binance.com:9443/ws';
+
     const TOKEN_EMOJI = {
         BTC: '₿',
         ETH: '◆',
@@ -64,7 +78,10 @@
         tickTimer: null,
         saveTimer: null,
         loaded: false,
-        sessionPasswordHash: null  // cached after first successful verification
+        sessionPasswordHash: null,  // cached after first successful verification
+        binanceInterval: '1m',
+        binanceWs: null,
+        useBinance: false
     };
 
     function db() {
@@ -172,6 +189,152 @@
     function ensureHistoryInitialized() {
         refreshSharedMarketData();
     }
+
+    // ── Binance real-time data ────────────────────────────────────────────────
+
+    function updateDataSourceLabel(live) {
+        const el = document.getElementById('mkt-data-source');
+        if (!el) return;
+        el.textContent = live ? '🟢 Binance LIVE' : '🟡 Симуляція';
+    }
+
+    async function fetchBinanceKlines(pair, interval, limit) {
+        const symbol = BINANCE_SYMBOL_MAP[pair];
+        if (!symbol) return null;
+        const url = `${BINANCE_REST}?symbol=${symbol}&interval=${interval}&limit=${limit}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`Binance HTTP ${res.status}`);
+        const data = await res.json();
+        if (!Array.isArray(data) || !data.length) return null;
+        return data.map((k) => ({
+            t: k[0],
+            o: parseFloat(k[1]),
+            h: parseFloat(k[2]),
+            l: parseFloat(k[3]),
+            c: parseFloat(k[4])
+        }));
+    }
+
+    function stopBinanceWS() {
+        if (state.binanceWs) {
+            try { state.binanceWs.close(); } catch (_) {}
+            state.binanceWs = null;
+        }
+    }
+
+    function startBinanceWS(pair) {
+        stopBinanceWS();
+        const symbol = BINANCE_SYMBOL_MAP[pair];
+        if (!symbol) return;
+        const interval = state.binanceInterval || '1m';
+        const wsUrl = `${BINANCE_WS_BASE}/${symbol.toLowerCase()}@kline_${interval}`;
+        let ws;
+        try {
+            ws = new WebSocket(wsUrl);
+        } catch (_) {
+            return;
+        }
+        state.binanceWs = ws;
+
+        ws.onmessage = (event) => {
+            try {
+                const msg = JSON.parse(event.data);
+                const kline = msg.k;
+                if (!kline) return;
+                const candle = {
+                    t: kline.t,
+                    o: parseFloat(kline.o),
+                    h: parseFloat(kline.h),
+                    l: parseFloat(kline.l),
+                    c: parseFloat(kline.c)
+                };
+                const history = state.history[pair] || [];
+                const last = history[history.length - 1];
+                if (last && last.t === candle.t) {
+                    history[history.length - 1] = candle;
+                } else if (!last || candle.t > last.t) {
+                    history.push(candle);
+                    if (history.length > CANDLE_COUNT) history.splice(0, history.length - CANDLE_COUNT);
+                }
+                state.history[pair] = history;
+                state.prices[pair] = candle.c;
+                if (pair === state.selectedPair) {
+                    updateLivePrice();
+                    drawChart();
+                    const liveEl = document.getElementById('mkt-live-time');
+                    if (liveEl) {
+                        const now = new Date();
+                        liveEl.textContent = `Оновлено ${now.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+                    }
+                }
+            } catch (_) {}
+        };
+
+        ws.onerror = () => {
+            if (state.binanceWs === ws) {
+                state.binanceWs = null;
+            }
+        };
+
+        ws.onclose = () => {
+            if (state.binanceWs === ws) {
+                state.binanceWs = null;
+            }
+        };
+    }
+
+    async function initBinancePair(pair) {
+        try {
+            const interval = state.binanceInterval || '1m';
+            const candles = await fetchBinanceKlines(pair, interval, CANDLE_COUNT);
+            if (!candles) return false;
+            state.history[pair] = candles;
+            const last = candles[candles.length - 1];
+            if (last) state.prices[pair] = last.c;
+            return true;
+        } catch (_) {
+            return false;
+        }
+    }
+
+    async function initBinance() {
+        const ok = await initBinancePair(state.selectedPair);
+        if (!ok) {
+            state.useBinance = false;
+            updateDataSourceLabel(false);
+            return;
+        }
+        state.useBinance = true;
+        updateDataSourceLabel(true);
+        startBinanceWS(state.selectedPair);
+        renderAll();
+    }
+
+    function updateIntervalTabs(interval) {
+        const tabs = document.querySelectorAll('#market-interval-tabs .mini-tab');
+        tabs.forEach((btn) => {
+            btn.classList.toggle('active', btn.dataset.interval === interval);
+        });
+    }
+
+    async function changeInterval(interval) {
+        state.binanceInterval = interval;
+        updateIntervalTabs(interval);
+        stopBinanceWS();
+        state.useBinance = false;
+        updateDataSourceLabel(false);
+        const ok = await initBinancePair(state.selectedPair);
+        if (ok) {
+            state.useBinance = true;
+            updateDataSourceLabel(true);
+            startBinanceWS(state.selectedPair);
+        } else {
+            refreshSharedMarketData();
+        }
+        renderAll();
+    }
+
+    // ── end Binance ──────────────────────────────────────────────────────────
 
     function updateLivePrice() {
         const priceEl = document.getElementById('market-live-price');
@@ -773,7 +936,9 @@
 
     function tickMarket() {
         if (!state.loaded) return;
-        refreshSharedMarketData();
+        if (!state.useBinance) {
+            refreshSharedMarketData();
+        }
         renderAll();
     }
 
@@ -790,6 +955,7 @@
         refreshSharedMarketData();
         renderAll();
         queueSave();
+        initBinance().catch(() => {});
     }
 
     function openTab() {
@@ -804,9 +970,26 @@
         pairSelect.innerHTML = PAIRS.map((pair) => `<option value="${pair}">${pair}</option>`).join('');
         pairSelect.value = state.selectedPair;
         pairSelect.addEventListener('change', () => {
-            state.selectedPair = pairSelect.value;
+            const newPair = pairSelect.value;
+            state.selectedPair = newPair;
             queueSave();
-            renderAll();
+            // reload Binance data for new pair
+            stopBinanceWS();
+            state.useBinance = false;
+            updateDataSourceLabel(false);
+            initBinancePair(newPair).then((ok) => {
+                if (ok) {
+                    state.useBinance = true;
+                    updateDataSourceLabel(true);
+                    startBinanceWS(newPair);
+                } else {
+                    refreshSharedMarketData();
+                }
+                renderAll();
+            }).catch(() => {
+                refreshSharedMarketData();
+                renderAll();
+            });
         });
 
         // Track manual scroll to prevent auto-scroll interfering with user scroll
@@ -822,6 +1005,7 @@
 
     function init() {
         wireDom();
+        updateIntervalTabs(state.binanceInterval);
         ensureHistoryInitialized();
         if (!state.tickTimer) {
             state.tickTimer = setInterval(tickMarket, PRICE_TICK_MS);
@@ -838,6 +1022,7 @@
         depositUsdt,
         buyCurrent,
         sellCurrent,
-        placeBet
+        placeBet,
+        changeInterval
     };
 })();
