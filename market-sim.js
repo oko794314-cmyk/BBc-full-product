@@ -81,6 +81,15 @@
         return Math.round(num(value) * p) / p;
     }
 
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
     function getPairToken(pair) {
         return String(pair || '').split('/')[0];
     }
@@ -248,14 +257,18 @@
             const move = num(item.movementPercent, 0);
             const pair = String(item.pair || '—');
             const dir = item.direction === 'up' ? '📈 UP' : '📉 DOWN';
-            card.innerHTML = `
-                <div class="market-open-bet-head">${pair} • ${dir}</div>
-                <div class="market-open-bet-meta">
-                    Списано при вході: <span style="color:#F6465D;">-${num(item.amount, 0).toFixed(2)} USDT</span><br>
-                    Закриття угоди: <span style="color:${closeDelta >= 0 ? '#0ECB81' : '#F6465D'};">${closeDelta >= 0 ? '+' : ''}${Math.abs(closeDelta).toFixed(2)} USDT</span> • Рух: <span style="color:${move >= 0 ? '#0ECB81' : '#F6465D'};">${move >= 0 ? '+' : ''}${move.toFixed(2)}%</span><br>
-                    Чистий результат: <span style="color:${net >= 0 ? '#0ECB81' : '#F6465D'};font-weight:800;">${net >= 0 ? '+' : ''}${Math.abs(net).toFixed(2)} USDT</span>
-                </div>
+            const top = document.createElement('div');
+            top.className = 'market-open-bet-head';
+            top.textContent = `${pair} • ${dir}`;
+            const meta = document.createElement('div');
+            meta.className = 'market-open-bet-meta';
+            meta.innerHTML = `
+                Списано при вході: <span style="color:#F6465D;">-${num(item.amount, 0).toFixed(2)} USDT</span><br>
+                Закриття угоди: <span style="color:${closeDelta >= 0 ? '#0ECB81' : '#F6465D'};">${closeDelta >= 0 ? '+' : ''}${Math.abs(closeDelta).toFixed(2)} USDT</span> • Рух: <span style="color:${move >= 0 ? '#0ECB81' : '#F6465D'};">${move >= 0 ? '+' : ''}${move.toFixed(2)}%</span><br>
+                Чистий результат: <span style="color:${net >= 0 ? '#0ECB81' : '#F6465D'};font-weight:800;">${net >= 0 ? '+' : ''}${Math.abs(net).toFixed(2)} USDT</span>
             `;
+            card.appendChild(top);
+            card.appendChild(meta);
             el.appendChild(card);
         });
     }
