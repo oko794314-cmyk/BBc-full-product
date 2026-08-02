@@ -9,8 +9,8 @@
     };
     const CANDLE_COUNT = 80;
     const CANDLE_STEP_PX = 12;   // pixels per candle (scroll chart)
-    const CANDLE_INTERVAL_MS = 60 * 1000;
-    const PRICE_TICK_MS = 15000;
+    const CANDLE_INTERVAL_MS = 5 * 1000;
+    const PRICE_TICK_MS = 5000;
     const BET_MULTIPLIER = 38;
     const SAVE_DEBOUNCE_MS = 1000;
     const PAIR_VOLATILITY = {
@@ -54,10 +54,7 @@
         return String(pair || '').split('/')[0];
     }
 
-    function isWeekend() {
-        const day = new Date().getDay();
-        return day === 0 || day === 6;
-    }
+    function isWeekend() { return false; }
 
     function getCurrentUser() {
         return typeof gameState !== 'undefined' ? gameState.user : null;
@@ -140,12 +137,14 @@
         const usdt = num(state.wallet.usdt, 0);
         const holdings = state.wallet.holdings || {};
         const mainUsdt = typeof gameState !== 'undefined' ? num(gameState.usdt, 0) : 0;
+        const walletColor = usdt >= 0 ? '#26A17B' : '#F6465D';
         el.innerHTML = `
-            <div class="mkt-wallet-row"><span>💰 Гаманець USDT</span><b style="color:#26A17B;">${usdt.toFixed(2)}</b></div>
+            <div class="mkt-wallet-row"><span>💰 Гаманець USDT</span><b style="color:${walletColor};">${usdt.toFixed(2)}</b></div>
             <div class="mkt-wallet-row"><span>🏦 Основний USDT</span><b style="color:#848E9C;">${mainUsdt.toFixed(2)}</b></div>
             <div class="mkt-wallet-row"><span>₿ BTC</span><b>${num(holdings.BTC, 0).toFixed(6)}</b></div>
             <div class="mkt-wallet-row"><span>🪙 TON</span><b>${num(holdings.TON, 0).toFixed(6)}</b></div>
             <div class="mkt-wallet-row"><span>◆ ETH</span><b>${num(holdings.ETH, 0).toFixed(6)}</b></div>
+            ${usdt < 0 ? `<div class="mkt-wallet-row"><span>⚠️ Борг до погашення</span><b style="color:#F6465D;">${Math.abs(usdt).toFixed(2)} USDT</b></div>` : ''}
         `;
     }
 
@@ -171,10 +170,13 @@
                 ? ((livePrice - entryPrice) / entryPrice)
                 : ((entryPrice - livePrice) / entryPrice);
             const pnlPercent = pnlRatio * 100;
+            const closeDelta = pnlRatio > 0
+                ? round(num(bet.amount, 0) + (num(bet.amount, 0) * Math.abs(pnlRatio) * BET_MULTIPLIER), 2)
+                : -round(num(bet.amount, 0) * Math.abs(pnlRatio) * BET_MULTIPLIER, 2);
 
             const bottom = document.createElement('div');
             bottom.className = 'market-open-bet-meta';
-            bottom.innerHTML = `Ставка: ${num(bet.amount, 0).toFixed(2)} USDT • Вхід: ${entryPrice.toFixed(bet.pair === 'TON/USDT' ? 4 : 2)}<br>Поточний рух: <span style="color:${pnlPercent >= 0 ? '#0ECB81' : '#F6465D'}">${pnlPercent >= 0 ? '+' : ''}${pnlPercent.toFixed(2)}%</span>`;
+            bottom.innerHTML = `Ставка: ${num(bet.amount, 0).toFixed(2)} USDT • Вхід: ${entryPrice.toFixed(bet.pair === 'TON/USDT' ? 4 : 2)}<br>Поточний рух: <span style="color:${pnlPercent >= 0 ? '#0ECB81' : '#F6465D'}">${pnlPercent >= 0 ? '+' : ''}${pnlPercent.toFixed(2)}%</span><br>Якщо закрити зараз: <span style="color:${closeDelta >= 0 ? '#0ECB81' : '#F6465D'};font-weight:800;">${closeDelta >= 0 ? '+' : ''}${Math.abs(closeDelta).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</span>`;
 
             const closeBtn = document.createElement('button');
             closeBtn.className = 'market-open-bet-close';
@@ -340,6 +342,38 @@
             ctx.fillText(tag, W - padRight + (padRight - 4) / 2 + 2, cy);
         }
 
+        const activeBet = [...state.openBets].reverse().find((bet) => bet && bet.pair === state.selectedPair);
+        if (activeBet) {
+            const livePrice = num(state.prices[activeBet.pair], activeBet.entryPrice);
+            const entryPrice = Math.max(0.000001, num(activeBet.entryPrice, livePrice));
+            const pnlRatio = activeBet.direction === 'up'
+                ? ((livePrice - entryPrice) / entryPrice)
+                : ((entryPrice - livePrice) / entryPrice);
+            const closeDelta = pnlRatio > 0
+                ? round(num(activeBet.amount, 0) + (num(activeBet.amount, 0) * Math.abs(pnlRatio) * BET_MULTIPLIER), 2)
+                : -round(num(activeBet.amount, 0) * Math.abs(pnlRatio) * BET_MULTIPLIER, 2);
+            const yEntry = toY(entryPrice);
+            const label = `${closeDelta >= 0 ? '+' : '-'}${Math.abs(closeDelta).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT`;
+            const labelW = Math.min(148, Math.max(94, ctx.measureText(label).width + 18));
+
+            ctx.setLineDash([3, 3]);
+            ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(padLeft, yEntry);
+            ctx.lineTo(W - padRight, yEntry);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(W - padRight - labelW - 6, yEntry - 10, labelW, 20);
+            ctx.fillStyle = closeDelta >= 0 ? '#0B8E11' : '#B42334';
+            ctx.font = 'bold 10px monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(label, W - padRight - labelW / 2 - 6, yEntry);
+        }
+
         // Scroll the chart container to the right so the latest candles are visible
         const scrollEl = document.getElementById('market-chart-scroll');
         if (scrollEl && scrollEl.dataset.userScrolled !== '1') {
@@ -424,15 +458,17 @@
         const pnlRatio = bet.direction === 'up'
             ? ((livePrice - entryPrice) / entryPrice)
             : ((entryPrice - livePrice) / entryPrice);
-        const isWin = pnlRatio > 0;
+        const closeDelta = pnlRatio > 0
+            ? round(num(bet.amount, 0) + (num(bet.amount, 0) * Math.abs(pnlRatio) * BET_MULTIPLIER), 2)
+            : -round(num(bet.amount, 0) * Math.abs(pnlRatio) * BET_MULTIPLIER, 2);
+        state.wallet.usdt = round(num(state.wallet.usdt, 0) + closeDelta, 2);
+        const isWin = closeDelta > 0;
         if (isWin) {
-            const reward = round(bet.amount + (bet.amount * Math.abs(pnlRatio) * BET_MULTIPLIER), 2);
-            state.wallet.usdt = round(num(state.wallet.usdt, 0) + reward, 2);
             if (typeof showGameNotification === 'function') {
-                showGameNotification(`✅ Угоду закрито з прибутком: +${reward.toFixed(2)} USDT`);
+                showGameNotification(`✅ Угоду закрито з прибутком: +${closeDelta.toFixed(2)} USDT`);
             }
         } else if (typeof showGameNotification === 'function') {
-            showGameNotification('❌ Угоду закрито зі збитком');
+            showGameNotification(`❌ Угоду закрито зі збитком: -${Math.abs(closeDelta).toFixed(2)} USDT`);
         }
         state.openBets.splice(index, 1);
         if (typeof gameState !== 'undefined') {
@@ -447,14 +483,14 @@
         return String(document.getElementById('market-wallet-password')?.value || '').trim();
     }
 
-    async function verifyWalletPassword() {
+    async function verifyWalletPassword(options = {}) {
+        const requireFresh = options.requireFresh === true;
         const hash = state.wallet.walletPasswordHash || '';
         if (!hash) {
             alert('Спочатку встановіть пароль гаманця.');
             return false;
         }
-        // Use cached session hash for convenience (user doesn't have to re-enter each time)
-        if (state.sessionPasswordHash && state.sessionPasswordHash === hash) {
+        if (!requireFresh && state.sessionPasswordHash && state.sessionPasswordHash === hash) {
             return true;
         }
         const value = getPasswordInputValue();
@@ -467,9 +503,7 @@
             alert('Невірний пароль гаманця.');
             return false;
         }
-        // Cache for this session
         state.sessionPasswordHash = hash;
-        // Clear input after successful verification so it's not visible
         const pwdInput = document.getElementById('market-wallet-password');
         if (pwdInput) pwdInput.value = '';
         return true;
@@ -495,7 +529,7 @@
     }
 
     async function depositUsdt() {
-        if (!(await verifyWalletPassword())) return;
+        if (!(await verifyWalletPassword({ requireFresh: true }))) return;
         const input = document.getElementById('market-deposit-amount');
         const amount = round(num(input?.value, 0), 2);
         if (!amount) {
@@ -520,6 +554,10 @@
         } else {
             // Withdrawing: deduct from wallet, add to main USDT
             const walletUsdt = round(num(state.wallet.usdt, 0), 2);
+            if (walletUsdt < 0) {
+                alert(`У вас борг у гаманці: ${Math.abs(walletUsdt).toFixed(2)} USDT. Спочатку погасіть його поповненням.`);
+                return;
+            }
             if (walletUsdt < -amount) {
                 alert(`Недостатньо USDT у гаманці. В гаманці: ${walletUsdt.toFixed(2)} USDT.`);
                 return;
