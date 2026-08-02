@@ -99,12 +99,19 @@
         if (!el) return;
         const usdt = num(state.wallet.usdt, 0);
         const holdings = state.wallet.holdings || {};
-        el.innerHTML = `
-            <div>💵 USDT: <b style="color:#26A17B;">${usdt.toFixed(2)}</b></div>
-            <div>₿ BTC: <b>${num(holdings.BTC, 0).toFixed(6)}</b></div>
-            <div>🪙 TON: <b>${num(holdings.TON, 0).toFixed(6)}</b></div>
-            <div>◆ ETH: <b>${num(holdings.ETH, 0).toFixed(6)}</b></div>
-        `;
+        el.textContent = '';
+        const rows = [
+            { label: '💵 USDT', value: usdt.toFixed(2), color: '#26A17B' },
+            { label: '₿ BTC', value: num(holdings.BTC, 0).toFixed(6), color: '' },
+            { label: '🪙 TON', value: num(holdings.TON, 0).toFixed(6), color: '' },
+            { label: '◆ ETH', value: num(holdings.ETH, 0).toFixed(6), color: '' }
+        ];
+        rows.forEach((row) => {
+            const line = document.createElement('div');
+            line.textContent = `${row.label}: ${row.value}`;
+            if (row.color) line.style.color = row.color;
+            el.appendChild(line);
+        });
     }
 
     function renderBets() {
@@ -115,13 +122,28 @@
             return;
         }
         const now = Date.now();
-        el.innerHTML = state.openBets.slice(-8).reverse().map((bet) => {
+        el.textContent = '';
+        state.openBets.slice(-8).reverse().forEach((bet) => {
             const leftSec = Math.max(0, Math.ceil((bet.endsAt - now) / 1000));
-            return `<div style="padding:8px;border:1px solid var(--border);border-radius:10px;background:#10151c;">
-                <div style="font-size:12px;"><b>${bet.pair}</b> • ${bet.direction === 'up' ? '📈 UP' : '📉 DOWN'}</div>
-                <div style="font-size:11px;color:var(--text2);">Ставка: ${bet.amount.toFixed(2)} USDT • Таймер: ${leftSec}с</div>
-            </div>`;
-        }).join('');
+            const card = document.createElement('div');
+            card.style.padding = '8px';
+            card.style.border = '1px solid var(--border)';
+            card.style.borderRadius = '10px';
+            card.style.background = '#10151c';
+
+            const top = document.createElement('div');
+            top.style.fontSize = '12px';
+            top.textContent = `${String(bet.pair || '')} • ${bet.direction === 'up' ? '📈 UP' : '📉 DOWN'}`;
+
+            const bottom = document.createElement('div');
+            bottom.style.fontSize = '11px';
+            bottom.style.color = 'var(--text2)';
+            bottom.textContent = `Ставка: ${num(bet.amount, 0).toFixed(2)} USDT • Таймер: ${leftSec}с`;
+
+            card.appendChild(top);
+            card.appendChild(bottom);
+            el.appendChild(card);
+        });
     }
 
     function drawChart() {
