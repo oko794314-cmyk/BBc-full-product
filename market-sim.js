@@ -1,11 +1,16 @@
 (() => {
     if (typeof firebase === 'undefined') return;
 
-    const PAIRS = ['BTC/USDT', 'TON/USDT', 'ETH/USDT'];
+    const PAIRS = ['BTC/USDT', 'ETH/USDT', 'BNB/USDT', 'SOL/USDT', 'XRP/USDT', 'ADA/USDT', 'TON/USDT', 'DOGE/USDT'];
     const BASE_PRICES = {
         'BTC/USDT': 64000,
+        'ETH/USDT': 3200,
+        'BNB/USDT': 585,
+        'SOL/USDT': 152,
+        'XRP/USDT': 0.62,
+        'ADA/USDT': 0.48,
         'TON/USDT': 7.8,
-        'ETH/USDT': 3200
+        'DOGE/USDT': 0.12
     };
     const CANDLE_COUNT = 80;
     const CANDLE_STEP_PX = 12;   // pixels per candle (scroll chart)
@@ -15,9 +20,34 @@
     const SAVE_DEBOUNCE_MS = 1000;
     const PAIR_VOLATILITY = {
         'BTC/USDT': 0.0046,
+        'ETH/USDT': 0.0052,
+        'BNB/USDT': 0.0058,
+        'SOL/USDT': 0.0071,
+        'XRP/USDT': 0.0082,
+        'ADA/USDT': 0.0084,
         'TON/USDT': 0.0068,
-        'ETH/USDT': 0.0052
+        'DOGE/USDT': 0.0092
     };
+
+    const TOKEN_EMOJI = {
+        BTC: '₿',
+        ETH: '◆',
+        BNB: '🟡',
+        SOL: '🟣',
+        XRP: '💧',
+        ADA: '🔵',
+        TON: '🪙',
+        DOGE: '🐕'
+    };
+
+    function buildHoldingsTemplate() {
+        const out = {};
+        PAIRS.forEach((pair) => {
+            const token = String(pair).split('/')[0];
+            out[token] = 0;
+        });
+        return out;
+    }
 
     const state = {
         user: null,
@@ -26,10 +56,11 @@
         history: Object.fromEntries(PAIRS.map((pair) => [pair, []])),
         wallet: {
             usdt: 0,
-            holdings: { BTC: 0, TON: 0, ETH: 0 },
+            holdings: buildHoldingsTemplate(),
             walletPasswordHash: ''
         },
         openBets: [],
+        closedBets: [],
         tickTimer: null,
         saveTimer: null,
         loaded: false,
@@ -52,6 +83,13 @@
 
     function getPairToken(pair) {
         return String(pair || '').split('/')[0];
+    }
+
+    function getPairDigits(pair) {
+        const token = getPairToken(pair);
+        if (token === 'BTC' || token === 'ETH' || token === 'BNB' || token === 'SOL') return 2;
+        if (token === 'TON') return 4;
+        return 5;
     }
 
     function isWeekend() { return false; }
@@ -81,7 +119,7 @@
         const bucketNow = Math.floor(now / CANDLE_INTERVAL_MS);
         const startBucket = bucketNow - CANDLE_COUNT + 1;
         const candles = [];
-        const digits = pair === 'TON/USDT' ? 4 : 2;
+        const digits = getPairDigits(pair);
         let prevClose = num(BASE_PRICES[pair], 1);
         const vol = num(PAIR_VOLATILITY[pair], 0.004);
 
@@ -128,7 +166,8 @@
         if (!priceEl) return;
         const price = num(state.prices[state.selectedPair], BASE_PRICES[state.selectedPair]);
         const symbol = state.selectedPair;
-        priceEl.textContent = `${symbol}: ${price.toLocaleString('en-US', { maximumFractionDigits: symbol === 'TON/USDT' ? 4 : 2 })}`;
+        const digits = getPairDigits(symbol);
+        priceEl.textContent = `${symbol}: ${price.toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits })}`;
     }
 
     function renderWallet() {
@@ -138,12 +177,15 @@
         const holdings = state.wallet.holdings || {};
         const mainUsdt = typeof gameState !== 'undefined' ? num(gameState.usdt, 0) : 0;
         const walletColor = usdt >= 0 ? '#26A17B' : '#F6465D';
+        const holdingsRows = PAIRS.map((pair) => {
+            const token = getPairToken(pair);
+            const icon = TOKEN_EMOJI[token] || '◽';
+            return `<div class="mkt-wallet-row"><span>${icon} ${token}</span><b>${num(holdings[token], 0).toFixed(6)}</b></div>`;
+        }).join('');
         el.innerHTML = `
             <div class="mkt-wallet-row"><span>💰 Гаманець USDT</span><b style="color:${walletColor};">${usdt.toFixed(2)}</b></div>
             <div class="mkt-wallet-row"><span>🏦 Основний USDT</span><b style="color:#848E9C;">${mainUsdt.toFixed(2)}</b></div>
-            <div class="mkt-wallet-row"><span>₿ BTC</span><b>${num(holdings.BTC, 0).toFixed(6)}</b></div>
-            <div class="mkt-wallet-row"><span>🪙 TON</span><b>${num(holdings.TON, 0).toFixed(6)}</b></div>
-            <div class="mkt-wallet-row"><span>◆ ETH</span><b>${num(holdings.ETH, 0).toFixed(6)}</b></div>
+            ${holdingsRows}
             ${usdt < 0 ? `<div class="mkt-wallet-row"><span>⚠️ Борг до погашення</span><b style="color:#F6465D;">${Math.abs(usdt).toFixed(2)} USDT</b></div>` : ''}
         `;
     }
@@ -176,7 +218,7 @@
 
             const bottom = document.createElement('div');
             bottom.className = 'market-open-bet-meta';
-            bottom.innerHTML = `Ставка: ${num(bet.amount, 0).toFixed(2)} USDT • Вхід: ${entryPrice.toFixed(bet.pair === 'TON/USDT' ? 4 : 2)}<br>Поточний рух: <span style="color:${pnlPercent >= 0 ? '#0ECB81' : '#F6465D'}">${pnlPercent >= 0 ? '+' : ''}${pnlPercent.toFixed(2)}%</span><br>Якщо закрити зараз: <span style="color:${closeDelta >= 0 ? '#0ECB81' : '#F6465D'};font-weight:800;">${closeDelta >= 0 ? '+' : ''}${Math.abs(closeDelta).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</span>`;
+            bottom.innerHTML = `Ставка: ${num(bet.amount, 0).toFixed(2)} USDT • Вхід: ${entryPrice.toFixed(getPairDigits(bet.pair))}<br>Поточний рух: <span style="color:${pnlPercent >= 0 ? '#0ECB81' : '#F6465D'}">${pnlPercent >= 0 ? '+' : ''}${pnlPercent.toFixed(2)}%</span><br>Якщо закрити зараз: <span style="color:${closeDelta >= 0 ? '#0ECB81' : '#F6465D'};font-weight:800;">${closeDelta >= 0 ? '+' : ''}${Math.abs(closeDelta).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</span>`;
 
             const closeBtn = document.createElement('button');
             closeBtn.className = 'market-open-bet-close';
@@ -186,6 +228,34 @@
             card.appendChild(top);
             card.appendChild(bottom);
             card.appendChild(closeBtn);
+            el.appendChild(card);
+        });
+    }
+
+    function renderClosedBets() {
+        const el = document.getElementById('market-bet-history');
+        if (!el) return;
+        if (!state.closedBets.length) {
+            el.innerHTML = '<div style="font-size:12px;color:var(--text2);">Закритих угод поки немає.</div>';
+            return;
+        }
+        el.textContent = '';
+        state.closedBets.slice(-12).reverse().forEach((item) => {
+            const card = document.createElement('div');
+            card.className = 'market-open-bet-card';
+            const net = num(item.netResult, 0);
+            const closeDelta = num(item.closeDelta, 0);
+            const move = num(item.movementPercent, 0);
+            const pair = String(item.pair || '—');
+            const dir = item.direction === 'up' ? '📈 UP' : '📉 DOWN';
+            card.innerHTML = `
+                <div class="market-open-bet-head">${pair} • ${dir}</div>
+                <div class="market-open-bet-meta">
+                    Списано при вході: <span style="color:#F6465D;">-${num(item.amount, 0).toFixed(2)} USDT</span><br>
+                    Закриття угоди: <span style="color:${closeDelta >= 0 ? '#0ECB81' : '#F6465D'};">${closeDelta >= 0 ? '+' : ''}${Math.abs(closeDelta).toFixed(2)} USDT</span> • Рух: <span style="color:${move >= 0 ? '#0ECB81' : '#F6465D'};">${move >= 0 ? '+' : ''}${move.toFixed(2)}%</span><br>
+                    Чистий результат: <span style="color:${net >= 0 ? '#0ECB81' : '#F6465D'};font-weight:800;">${net >= 0 ? '+' : ''}${Math.abs(net).toFixed(2)} USDT</span>
+                </div>
+            `;
             el.appendChild(card);
         });
     }
@@ -249,7 +319,7 @@
         const visMax = max + visPad;
         const visRange = Math.max(0.000001, visMax - visMin);
         const toY = (price) => padTop + chartH - ((price - visMin) / visRange) * chartH;
-        const decimals = state.selectedPair === 'TON/USDT' ? 4 : 2;
+        const decimals = getPairDigits(state.selectedPair);
         const formatPrice = (price) => Number(price).toLocaleString('en-US', {
             minimumFractionDigits: decimals,
             maximumFractionDigits: decimals
@@ -387,6 +457,7 @@
         drawChart();
         renderWallet();
         renderBets();
+        renderClosedBets();
         // Update live indicator timestamp
         const liveEl = document.getElementById('mkt-live-time');
         if (liveEl) {
@@ -409,6 +480,7 @@
             selectedPair: state.selectedPair,
             wallet: state.wallet,
             openBets: state.openBets,
+            closedBets: state.closedBets,
             updatedAt: firebase.database.ServerValue.TIMESTAMP
         });
     }
@@ -418,25 +490,27 @@
             selectedPair: PAIRS[0],
             wallet: {
                 usdt: 0,
-                holdings: { BTC: 0, TON: 0, ETH: 0 },
+                holdings: buildHoldingsTemplate(),
                 walletPasswordHash: ''
             },
-            openBets: []
+            openBets: [],
+            closedBets: []
         };
         if (!raw || typeof raw !== 'object') return base;
         const holdingsRaw = raw.wallet?.holdings || {};
+        const holdings = buildHoldingsTemplate();
+        Object.keys(holdings).forEach((token) => {
+            holdings[token] = round(num(holdingsRaw[token], 0));
+        });
         return {
             selectedPair: PAIRS.includes(raw.selectedPair) ? raw.selectedPair : base.selectedPair,
             wallet: {
                 usdt: round(num(raw.wallet?.usdt, 0), 2),
-                holdings: {
-                    BTC: round(num(holdingsRaw.BTC, 0)),
-                    TON: round(num(holdingsRaw.TON, 0)),
-                    ETH: round(num(holdingsRaw.ETH, 0))
-                },
+                holdings,
                 walletPasswordHash: typeof raw.wallet?.walletPasswordHash === 'string' ? raw.wallet.walletPasswordHash : ''
             },
-            openBets: Array.isArray(raw.openBets) ? raw.openBets.filter(Boolean).slice(-30) : []
+            openBets: Array.isArray(raw.openBets) ? raw.openBets.filter(Boolean).slice(-30) : [],
+            closedBets: Array.isArray(raw.closedBets) ? raw.closedBets.filter(Boolean).slice(-120) : []
         };
     }
 
@@ -446,6 +520,7 @@
         state.selectedPair = normalized.selectedPair;
         state.wallet = normalized.wallet;
         state.openBets = normalized.openBets;
+        state.closedBets = normalized.closedBets;
         ensureHistoryInitialized();
     }
 
@@ -462,6 +537,20 @@
             ? round(num(bet.amount, 0) + (num(bet.amount, 0) * Math.abs(pnlRatio) * BET_MULTIPLIER), 2)
             : -round(num(bet.amount, 0) * Math.abs(pnlRatio) * BET_MULTIPLIER, 2);
         state.wallet.usdt = round(num(state.wallet.usdt, 0) + closeDelta, 2);
+        const netResult = round(closeDelta - num(bet.amount, 0), 2);
+        state.closedBets.push({
+            id: `${bet.id}_closed_${Date.now()}`,
+            pair: bet.pair,
+            direction: bet.direction,
+            amount: round(num(bet.amount, 0), 2),
+            entryPrice: round(entryPrice, getPairDigits(bet.pair)),
+            closePrice: round(livePrice, getPairDigits(bet.pair)),
+            movementPercent: round(pnlRatio * 100, 2),
+            closeDelta,
+            netResult,
+            closedAt: Date.now()
+        });
+        if (state.closedBets.length > 120) state.closedBets = state.closedBets.slice(-120);
         const isWin = closeDelta > 0;
         if (isWin) {
             if (typeof showGameNotification === 'function') {

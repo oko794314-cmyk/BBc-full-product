@@ -1975,6 +1975,8 @@
                 </div>
                 <div class="mkt-bets-title">Відкриті позиції</div>
                 <div id="market-open-bets" class="mkt-bets-list"></div>
+                <div class="mkt-bets-title" style="margin-top:10px;">Історія угод</div>
+                <div id="market-bet-history" class="mkt-bets-list"></div>
             </div>
         </div>
     </div>
@@ -6570,18 +6572,76 @@
 
         // sport state
         window._sportState = window._sportState || {
-            bets: parseJsonSafe(localStorage.getItem('bbc_sport_bets') || '[]', []),
+            bets: [],
             currentBet: null,
             matches: [],
             refreshTimer: null,
             matchNewsCache: parseJsonSafe(localStorage.getItem('bbc_sport_match_news_cache') || '{}', {}),
             newsThrottle: parseJsonSafe(localStorage.getItem('bbc_sport_news_throttle') || '{}', {}),
             oddsCache: parseJsonSafe(localStorage.getItem('bbc_sport_odds_cache_v1') || '{}', {}),
-            listenersBound: false
+            listenersBound: false,
+            loadedForUser: null
         };
 
+        function getSportBetsStorageKey() {
+            const user = String(gameState?.user || '').trim();
+            return user ? `bbc_sport_bets_${user}` : 'bbc_sport_bets_guest';
+        }
+
+        function loadLocalSportBets() {
+            const userKey = getSportBetsStorageKey();
+            const userBets = parseJsonSafe(localStorage.getItem(userKey) || '[]', []);
+            if (Array.isArray(userBets) && userBets.length) return userBets;
+            if (userKey !== 'bbc_sport_bets_guest') {
+                const legacy = parseJsonSafe(localStorage.getItem('bbc_sport_bets') || '[]', []);
+                if (Array.isArray(legacy) && legacy.length) {
+                    localStorage.setItem(userKey, JSON.stringify(legacy));
+                    return legacy;
+                }
+            }
+            return Array.isArray(userBets) ? userBets : [];
+        }
+
         function saveBets() {
+            const userKey = getSportBetsStorageKey();
+            localStorage.setItem(userKey, JSON.stringify(window._sportState.bets));
             localStorage.setItem('bbc_sport_bets', JSON.stringify(window._sportState.bets));
+            syncSportBetsToCloud().catch((error) => console.warn('Sport bets cloud sync failed:', error));
+        }
+
+        async function syncSportBetsToCloud() {
+            const user = String(gameState?.user || '').trim();
+            if (!user || typeof firebase === 'undefined') return;
+            await firebase.database().ref(`users/${user}/sportBets`).set(window._sportState.bets || []);
+        }
+
+        async function loadSportBetsForCurrentUser() {
+            const user = String(gameState?.user || '').trim();
+            const localBets = loadLocalSportBets();
+            if (!user) {
+                window._sportState.bets = localBets;
+                window._sportState.loadedForUser = null;
+                return;
+            }
+            if (window._sportState.loadedForUser === user && Array.isArray(window._sportState.bets)) return;
+            window._sportState.bets = localBets;
+            window._sportState.loadedForUser = user;
+            renderMyBets();
+            if (typeof firebase === 'undefined') return;
+            try {
+                const snap = await firebase.database().ref(`users/${user}/sportBets`).once('value');
+                const cloudBets = snap.val();
+                if (Array.isArray(cloudBets)) {
+                    window._sportState.bets = cloudBets;
+                    localStorage.setItem(getSportBetsStorageKey(), JSON.stringify(cloudBets));
+                    localStorage.setItem('bbc_sport_bets', JSON.stringify(cloudBets));
+                    renderMyBets();
+                } else {
+                    await syncSportBetsToCloud();
+                }
+            } catch (error) {
+                console.warn('Sport bets cloud load failed:', error);
+            }
         }
 
         function saveSportNewsMeta() {
@@ -6934,6 +6994,7 @@
         async function loadSportMatches() {
             const listEl = document.getElementById('sport-matches-list');
             if (!listEl) return;
+            await loadSportBetsForCurrentUser();
             // Only show spinner on first load (when list is empty or shows placeholder)
             if (!window._sportState.matches || window._sportState.matches.length === 0) {
                 listEl.innerHTML = '<div style="text-align:center;color:var(--text2);padding:30px;">⏳ Завантаження матчів...</div>';
@@ -6978,6 +7039,7 @@
         }
 
         window.initSportTab = function() {
+            loadSportBetsForCurrentUser().catch((error) => console.warn('Sport bets init load failed:', error));
             if (document.getElementById(SPORT_TAB_ID).style.display !== 'none') {
                 loadSportMatches();
                 renderMyBets();
@@ -6996,7 +7058,10 @@
                 el.style.borderBottomColor = active ? 'var(--p)' : 'transparent';
             });
             if (tab === 'matches') renderSportMatches();
-            if (tab === 'mybets') renderMyBets();
+            if (tab === 'mybets') {
+                loadSportBetsForCurrentUser().catch((error) => console.warn('Sport bets tab load failed:', error));
+                renderMyBets();
+            }
         };
 
         window.openSportBet = function(matchId, side, teamName, odds) {
@@ -7014,6 +7079,7 @@
         };
 
         window.confirmSportBet = async function() {
+            await loadSportBetsForCurrentUser();
             const bet = window._sportState.currentBet;
             if (!bet) return;
             const amt = parseFloat(document.getElementById('sport-bet-amount').value);
