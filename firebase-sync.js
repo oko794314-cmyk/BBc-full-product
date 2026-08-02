@@ -38,7 +38,7 @@ function isFirebasePermissionDenied(error) {
 function logPermissionIssueOnce(key, message, error) {
     if (firebaseState.permissionLogCache[key]) return;
     firebaseState.permissionLogCache[key] = true;
-    console.warn(message, error);
+    console.warn('⚠️ Firebase permission issue:', { key, message, error });
 }
 
 /**
