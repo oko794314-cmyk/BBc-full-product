@@ -133,14 +133,17 @@
         const vol = num(PAIR_VOLATILITY[pair], 0.004);
 
         for (let bucket = startBucket; bucket <= bucketNow; bucket += 1) {
-            const driftWave = Math.sin((bucket + pairSeed * 11) / 18) * vol * 0.55;
-            const microWave = Math.cos((bucket + pairSeed * 7) / 5) * vol * 0.2;
-            const noise = (hashNoise(`${pair}:d:${bucket}`) - 0.5) * vol * 1.1;
-            const closeRaw = prevClose * (1 + driftWave + microWave + noise);
+            // Reduced sine-wave influence so the pattern is less predictable
+            const driftWave = Math.sin((bucket + pairSeed * 11) / 18) * vol * 0.2;
+            const microWave = Math.cos((bucket + pairSeed * 7) / 5) * vol * 0.1;
+            // Increased random noise for a more chaotic, realistic appearance
+            const noise1 = (hashNoise(`${pair}:d:${bucket}`) - 0.5) * vol * 2.4;
+            const noise2 = (hashNoise(`${pair}:d2:${bucket}`) - 0.5) * vol * 1.2;
+            const closeRaw = prevClose * (1 + driftWave + microWave + noise1 + noise2);
             const close = Math.max(0.000001, closeRaw);
             const open = prevClose;
-            const wickUp = 1 + hashNoise(`${pair}:u:${bucket}`) * vol * 4;
-            const wickDown = 1 - hashNoise(`${pair}:l:${bucket}`) * vol * 4;
+            const wickUp = 1 + hashNoise(`${pair}:u:${bucket}`) * vol * 6;
+            const wickDown = 1 - hashNoise(`${pair}:l:${bucket}`) * vol * 6;
             const high = Math.max(open, close) * wickUp;
             const low = Math.min(open, close) * Math.max(0.000001, wickDown);
 
@@ -397,20 +400,19 @@
 
         const last = list[list.length - 1];
         if (last) {
-            const isUp = num(last.c, 0) >= num(last.o, 0);
-            const lineColor = isUp ? UP : DOWN;
             const cy = toY(num(last.c, 0));
+            const lastCx = padLeft + (list.length - 1) * step + step / 2;
             ctx.setLineDash([4, 3]);
-            ctx.strokeStyle = lineColor;
+            ctx.strokeStyle = '#FFFFFF';
             ctx.lineWidth = 1;
             ctx.beginPath();
-            ctx.moveTo(padLeft, cy);
+            ctx.moveTo(lastCx, cy);
             ctx.lineTo(W - padRight, cy);
             ctx.stroke();
             ctx.setLineDash([]);
 
             const tag = formatPrice(last.c);
-            ctx.fillStyle = lineColor;
+            ctx.fillStyle = '#FFFFFF';
             ctx.beginPath();
             if (ctx.roundRect) {
                 ctx.roundRect(W - padRight + 2, cy - 10, padRight - 4, 20, 3);
