@@ -1369,9 +1369,18 @@ async function adjustUserBalanceFirebase(username, delta) {
         // debiting the order creator's balance during exchange-order fulfillment). A null
         // initial value is treated as 0 by firebaseNumber, causing a premature abort and the
         // misleading "автор не має достатньо BB" error even when the user has funds.
-        await db.ref(`users/${username}/balance`).once('value');
+        const prefetchSnap = await db.ref(`users/${username}/balance`).once('value');
+        // Capture the pre-fetched value so the transaction callback can use it as a
+        // fallback when Firebase still passes null on the first invocation (a known SDK
+        // behaviour where the transaction cache is not always populated by the pre-fetch).
+        const prefetchedBalance = typeof prefetchSnap.val() === 'number' ? prefetchSnap.val() : null;
         const result = await db.ref(`users/${username}/balance`).transaction((currentBalance) => {
-            const normalized = firebaseNumber(currentBalance, 0);
+            // If Firebase hands us null (value not yet in the transaction cache), fall back
+            // to the server value we just read. This prevents treating the balance as 0 and
+            // incorrectly aborting the transaction due to a false "insufficient funds" result.
+            const effective = currentBalance !== null ? currentBalance : prefetchedBalance;
+            if (effective === null) return; // genuinely unknown balance – abort safely
+            const normalized = firebaseNumber(effective, 0);
             const candidate = normalized + firebaseNumber(delta, 0);
             // Firebase aborts the transaction without committing when we return undefined for insufficient balance.
             if (candidate < 0) return;
