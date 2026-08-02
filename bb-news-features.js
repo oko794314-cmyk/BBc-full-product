@@ -274,6 +274,14 @@
         return state.orders.filter(order => order && order.status === 'open');
     }
 
+    // Deterministic PRNG seeded by an integer — keeps candle noise stable across re-renders
+    function candleHashNoise(seed) {
+        let h = (seed ^ 0x9e3779b9) >>> 0;
+        h = Math.imul(h ^ (h >>> 16), 0x45d9f3b) >>> 0;
+        h = Math.imul(h ^ (h >>> 16), 0x45d9f3b) >>> 0;
+        return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
+    }
+
     function buildCandles(interval) {
         const step = INTERVALS[interval] || INTERVALS['1h'];
         const now = Date.now();
@@ -290,11 +298,22 @@
             .filter(item => item.time > 0)
             .sort((a, b) => a.time - b.time);
         if (!source.length) {
-            const price = Math.max(MIN_PRICE, num(state.market.currentPrice, 1));
+            const basePrice = Math.max(MIN_PRICE, num(state.market.currentPrice, 1));
             const candles = [];
+            let walkPrice = basePrice;
             for (let i = MAX_CANDLES - 1; i >= 0; i--) {
                 const time = currentBucket - (i * step);
-                candles.push({ time, open: price, high: price, low: price, close: price, volume: 0 });
+                const seed = Math.floor(time / 1000);
+                const vol = walkPrice * 0.018;
+                const drift = (candleHashNoise(seed ^ 0x1A2B) - 0.5) * vol * 2.2;
+                const open = Math.max(MIN_PRICE, walkPrice);
+                const close = Math.max(MIN_PRICE, open + drift);
+                const wickU = candleHashNoise(seed ^ 0x3C4D) * vol * 1.1;
+                const wickD = candleHashNoise(seed ^ 0x5E6F) * vol * 1.1;
+                const high = Math.max(open, close) + wickU;
+                const low = Math.max(MIN_PRICE, Math.min(open, close) - wickD);
+                walkPrice = close;
+                candles.push({ time, open, high, low, close, volume: 0 });
             }
             return candles;
         }
@@ -323,7 +342,22 @@
                 };
                 pointer += 1;
             } else {
-                candle = { time: bucket, open: prevClose, high: prevClose, low: prevClose, close: prevClose, volume: 0 };
+                // Empty bucket: apply deterministic noise so the chart looks organic rather than flat
+                const seed = Math.floor(bucket / 1000);
+                const vol = prevClose * 0.018;
+                const drift = (candleHashNoise(seed ^ 0x7A8B) - 0.5) * vol * 2.2;
+                const cOpen = Math.max(MIN_PRICE, prevClose);
+                const cClose = Math.max(MIN_PRICE, cOpen + drift);
+                const wickU = candleHashNoise(seed ^ 0x9C0D) * vol * 1.1;
+                const wickD = candleHashNoise(seed ^ 0xBE1F) * vol * 1.1;
+                candle = {
+                    time: bucket,
+                    open: cOpen,
+                    high: Math.max(cOpen, cClose) + wickU,
+                    low: Math.max(MIN_PRICE, Math.min(cOpen, cClose) - wickD),
+                    close: cClose,
+                    volume: 0
+                };
             }
 
             candle.high = Math.max(candle.high, candle.open, candle.close);
@@ -931,13 +965,13 @@
         const lastCandle = candles[candles.length - 1];
         if (lastCandle) {
             const cy = toY(lastCandle.close);
-            const isUp = lastCandle.close >= lastCandle.open;
-            const lineColor = isUp ? UP : DOWN;
+            const lastCandleCx = CHART_PAD_LEFT + (candles.length - 1) * xStep + xStep / 2;
+            const lineColor = '#FFFFFF';
             ctx.setLineDash([4, 3]);
             ctx.strokeStyle = lineColor;
             ctx.lineWidth = 1;
             ctx.beginPath();
-            ctx.moveTo(CHART_PAD_LEFT, cy);
+            ctx.moveTo(lastCandleCx, cy);
             ctx.lineTo(W - CHART_PAD_RIGHT, cy);
             ctx.stroke();
             ctx.setLineDash([]);
@@ -953,6 +987,7 @@
             ctx.fillText(tag, W - CHART_PAD_RIGHT + (CHART_PAD_RIGHT - 4) / 2 + 2, cy);
 
             if (livePriceEl) {
+                const isUp = lastCandle.close >= lastCandle.open;
                 livePriceEl.textContent = formatPrice(lastCandle.close);
                 livePriceEl.style.color = isUp ? UP : DOWN;
             }
@@ -1726,7 +1761,17 @@
             const payerBreakdown = typeof getBbTransactionBreakdown === 'function'
                 ? getBbTransactionBreakdown(bbAmount)
                 : { total: bbAmount };
-            if (num(gameState?.balance, 0) < payerBreakdown.total) {
+            // Fetch fresh balance to avoid stale cache causing false "insufficient funds" errors
+            let freshBalance = num(gameState?.balance, 0);
+            try {
+                const balSnap = await getDb().ref(`users/${executor}/balance`).once('value');
+                if (typeof balSnap.val() === 'number') {
+                    freshBalance = balSnap.val();
+                    gameState.balance = freshBalance;
+                    if (typeof updateHeader === 'function') updateHeader();
+                }
+            } catch (_e) { /* use cached value */ }
+            if (freshBalance < payerBreakdown.total) {
                 alert(`Недостатньо BB для виконання заявки. Потрібно ${payerBreakdown.total.toFixed(4)} BB з урахуванням комісії.`);
                 return;
             }

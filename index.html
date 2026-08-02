@@ -1920,6 +1920,17 @@
 
         <!-- Chart section -->
         <div class="mkt-chart-wrapper glass">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:8px;">
+                <div class="mini-tabs" id="market-interval-tabs">
+                    <button class="mini-tab active" data-interval="1m" onclick="window.marketSim && window.marketSim.changeInterval('1m')">1хв</button>
+                    <button class="mini-tab" data-interval="5m" onclick="window.marketSim && window.marketSim.changeInterval('5m')">5хв</button>
+                    <button class="mini-tab" data-interval="15m" onclick="window.marketSim && window.marketSim.changeInterval('15m')">15хв</button>
+                    <button class="mini-tab" data-interval="1h" onclick="window.marketSim && window.marketSim.changeInterval('1h')">1г</button>
+                    <button class="mini-tab" data-interval="4h" onclick="window.marketSim && window.marketSim.changeInterval('4h')">4г</button>
+                    <button class="mini-tab" data-interval="1d" onclick="window.marketSim && window.marketSim.changeInterval('1d')">1д</button>
+                </div>
+                <span id="mkt-data-source" style="font-size:10px;color:var(--text2);"></span>
+            </div>
             <div id="market-chart-scroll" class="chart-scroll-wrap mkt-chart-scroll">
                 <canvas id="market-chart-canvas" style="height:300px;display:block;background:#0B0E11;border-radius:8px;"></canvas>
             </div>
@@ -4608,10 +4619,33 @@
         modal.style.display = 'flex';
         document.getElementById('fp-name').textContent = username;
         document.getElementById('fp-body').innerHTML = '<div style="color:var(--text2);text-align:center;">Завантаження...</div>';
-        const getProfileProfession = (data) =>
-            String(data.profession || data.workData?.profession || data.workData?.jobName || data.workData?.jobId || '—');
-        const getProfileTitle = (data) =>
-            String(data.activeTitle || data.title || data.profileTitle || '—');
+        const getProfileProfession = (data) => {
+            const jobId = data.workData?.jobId || data.profession || data.workData?.profession || data.workData?.jobName;
+            if (!jobId) return '—';
+            const PROF_NAMES = {
+                freelancer: 'Фрілансер 💻', programmer: 'Програміст 🖥️', designer: 'Дизайнер 🎨',
+                trader: 'Трейдер 📊', doctor: 'Лікар 🏥', lawyer: 'Юрист ⚖️',
+                engineer: 'Інженер ⚙️', chef: 'Шеф-кухар 👨‍🍳', pilot: 'Пілот ✈️',
+                tiler: 'Плиточник 🪟', tax_agent: 'Податківець 🏛️', entrepreneur: 'Підприємець 🤵'
+            };
+            return PROF_NAMES[jobId] || String(jobId);
+        };
+        const getProfileTitle = (data) => {
+            // 1. Directly stored active title (legacy)
+            if (data.activeTitle && data.activeTitle !== '—') return String(data.activeTitle);
+            // 2. Shop title (equippedTitle = item ID from shopCatalog)
+            if (data.equippedTitle) {
+                const shopItem = shopCatalog.find(i => i.id === data.equippedTitle && i.applyType === 'title');
+                if (shopItem?.name) return shopItem.name;
+            }
+            // 3. Workshop title (equipped.titleId = custom workshop item ID)
+            if (data.equipped?.titleId) {
+                const wsItem = workshopMarketState.listings[data.equipped.titleId]
+                    || workshopMarketState.pending[data.equipped.titleId];
+                if (wsItem?.name) return wsItem.name;
+            }
+            return '—';
+        };
         try {
             const snap = await firebase.database().ref(`users/${username}`).once('value');
             const data = snap.val() || {};
@@ -5835,9 +5869,13 @@
             } else if (!canBuy || priceValue === null) {
                 btnDisabled = 'disabled';
             }
+            const workshopListing = item.workshopItem ? workshopMarketState.listings[item.id] : null;
+            const previewHtml = workshopListing
+                ? renderWorkshopItemPreview(workshopListing, true)
+                : `<div class="shop-item-preview">${escapeHtml(item.icon || '🎁')}</div>`;
             return `
                 <div class="shop-item ${owned ? 'owned' : ''} ${equipped ? 'equipped' : ''}">
-                    <div class="shop-item-preview">${escapeHtml(item.icon || '🎁')}</div>
+                    ${previewHtml}
                     <div class="shop-item-name">${escapeHtml(item.name)}</div>
                     <div class="shop-item-price">${owned ? '✓ У вас є' : (priceValue === null ? '—' : `${priceValue.toFixed(2)} BB`)}</div>
                     <div class="feature-note" style="min-height:32px;">${escapeHtml(item.desc || '')}</div>
