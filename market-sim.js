@@ -9,7 +9,7 @@
     };
     const CANDLE_COUNT = 140;
     const CANDLE_INTERVAL_MS = 60 * 1000;
-    const PRICE_TICK_MS = 1200;
+    const PRICE_TICK_MS = 15000;
     const BET_MULTIPLIER = 38;
     const SAVE_DEBOUNCE_MS = 1000;
     const PAIR_VOLATILITY = {
@@ -194,60 +194,144 @@
     function drawChart() {
         const canvas = document.getElementById('market-chart-canvas');
         if (!canvas) return;
-        const ctx = canvas.getContext('2d');
-        const w = canvas.width;
-        const h = canvas.height;
-        ctx.clearRect(0, 0, w, h);
-
         const list = state.history[state.selectedPair] || [];
-        if (list.length < 2) return;
+        const dpr = window.devicePixelRatio || 1;
+        const cssW = canvas.clientWidth || 960;
+        const cssH = 300;
+        canvas.width = Math.floor(cssW * dpr);
+        canvas.height = Math.floor(cssH * dpr);
+        const ctx = canvas.getContext('2d');
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.scale(dpr, dpr);
+
+        const W = cssW;
+        const H = cssH;
+        const padLeft = 14;
+        const padRight = 84;
+        const padTop = 14;
+        const padBottom = 28;
+        const chartW = W - padLeft - padRight;
+        const chartH = H - padTop - padBottom;
+        const BG = '#0B0E11';
+        const GRID = 'rgba(132,142,156,0.14)';
+        const GRID_LIGHT = 'rgba(132,142,156,0.26)';
+        const UP = '#0ECB81';
+        const DOWN = '#F6465D';
+        const UP_DIM = 'rgba(14,203,129,0.22)';
+        const DOWN_DIM = 'rgba(246,70,93,0.22)';
+        const TEXT = '#848E9C';
+
+        ctx.fillStyle = BG;
+        ctx.fillRect(0, 0, W, H);
+
+        if (list.length < 2) {
+            ctx.fillStyle = TEXT;
+            ctx.font = '13px Orbitron, monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('Недостатньо даних для графіка', W / 2, H / 2);
+            return;
+        }
 
         const lows = list.map(item => num(item.l, 0));
         const highs = list.map(item => num(item.h, 0));
         const min = Math.min(...lows);
         const max = Math.max(...highs);
-        const span = Math.max(0.000001, max - min);
-
-        ctx.fillStyle = '#0f1724';
-        ctx.fillRect(0, 0, w, h);
-
-        ctx.strokeStyle = '#1f2a38';
-        ctx.lineWidth = 1;
-        for (let i = 0; i < 6; i += 1) {
-            const y = 20 + ((h - 40) / 5) * i;
-            ctx.beginPath();
-            ctx.moveTo(10, y);
-            ctx.lineTo(w - 10, y);
-            ctx.stroke();
-        }
-
-        const candleStep = (w - 24) / list.length;
-        const bodyWidth = Math.max(3, candleStep * 0.6);
-        list.forEach((item, idx) => {
-            const xCenter = 12 + idx * candleStep + (candleStep / 2);
-            const yOpen = 20 + ((max - num(item.o, min)) / span) * (h - 40);
-            const yClose = 20 + ((max - num(item.c, min)) / span) * (h - 40);
-            const yHigh = 20 + ((max - num(item.h, min)) / span) * (h - 40);
-            const yLow = 20 + ((max - num(item.l, min)) / span) * (h - 40);
-            const color = num(item.c, 0) >= num(item.o, 0) ? '#0ECB81' : '#F6465D';
-
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(xCenter, yHigh);
-            ctx.lineTo(xCenter, yLow);
-            ctx.stroke();
-
-            const top = Math.min(yOpen, yClose);
-            const bodyHeight = Math.max(1.5, Math.abs(yClose - yOpen));
-            ctx.fillStyle = color;
-            ctx.fillRect(xCenter - bodyWidth / 2, top, bodyWidth, bodyHeight);
+        const range = Math.max(0.000001, max - min);
+        const visPad = range * 0.08;
+        const visMin = min - visPad;
+        const visMax = max + visPad;
+        const visRange = Math.max(0.000001, visMax - visMin);
+        const toY = (price) => padTop + chartH - ((price - visMin) / visRange) * chartH;
+        const decimals = state.selectedPair === 'TON/USDT' ? 4 : 2;
+        const formatPrice = (price) => Number(price).toLocaleString('en-US', {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
         });
 
-        ctx.fillStyle = '#848E9C';
-        ctx.font = '12px Orbitron, sans-serif';
-        ctx.fillText(`High: ${max.toFixed(state.selectedPair === 'TON/USDT' ? 4 : 2)}`, 12, 14);
-        ctx.fillText(`Low: ${min.toFixed(state.selectedPair === 'TON/USDT' ? 4 : 2)}`, w - 160, 14);
+        const gridLines = 7;
+        for (let i = 0; i <= gridLines; i += 1) {
+            const y = padTop + (chartH / gridLines) * i;
+            ctx.strokeStyle = i === 0 || i === gridLines ? GRID_LIGHT : GRID;
+            ctx.lineWidth = i % 2 === 0 ? 1 : 0.5;
+            ctx.beginPath();
+            ctx.moveTo(padLeft, y);
+            ctx.lineTo(W - padRight, y);
+            ctx.stroke();
+
+            const price = visMax - (visRange / gridLines) * i;
+            ctx.fillStyle = TEXT;
+            ctx.font = '11px monospace';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(formatPrice(price), W - padRight + 5, y);
+        }
+
+        const step = chartW / Math.max(1, list.length);
+        const bodyW = Math.max(6, Math.min(16, step * 0.72));
+        const wickW = Math.max(1.5, Math.min(3, bodyW * 0.16));
+        list.forEach((item, idx) => {
+            const cx = padLeft + idx * step + (step / 2);
+            const open = num(item.o, min);
+            const close = num(item.c, min);
+            const high = num(item.h, min);
+            const low = num(item.l, min);
+            const up = close >= open;
+            const color = up ? UP : DOWN;
+            const colorDim = up ? UP_DIM : DOWN_DIM;
+
+            const yHigh = toY(high);
+            const yLow = toY(low);
+            const yOpen = toY(open);
+            const yClose = toY(close);
+            const bodyTop = Math.min(yOpen, yClose);
+            const bodyH = Math.max(2, Math.abs(yClose - yOpen));
+
+            ctx.strokeStyle = color;
+            ctx.lineWidth = wickW;
+            ctx.beginPath();
+            ctx.moveTo(cx, yHigh);
+            ctx.lineTo(cx, bodyTop);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(cx, bodyTop + bodyH);
+            ctx.lineTo(cx, yLow);
+            ctx.stroke();
+
+            ctx.fillStyle = colorDim;
+            ctx.fillRect(cx - bodyW / 2, bodyTop, bodyW, bodyH);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1;
+            ctx.strokeRect(cx - bodyW / 2, bodyTop, bodyW, bodyH);
+            ctx.fillStyle = color;
+            ctx.fillRect(cx - bodyW / 2 + 0.5, bodyTop + 0.5, Math.max(1, bodyW - 1), Math.max(1, bodyH - 1));
+        });
+
+        const last = list[list.length - 1];
+        if (last) {
+            const isUp = num(last.c, 0) >= num(last.o, 0);
+            const lineColor = isUp ? UP : DOWN;
+            const cy = toY(num(last.c, 0));
+            ctx.setLineDash([4, 3]);
+            ctx.strokeStyle = lineColor;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(padLeft, cy);
+            ctx.lineTo(W - padRight, cy);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            const tag = formatPrice(last.c);
+            ctx.fillStyle = lineColor;
+            ctx.beginPath();
+            ctx.roundRect(W - padRight + 2, cy - 10, padRight - 4, 20, 3);
+            ctx.fill();
+            ctx.fillStyle = '#000';
+            ctx.font = 'bold 10px monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(tag, W - padRight + (padRight - 4) / 2 + 2, cy);
+        }
     }
 
     function renderAll() {

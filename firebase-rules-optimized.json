@@ -47,6 +47,66 @@
     "groupChats": {
       ".read": true,
       ".write": true
+    },
+    "rpsMatches": {
+      ".read": true,
+      ".write": true
+    },
+    "market": {
+      ".read": true,
+      ".write": true
+    },
+    "marketTrades": {
+      ".read": true,
+      ".write": true
+    },
+    "marketOrders": {
+      ".read": true,
+      ".write": true
+    },
+    "candleHistory": {
+      ".read": true,
+      ".write": true
+    },
+    "newsPosts": {
+      ".read": true,
+      ".write": true
+    },
+    "workshopMarketplace": {
+      ".read": true,
+      ".write": true
+    },
+    "workshopIds": {
+      ".read": true,
+      ".write": true
+    },
+    "userQuestProgress": {
+      ".read": true,
+      ".write": true
+    },
+    "weeklyProgress": {
+      ".read": true,
+      ".write": true
+    },
+    "weeklyCompleted": {
+      ".read": true,
+      ".write": true
+    },
+    "weeklyTop3": {
+      ".read": true,
+      ".write": true
+    },
+    "promoCodes": {
+      ".read": true,
+      ".write": true
+    },
+    "tournaments": {
+      ".read": true,
+      ".write": true
+    },
+    "config": {
+      ".read": true,
+      ".write": true
     }
   }
 }

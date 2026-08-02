@@ -85,6 +85,12 @@
         return Number.isFinite(Number(value)) ? Number(value) : fallback;
     }
 
+    function isPermissionDenied(error) {
+        const code = String(error?.code || '').toLowerCase();
+        const msg = String(error?.message || '').toLowerCase();
+        return code.includes('permission') || msg.includes('permission_denied');
+    }
+
     function makeEntryId(prefix = 'id') {
         return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     }
@@ -378,24 +384,36 @@
     }
 
     async function ensureMarketInitialized() {
-        const snap = await getDb().ref('market').once('value');
-        if (snap.exists()) return;
-        await getDb().ref('market').set({
-            currentPrice: 1,
-            totalVolume: 0,
-            completedTrades: 0,
-            lastUpdated: firebase.database.ServerValue.TIMESTAMP,
-            lastTradeAt: 0
-        });
+        try {
+            const snap = await getDb().ref('market').once('value');
+            if (snap.exists()) return;
+            await getDb().ref('market').set({
+                currentPrice: 1,
+                totalVolume: 0,
+                completedTrades: 0,
+                lastUpdated: firebase.database.ServerValue.TIMESTAMP,
+                lastTradeAt: 0
+            });
+        } catch (error) {
+            if (isPermissionDenied(error)) {
+                console.warn('⚠️ Немає доступу до market. Біржа працюватиме в режимі тільки читання до оновлення правил Firebase.');
+                return;
+            }
+            throw error;
+        }
     }
 
     async function isAdminUser(username) {
         if (!username) return false;
-        const [roleSnap, aclSnap] = await Promise.all([
-            getDb().ref(`users/${username}/role`).once('value'),
-            getDb().ref(`config/adminUsers/${username}`).once('value')
-        ]);
-        return roleSnap.val() === 'admin' || aclSnap.val() === true;
+        const roleSnap = await getDb().ref(`users/${username}/role`).once('value');
+        if (roleSnap.val() === 'admin') return true;
+        try {
+            const aclSnap = await getDb().ref(`config/adminUsers/${username}`).once('value');
+            return aclSnap.val() === true;
+        } catch (error) {
+            if (isPermissionDenied(error)) return false;
+            throw error;
+        }
     }
 
     async function loadUserProgress() {
@@ -1993,11 +2011,20 @@
         await ensureMarketInitialized();
         await Promise.all([loadUserProgress(), loadAccountHub(), renderAllUsersStats()]);
         await processLoginStreak();
-        state.isAdmin = await isAdminUser(gameState.user);
+        try {
+            state.isAdmin = await isAdminUser(gameState.user);
+        } catch (error) {
+            console.warn('⚠️ Не вдалося перевірити роль адміністратора:', error);
+            state.isAdmin = false;
+        }
         const form = document.getElementById('news-admin-form');
         if (form) form.style.display = state.isAdmin ? 'block' : 'none';
         renderExchangeAssetSelectors();
-        attachRealtimeListeners();
+        try {
+            attachRealtimeListeners();
+        } catch (error) {
+            console.warn('⚠️ Біржові realtime-слухачі недоступні:', error);
+        }
         await evaluateAchievements();
         renderAll();
     }
