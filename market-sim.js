@@ -7,11 +7,16 @@
         'TON/USDT': 7.8,
         'ETH/USDT': 3200
     };
-    const HISTORY_LIMIT = 180;
+    const CANDLE_COUNT = 140;
+    const CANDLE_INTERVAL_MS = 60 * 1000;
     const PRICE_TICK_MS = 1200;
-    const BET_DURATION_MS = 30000;
     const BET_MULTIPLIER = 38;
     const SAVE_DEBOUNCE_MS = 1000;
+    const PAIR_VOLATILITY = {
+        'BTC/USDT': 0.0046,
+        'TON/USDT': 0.0068,
+        'ETH/USDT': 0.0052
+    };
 
     const state = {
         user: null,
@@ -62,28 +67,61 @@
         banner.style.display = isWeekend() ? 'block' : 'none';
     }
 
-    function ensureHistoryInitialized() {
-        const now = Date.now();
+    function hashNoise(input) {
+        let h = 2166136261 >>> 0;
+        const value = String(input);
+        for (let i = 0; i < value.length; i += 1) {
+            h ^= value.charCodeAt(i);
+            h = Math.imul(h, 16777619);
+        }
+        return (h >>> 0) / 4294967295;
+    }
+
+    function generateSharedCandles(pair, now = Date.now()) {
+        const pairSeed = PAIRS.indexOf(pair) + 1;
+        const bucketNow = Math.floor(now / CANDLE_INTERVAL_MS);
+        const startBucket = bucketNow - CANDLE_COUNT + 1;
+        const candles = [];
+        const digits = pair === 'TON/USDT' ? 4 : 2;
+        let prevClose = num(BASE_PRICES[pair], 1);
+        const vol = num(PAIR_VOLATILITY[pair], 0.004);
+
+        for (let bucket = startBucket; bucket <= bucketNow; bucket += 1) {
+            const driftWave = Math.sin((bucket + pairSeed * 11) / 18) * vol * 0.55;
+            const microWave = Math.cos((bucket + pairSeed * 7) / 5) * vol * 0.2;
+            const noise = (hashNoise(`${pair}:d:${bucket}`) - 0.5) * vol * 1.1;
+            const closeRaw = prevClose * (1 + driftWave + microWave + noise);
+            const close = Math.max(0.000001, closeRaw);
+            const open = prevClose;
+            const wickUp = 1 + hashNoise(`${pair}:u:${bucket}`) * vol * 4;
+            const wickDown = 1 - hashNoise(`${pair}:l:${bucket}`) * vol * 4;
+            const high = Math.max(open, close) * wickUp;
+            const low = Math.min(open, close) * Math.max(0.000001, wickDown);
+
+            candles.push({
+                t: bucket * CANDLE_INTERVAL_MS,
+                o: round(open, digits),
+                h: round(high, digits),
+                l: round(low, digits),
+                c: round(close, digits)
+            });
+            prevClose = close;
+        }
+
+        return candles;
+    }
+
+    function refreshSharedMarketData() {
         PAIRS.forEach((pair) => {
-            if (!Array.isArray(state.history[pair])) state.history[pair] = [];
-            if (state.history[pair].length === 0) {
-                state.history[pair].push({ t: now, p: state.prices[pair] || BASE_PRICES[pair] });
-            }
+            const candles = generateSharedCandles(pair);
+            state.history[pair] = candles;
+            const last = candles[candles.length - 1];
+            state.prices[pair] = num(last?.c, BASE_PRICES[pair]);
         });
     }
 
-    function randomWalk(pair) {
-        const current = num(state.prices[pair], BASE_PRICES[pair]);
-        const drift = (Math.random() - 0.5) * 0.008;
-        const wave = Math.sin(Date.now() / 15000) * 0.0015;
-        const next = Math.max(0.000001, current * (1 + drift + wave));
-        state.prices[pair] = round(next, pair === 'TON/USDT' ? 4 : 2);
-    }
-
-    function pushHistory(pair) {
-        const arr = state.history[pair] || (state.history[pair] = []);
-        arr.push({ t: Date.now(), p: state.prices[pair] });
-        if (arr.length > HISTORY_LIMIT) arr.splice(0, arr.length - HISTORY_LIMIT);
+    function ensureHistoryInitialized() {
+        refreshSharedMarketData();
     }
 
     function updateLivePrice() {
@@ -121,27 +159,34 @@
             el.innerHTML = '<div style="font-size:12px;color:var(--text2);">Активних ставок немає.</div>';
             return;
         }
-        const now = Date.now();
         el.textContent = '';
         state.openBets.slice(-8).reverse().forEach((bet) => {
-            const leftSec = Math.max(0, Math.ceil((bet.endsAt - now) / 1000));
             const card = document.createElement('div');
-            card.style.padding = '8px';
-            card.style.border = '1px solid var(--border)';
-            card.style.borderRadius = '10px';
-            card.style.background = '#10151c';
+            card.className = 'market-open-bet-card';
 
             const top = document.createElement('div');
-            top.style.fontSize = '12px';
+            top.className = 'market-open-bet-head';
             top.textContent = `${String(bet.pair || '')} • ${bet.direction === 'up' ? '📈 UP' : '📉 DOWN'}`;
 
+            const livePrice = num(state.prices[bet.pair], bet.entryPrice);
+            const entryPrice = Math.max(0.000001, num(bet.entryPrice, livePrice));
+            const pnlRatio = bet.direction === 'up'
+                ? ((livePrice - entryPrice) / entryPrice)
+                : ((entryPrice - livePrice) / entryPrice);
+            const pnlPercent = pnlRatio * 100;
+
             const bottom = document.createElement('div');
-            bottom.style.fontSize = '11px';
-            bottom.style.color = 'var(--text2)';
-            bottom.textContent = `Ставка: ${num(bet.amount, 0).toFixed(2)} USDT • Таймер: ${leftSec}с`;
+            bottom.className = 'market-open-bet-meta';
+            bottom.innerHTML = `Ставка: ${num(bet.amount, 0).toFixed(2)} USDT • Вхід: ${entryPrice.toFixed(bet.pair === 'TON/USDT' ? 4 : 2)}<br>Поточний рух: <span style="color:${pnlPercent >= 0 ? '#0ECB81' : '#F6465D'}">${pnlPercent >= 0 ? '+' : ''}${pnlPercent.toFixed(2)}%</span>`;
+
+            const closeBtn = document.createElement('button');
+            closeBtn.className = 'market-open-bet-close';
+            closeBtn.textContent = 'Закрити угоду';
+            closeBtn.addEventListener('click', () => closeBet(bet.id));
 
             card.appendChild(top);
             card.appendChild(bottom);
+            card.appendChild(closeBtn);
             el.appendChild(card);
         });
     }
@@ -157,32 +202,47 @@
         const list = state.history[state.selectedPair] || [];
         if (list.length < 2) return;
 
-        const prices = list.map(item => num(item.p, 0));
-        const min = Math.min(...prices);
-        const max = Math.max(...prices);
+        const lows = list.map(item => num(item.l, 0));
+        const highs = list.map(item => num(item.h, 0));
+        const min = Math.min(...lows);
+        const max = Math.max(...highs);
         const span = Math.max(0.000001, max - min);
+
+        ctx.fillStyle = '#0f1724';
+        ctx.fillRect(0, 0, w, h);
 
         ctx.strokeStyle = '#1f2a38';
         ctx.lineWidth = 1;
-        for (let i = 0; i < 4; i += 1) {
-            const y = 20 + ((h - 40) / 3) * i;
+        for (let i = 0; i < 6; i += 1) {
+            const y = 20 + ((h - 40) / 5) * i;
             ctx.beginPath();
             ctx.moveTo(10, y);
             ctx.lineTo(w - 10, y);
             ctx.stroke();
         }
 
-        ctx.lineWidth = 2;
-        const delta = prices[prices.length - 1] - prices[0];
-        ctx.strokeStyle = delta >= 0 ? '#0ECB81' : '#F6465D';
-        ctx.beginPath();
+        const candleStep = (w - 24) / list.length;
+        const bodyWidth = Math.max(3, candleStep * 0.6);
         list.forEach((item, idx) => {
-            const x = 12 + (idx / (list.length - 1)) * (w - 24);
-            const y = 20 + ((max - num(item.p, min)) / span) * (h - 40);
-            if (idx === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
+            const xCenter = 12 + idx * candleStep + (candleStep / 2);
+            const yOpen = 20 + ((max - num(item.o, min)) / span) * (h - 40);
+            const yClose = 20 + ((max - num(item.c, min)) / span) * (h - 40);
+            const yHigh = 20 + ((max - num(item.h, min)) / span) * (h - 40);
+            const yLow = 20 + ((max - num(item.l, min)) / span) * (h - 40);
+            const color = num(item.c, 0) >= num(item.o, 0) ? '#0ECB81' : '#F6465D';
+
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(xCenter, yHigh);
+            ctx.lineTo(xCenter, yLow);
+            ctx.stroke();
+
+            const top = Math.min(yOpen, yClose);
+            const bodyHeight = Math.max(1.5, Math.abs(yClose - yOpen));
+            ctx.fillStyle = color;
+            ctx.fillRect(xCenter - bodyWidth / 2, top, bodyWidth, bodyHeight);
         });
-        ctx.stroke();
 
         ctx.fillStyle = '#848E9C';
         ctx.font = '12px Orbitron, sans-serif';
@@ -210,8 +270,6 @@
         if (!state.user) return;
         await db().ref(`users/${state.user}/marketData`).set({
             selectedPair: state.selectedPair,
-            prices: state.prices,
-            history: state.history,
             wallet: state.wallet,
             openBets: state.openBets,
             updatedAt: firebase.database.ServerValue.TIMESTAMP
@@ -221,8 +279,6 @@
     function normalizeLoaded(raw) {
         const base = {
             selectedPair: PAIRS[0],
-            prices: { ...BASE_PRICES },
-            history: Object.fromEntries(PAIRS.map((pair) => [pair, []])),
             wallet: {
                 usdt: 0,
                 holdings: { BTC: 0, TON: 0, ETH: 0 },
@@ -231,16 +287,9 @@
             openBets: []
         };
         if (!raw || typeof raw !== 'object') return base;
-        const prices = { ...base.prices, ...(raw.prices || {}) };
-        const history = { ...base.history };
-        PAIRS.forEach((pair) => {
-            history[pair] = Array.isArray(raw.history?.[pair]) ? raw.history[pair].slice(-HISTORY_LIMIT) : [];
-        });
         const holdingsRaw = raw.wallet?.holdings || {};
         return {
             selectedPair: PAIRS.includes(raw.selectedPair) ? raw.selectedPair : base.selectedPair,
-            prices,
-            history,
             wallet: {
                 usdt: round(num(raw.wallet?.usdt, 0), 2),
                 holdings: {
@@ -258,34 +307,37 @@
         const snap = await db().ref(`users/${user}/marketData`).once('value');
         const normalized = normalizeLoaded(snap.val());
         state.selectedPair = normalized.selectedPair;
-        state.prices = normalized.prices;
-        state.history = normalized.history;
         state.wallet = normalized.wallet;
         state.openBets = normalized.openBets;
         ensureHistoryInitialized();
     }
 
-    function resolveExpiredBets() {
-        const now = Date.now();
-        let changed = false;
-        state.openBets = state.openBets.filter((bet) => {
-            if (now < num(bet.endsAt, 0)) return true;
-            const livePrice = num(state.prices[bet.pair], bet.entryPrice);
-            const change = (livePrice - num(bet.entryPrice, livePrice)) / Math.max(0.000001, num(bet.entryPrice, livePrice));
-            const isWin = (bet.direction === 'up' && change > 0) || (bet.direction === 'down' && change < 0);
-            if (isWin) {
-                const reward = round(bet.amount + (bet.amount * Math.abs(change) * BET_MULTIPLIER), 2);
-                state.wallet.usdt = round(num(state.wallet.usdt, 0) + reward, 2);
-                if (typeof showGameNotification === 'function') {
-                    showGameNotification(`✅ Ставка ${bet.pair} виграла: +${reward.toFixed(2)} USDT`);
-                }
-            } else if (typeof showGameNotification === 'function') {
-                showGameNotification(`❌ Ставка ${bet.pair} не зіграла`);
+    function closeBet(betId) {
+        const index = state.openBets.findIndex((bet) => bet.id === betId);
+        if (index < 0) return;
+        const bet = state.openBets[index];
+        const livePrice = num(state.prices[bet.pair], bet.entryPrice);
+        const entryPrice = Math.max(0.000001, num(bet.entryPrice, livePrice));
+        const pnlRatio = bet.direction === 'up'
+            ? ((livePrice - entryPrice) / entryPrice)
+            : ((entryPrice - livePrice) / entryPrice);
+        const isWin = pnlRatio > 0;
+        if (isWin) {
+            const reward = round(bet.amount + (bet.amount * Math.abs(pnlRatio) * BET_MULTIPLIER), 2);
+            state.wallet.usdt = round(num(state.wallet.usdt, 0) + reward, 2);
+            if (typeof showGameNotification === 'function') {
+                showGameNotification(`✅ Угоду закрито з прибутком: +${reward.toFixed(2)} USDT`);
             }
-            changed = true;
-            return false;
-        });
-        if (changed) queueSave();
+        } else if (typeof showGameNotification === 'function') {
+            showGameNotification('❌ Угоду закрито зі збитком');
+        }
+        state.openBets.splice(index, 1);
+        if (typeof gameState !== 'undefined') {
+            gameState.usdt = state.wallet.usdt;
+            if (typeof updateHeader === 'function') updateHeader();
+        }
+        queueSave();
+        renderAll();
     }
 
     function getPasswordInputValue() {
@@ -399,13 +451,13 @@
         if (typeof showGameNotification === 'function') showGameNotification(`🔴 Продано ${amount} ${token}, отримано ${revenue.toFixed(2)} USDT`);
     }
 
-    async function placeBet() {
+    async function placeBet(directionParam) {
         if (isWeekend()) {
             alert('Ринок зачинений у вихідні.');
             return;
         }
         if (!(await verifyWalletPassword())) return;
-        const direction = document.getElementById('market-bet-direction')?.value === 'down' ? 'down' : 'up';
+        const direction = directionParam === 'down' ? 'down' : 'up';
         const amount = round(num(document.getElementById('market-bet-amount')?.value, 0), 2);
         if (amount <= 0) {
             alert('Введіть суму ставки.');
@@ -422,8 +474,7 @@
             direction,
             amount,
             entryPrice: num(state.prices[state.selectedPair], 0),
-            placedAt: Date.now(),
-            endsAt: Date.now() + BET_DURATION_MS
+            placedAt: Date.now()
         };
         state.openBets.push(bet);
         if (typeof gameState !== 'undefined') {
@@ -437,11 +488,7 @@
 
     function tickMarket() {
         if (!state.loaded) return;
-        PAIRS.forEach((pair) => {
-            randomWalk(pair);
-            pushHistory(pair);
-        });
-        resolveExpiredBets();
+        refreshSharedMarketData();
         renderAll();
     }
 
@@ -456,6 +503,7 @@
             gameState.usdt = round(num(state.wallet.usdt, gameState.usdt), 2);
             if (typeof updateHeader === 'function') updateHeader();
         }
+        refreshSharedMarketData();
         renderAll();
         queueSave();
     }
