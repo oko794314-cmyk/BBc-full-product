@@ -1,0 +1,44 @@
+{
+  "rules": {
+    "users": {
+      ".read": true,
+      ".write": true,
+      "$username": {
+        ".validate": "newData.hasChildren(['password', 'balance'])",
+        "password": {
+          ".validate": "newData.isString() && newData.val().length > 0 && (newData.val().matches(/^sha256:[a-f0-9]{64}$/) || newData.val().length >= 4)"
+        },
+        "balance": { ".validate": "newData.isNumber()" },
+        "usdt": { ".validate": "!newData.exists() || newData.isNumber()" },
+        "avatar": { ".validate": "!newData.exists() || newData.isString()" },
+        "displayName": { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 24)" },
+        "mining": { ".validate": "!newData.exists() || newData.isBoolean()" },
+        "miningStartTime": { ".validate": "!newData.exists() || newData.isNumber()" },
+        "updatedAt": { ".validate": "!newData.exists() || newData.isNumber()" },
+        "balanceUpdatedAt": { ".validate": "!newData.exists() || newData.isNumber()" },
+        "miningUpdatedAt": { ".validate": "!newData.exists() || newData.isNumber()" },
+        "marketData": {
+          ".validate": "!newData.exists() || newData.hasChildren(['wallet'])"
+        },
+        "$other": {
+          ".validate": true
+        }
+      }
+    },
+    "transactions": {
+      ".read": true,
+      ".write": true,
+      "$txid": {
+        ".validate": "newData.hasChildren(['from', 'to', 'amount']) && (newData.hasChild('timestamp') || newData.hasChild('ts'))",
+        "from": { ".validate": "newData.isString()" },
+        "to": { ".validate": "newData.isString()" },
+        "amount": { ".validate": "newData.isNumber() && newData.val() > 0" },
+        "fee": { ".validate": "!newData.exists() || newData.isNumber()" },
+        "totalAmount": { ".validate": "!newData.exists() || newData.isNumber()" },
+        "timestamp": { ".validate": "!newData.exists() || newData.isNumber()" },
+        "ts": { ".validate": "!newData.exists() || newData.isNumber()" },
+        "currency": { ".validate": "!newData.exists() || newData.isString()" }
+      }
+    }
+  }
+}

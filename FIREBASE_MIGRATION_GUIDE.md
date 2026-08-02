@@ -117,6 +117,15 @@ bb-coin-aae0a-default-rtdb/
 }
 ```
 
+Актуалізована версія правил для поточного продукту з підтримкою:
+- хешованих паролів `sha256:...`
+- сумісних транзакційних полів `timestamp/ts`
+- розширених модулів (ринок, профіль, бізнес, робота)
+
+збережена у файлі:
+
+`/home/runner/work/BBc-full-product/BBc-full-product/firebase-rules-optimized.json`
+
 ---
 
 ## 📊 Міграція даних з JSONBin
