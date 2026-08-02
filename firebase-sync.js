@@ -1363,6 +1363,13 @@ async function adjustUserBalanceFirebase(username, delta) {
     try {
         const db = firebase.database();
         let nextBalance = null;
+        // Pre-fetch the balance to ensure it is in the local SDK cache before starting the
+        // transaction. Without this, the transaction callback may be invoked with null as the
+        // initial value when the data for a remote user is not yet cached locally (e.g. when
+        // debiting the order creator's balance during exchange-order fulfillment). A null
+        // initial value is treated as 0 by firebaseNumber, causing a premature abort and the
+        // misleading "автор не має достатньо BB" error even when the user has funds.
+        await db.ref(`users/${username}/balance`).once('value');
         const result = await db.ref(`users/${username}/balance`).transaction((currentBalance) => {
             const normalized = firebaseNumber(currentBalance, 0);
             const candidate = normalized + firebaseNumber(delta, 0);

@@ -1919,6 +1919,10 @@
             await updateLocalStats({ totalTrades: 1, exchangeVolume: trade.amount, totalProfit: localBbIncome });
             await addProgress({ totalDeals: 1, totalBought: localBbIncome, totalSold: localBbExpense });
             await evaluateAchievements();
+            // Track the completed p2p exchange deal toward the weekly "make 5 trades" quest.
+            if (typeof window.extFeatures?.incrementWeeklyProgress === 'function') {
+                window.extFeatures.incrementWeeklyProgress(gameState.user, 'weeklyTradeCount').catch(() => {});
+            }
         }
         await appendLocalNotification({ type: 'exchange', level: 'success', title: '🤝 Угоду завершено', message: trade.summary });
         renderExchangeHub();
