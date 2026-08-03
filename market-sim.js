@@ -131,7 +131,8 @@
         sessionPasswordHash: null,  // cached after first successful verification
         binanceInterval: '1m',
         binanceWs: null,
-        useBinance: false
+        useBinance: false,
+        currentLeverage: 1
     };
 
     function db() {
@@ -249,6 +250,31 @@
         el.textContent = live ? '🟢 Binance LIVE' : '🟡 Симуляція';
     }
 
+    function setLeverage(lev) {
+        state.currentLeverage = Number(lev) || 1;
+        document.querySelectorAll('#market-leverage-row .mkt-leverage-btn').forEach((btn) => {
+            btn.classList.toggle('active', Number(btn.dataset.lev) === state.currentLeverage);
+        });
+    }
+
+    function updateDropdownPrices() {
+        const dropdown = document.getElementById('mkt-coin-dropdown');
+        if (!dropdown) return;
+        dropdown.querySelectorAll('.mkt-coin-option').forEach((opt) => {
+            const pair = opt.dataset.pair;
+            if (!pair) return;
+            const price = state.prices[pair];
+            if (!price) return;
+            let priceEl = opt.querySelector('.mkt-coin-option-price');
+            if (!priceEl) {
+                priceEl = document.createElement('span');
+                priceEl.className = 'mkt-coin-option-price';
+                opt.appendChild(priceEl);
+            }
+            priceEl.textContent = price.toLocaleString('en-US', { minimumFractionDigits: getPairDigits(pair), maximumFractionDigits: getPairDigits(pair) });
+        });
+    }
+
     async function fetchBinanceKlines(pair, interval, limit) {
         const symbol = BINANCE_SYMBOL_MAP[pair];
         if (!symbol) return null;
@@ -309,6 +335,7 @@
                 }
                 state.history[pair] = history;
                 state.prices[pair] = candle.c;
+                checkSlTpLiquidation();
                 if (pair === state.selectedPair) {
                     updateLivePrice();
                     drawChart();
@@ -416,6 +443,21 @@
         `;
     }
 
+    // Calculate close delta for a bet given pnlRatio (positive = in profit direction)
+    function calcCloseDelta(bet, pnlRatio) {
+        const amount = num(bet.amount, 0);
+        const leverage = num(bet.leverage, 1);
+        if (leverage > 1) {
+            // Futures mode: straight leverage, capped at -100% of stake
+            const leveragedPnl = pnlRatio * leverage;
+            return round(Math.max(-amount, amount * leveragedPnl), 2);
+        }
+        // Standard prediction mode
+        return pnlRatio > 0
+            ? round(amount + (amount * Math.abs(pnlRatio) * BET_MULTIPLIER), 2)
+            : -round(amount * Math.abs(pnlRatio) * BET_MULTIPLIER, 2);
+    }
+
     function renderBets() {
         const el = document.getElementById('market-open-bets');
         if (!el) return;
@@ -428,9 +470,10 @@
             const card = document.createElement('div');
             card.className = 'market-open-bet-card';
 
+            const leverage = num(bet.leverage, 1);
             const top = document.createElement('div');
             top.className = 'market-open-bet-head';
-            top.textContent = `${String(bet.pair || '')} • ${bet.direction === 'up' ? '📈 UP' : '📉 DOWN'}`;
+            top.textContent = `${String(bet.pair || '')} • ${bet.direction === 'up' ? '📈 UP' : '📉 DOWN'}${leverage > 1 ? ` ⚡${leverage}×` : ''}`;
 
             const livePrice = num(state.prices[bet.pair], bet.entryPrice);
             const entryPrice = Math.max(0.000001, num(bet.entryPrice, livePrice));
@@ -438,13 +481,15 @@
                 ? ((livePrice - entryPrice) / entryPrice)
                 : ((entryPrice - livePrice) / entryPrice);
             const pnlPercent = pnlRatio * 100;
-            const closeDelta = pnlRatio > 0
-                ? round(num(bet.amount, 0) + (num(bet.amount, 0) * Math.abs(pnlRatio) * BET_MULTIPLIER), 2)
-                : -round(num(bet.amount, 0) * Math.abs(pnlRatio) * BET_MULTIPLIER, 2);
+            const closeDelta = calcCloseDelta(bet, pnlRatio);
+
+            const slInfo = bet.stopLoss ? `🛑 SL: ${num(bet.stopLoss).toFixed(getPairDigits(bet.pair))}` : '';
+            const tpInfo = bet.takeProfit ? `✅ TP: ${num(bet.takeProfit).toFixed(getPairDigits(bet.pair))}` : '';
+            const slTpLine = (slInfo || tpInfo) ? `<br>${[slInfo, tpInfo].filter(Boolean).join(' &nbsp; ')}` : '';
 
             const bottom = document.createElement('div');
             bottom.className = 'market-open-bet-meta';
-            bottom.innerHTML = `Ставка: ${num(bet.amount, 0).toFixed(2)} USDT • Вхід: ${entryPrice.toFixed(getPairDigits(bet.pair))}<br>Поточний рух: <span style="color:${pnlPercent >= 0 ? '#0ECB81' : '#F6465D'}">${pnlPercent >= 0 ? '+' : ''}${pnlPercent.toFixed(2)}%</span><br>Якщо закрити зараз: <span style="color:${closeDelta >= 0 ? '#0ECB81' : '#F6465D'};font-weight:800;">${closeDelta >= 0 ? '+' : ''}${Math.abs(closeDelta).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</span>`;
+            bottom.innerHTML = `Ставка: ${num(bet.amount, 0).toFixed(2)} USDT • Вхід: ${entryPrice.toFixed(getPairDigits(bet.pair))}${slTpLine}<br>Поточний рух: <span style="color:${pnlPercent >= 0 ? '#0ECB81' : '#F6465D'}">${pnlPercent >= 0 ? '+' : ''}${pnlPercent.toFixed(2)}%</span><br>Якщо закрити зараз: <span style="color:${closeDelta >= 0 ? '#0ECB81' : '#F6465D'};font-weight:800;">${closeDelta >= 0 ? '+' : ''}${Math.abs(closeDelta).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</span>`;
 
             const closeBtn = document.createElement('button');
             closeBtn.className = 'market-open-bet-close';
@@ -687,6 +732,7 @@
         renderWallet();
         renderBets();
         renderClosedBets();
+        updateDropdownPrices();
         // Update live indicator timestamp
         const liveEl = document.getElementById('mkt-live-time');
         if (liveEl) {
@@ -762,7 +808,7 @@
         ensureHistoryInitialized();
     }
 
-    function closeBet(betId) {
+    function closeBet(betId, reason) {
         const index = state.openBets.findIndex((bet) => bet.id === betId);
         if (index < 0) return;
         const bet = state.openBets[index];
@@ -771,31 +817,37 @@
         const pnlRatio = bet.direction === 'up'
             ? ((livePrice - entryPrice) / entryPrice)
             : ((entryPrice - livePrice) / entryPrice);
-        const closeDelta = pnlRatio > 0
-            ? round(num(bet.amount, 0) + (num(bet.amount, 0) * Math.abs(pnlRatio) * BET_MULTIPLIER), 2)
-            : -round(num(bet.amount, 0) * Math.abs(pnlRatio) * BET_MULTIPLIER, 2);
+        const closeDelta = calcCloseDelta(bet, pnlRatio);
         state.wallet.usdt = round(num(state.wallet.usdt, 0) + closeDelta, 2);
         const netResult = round(closeDelta - num(bet.amount, 0), 2);
         state.closedBets.push({
             id: `${bet.id}_closed_${Date.now()}`,
             pair: bet.pair,
             direction: bet.direction,
+            leverage: num(bet.leverage, 1),
             amount: round(num(bet.amount, 0), 2),
             entryPrice: round(entryPrice, getPairDigits(bet.pair)),
             closePrice: round(livePrice, getPairDigits(bet.pair)),
             movementPercent: round(pnlRatio * 100, 2),
             closeDelta,
             netResult,
+            closeReason: reason || 'manual',
             closedAt: Date.now()
         });
         if (state.closedBets.length > 120) state.closedBets = state.closedBets.slice(-120);
         const isWin = closeDelta > 0;
-        if (isWin) {
-            if (typeof showGameNotification === 'function') {
+        if (typeof showGameNotification === 'function') {
+            if (reason === 'liquidation') {
+                showGameNotification(`💥 Ліквідація! Позицію закрито зі збитком: -${num(bet.amount).toFixed(2)} USDT`);
+            } else if (reason === 'stopLoss') {
+                showGameNotification(`🛑 Стоп-лос: угоду закрито. ${closeDelta >= 0 ? '+' : ''}${closeDelta.toFixed(2)} USDT`);
+            } else if (reason === 'takeProfit') {
+                showGameNotification(`✅ Тейк-профіт: угоду закрито з прибутком +${closeDelta.toFixed(2)} USDT`);
+            } else if (isWin) {
                 showGameNotification(`✅ Угоду закрито з прибутком: +${closeDelta.toFixed(2)} USDT`);
+            } else {
+                showGameNotification(`❌ Угоду закрито зі збитком: -${Math.abs(closeDelta).toFixed(2)} USDT`);
             }
-        } else if (typeof showGameNotification === 'function') {
-            showGameNotification(`❌ Угоду закрито зі збитком: -${Math.abs(closeDelta).toFixed(2)} USDT`);
         }
         state.openBets.splice(index, 1);
         queueSave();
@@ -1019,6 +1071,9 @@
             alert('Недостатньо USDT для ставки.');
             return;
         }
+        const leverage = num(state.currentLeverage, 1);
+        const slRaw = num(document.getElementById('market-stop-loss')?.value, 0);
+        const tpRaw = num(document.getElementById('market-take-profit')?.value, 0);
         state.wallet.usdt = round(num(state.wallet.usdt, 0) - amount, 2);
         const bet = {
             id: `bet_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
@@ -1026,12 +1081,61 @@
             direction,
             amount,
             entryPrice: num(state.prices[state.selectedPair], 0),
+            leverage: leverage > 1 ? leverage : 1,
+            stopLoss: slRaw > 0 ? round(slRaw, getPairDigits(state.selectedPair)) : null,
+            takeProfit: tpRaw > 0 ? round(tpRaw, getPairDigits(state.selectedPair)) : null,
             placedAt: Date.now()
         };
+        const slInput = document.getElementById('market-stop-loss');
+        const tpInput = document.getElementById('market-take-profit');
+        if (slInput) slInput.value = '';
+        if (tpInput) tpInput.value = '';
         state.openBets.push(bet);
         queueSave();
         renderAll();
-        if (typeof showGameNotification === 'function') showGameNotification(`🎯 Ставка прийнята: ${direction === 'up' ? 'UP' : 'DOWN'} ${state.selectedPair}`);
+        const levLabel = leverage > 1 ? ` ⚡${leverage}×` : '';
+        if (typeof showGameNotification === 'function') showGameNotification(`🎯 Ставка прийнята: ${direction === 'up' ? 'UP' : 'DOWN'} ${state.selectedPair}${levLabel}`);
+    }
+
+    function checkSlTpLiquidation() {
+        if (!state.openBets.length) return;
+        const toClose = [];
+        state.openBets.forEach((bet) => {
+            if (!bet) return;
+            const price = num(state.prices[bet.pair], 0);
+            if (!price) return;
+            const entryPrice = Math.max(0.000001, num(bet.entryPrice, price));
+            const pnlRatio = bet.direction === 'up'
+                ? (price - entryPrice) / entryPrice
+                : (entryPrice - price) / entryPrice;
+            const leverage = num(bet.leverage, 1);
+            // Liquidation: loss >= 100% of stake for leveraged positions
+            if (leverage > 1 && pnlRatio * leverage <= -1) {
+                toClose.push({ id: bet.id, reason: 'liquidation' });
+                return;
+            }
+            // Stop loss
+            if (bet.stopLoss) {
+                const sl = num(bet.stopLoss, 0);
+                if (sl > 0) {
+                    if ((bet.direction === 'up' && price <= sl) || (bet.direction === 'down' && price >= sl)) {
+                        toClose.push({ id: bet.id, reason: 'stopLoss' });
+                        return;
+                    }
+                }
+            }
+            // Take profit
+            if (bet.takeProfit) {
+                const tp = num(bet.takeProfit, 0);
+                if (tp > 0) {
+                    if ((bet.direction === 'up' && price >= tp) || (bet.direction === 'down' && price <= tp)) {
+                        toClose.push({ id: bet.id, reason: 'takeProfit' });
+                        return;
+                    }
+                }
+            }
+        });
+        toClose.forEach(({ id, reason }) => closeBet(id, reason));
     }
 
     function tickMarket() {
@@ -1039,6 +1143,7 @@
         if (!state.useBinance) {
             refreshSharedMarketData();
         }
+        checkSlTpLiquidation();
         renderAll();
     }
 
@@ -1211,6 +1316,7 @@
         buyCurrent,
         sellCurrent,
         placeBet,
-        changeInterval
+        changeInterval,
+        setLeverage
     };
 })();
