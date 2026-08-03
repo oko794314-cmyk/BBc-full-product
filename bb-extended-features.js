@@ -1375,8 +1375,10 @@
             const appliedWeeks = Math.max(0, n(loan.interestAppliedWeeks, 0));
             if (accruedWeeks > appliedWeeks) {
                 const weeklyInterest = getLoanWeeklyInterestAmount(loan);
+                let totalInterestAdded = 0;
                 for (let week = appliedWeeks + 1; week <= accruedWeeks; week++) {
                     loan.remaining = round2(loan.remaining + weeklyInterest);
+                    totalInterestAdded = round2(totalInterestAdded + weeklyInterest);
                     await appendBankRecord({
                         type: 'interest',
                         currency: loan.currency,
@@ -1386,7 +1388,7 @@
                     });
                 }
                 loan.interestAppliedWeeks = accruedWeeks;
-                showGN(`💳 Нараховано відсотки: +${weeklyInterest.toFixed(2)} ${loan.currency.toUpperCase()} за кредитом`);
+                showGN(`💳 Нараховано відсотки: +${totalInterestAdded.toFixed(2)} ${loan.currency.toUpperCase()} за кредитом`);
                 changed = true;
             }
             if (now <= loan.dueAt) continue;
@@ -1419,7 +1421,12 @@
                 changed = true;
             }
         }
-        if (changed) await saveBankData();
+        if (changed) {
+            await saveBankData();
+            if (document.getElementById('bank-panel-loans')?.classList.contains('active')) renderBankTab();
+            if (document.getElementById('bank-panel-history')?.classList.contains('active')) window.renderBankHistory();
+            if (document.getElementById('bank-panel-stats')?.classList.contains('active')) window.renderBankStats();
+        }
     }
 
     async function autoRepayLoan(lid, maxAmount = null, notePrefix = 'Авто-погашення') {
