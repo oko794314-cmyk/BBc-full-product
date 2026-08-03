@@ -4,45 +4,45 @@
     const PAIRS = ['BTC/USDT', 'ETH/USDT', 'BNB/USDT', 'SOL/USDT', 'XRP/USDT', 'ADA/USDT', 'TON/USDT', 'DOGE/USDT',
                    'PEPE/USDT', 'WIF/USDT', 'SHIB/USDT', 'BONK/USDT', 'FLOKI/USDT'];
     const BASE_PRICES = {
-        'BTC/USDT': 64000,
-        'ETH/USDT': 3200,
-        'BNB/USDT': 585,
-        'SOL/USDT': 152,
-        'XRP/USDT': 0.62,
-        'ADA/USDT': 0.48,
-        'TON/USDT': 7.8,
-        'DOGE/USDT': 0.12,
-        'PEPE/USDT': 0.0000135,
-        'WIF/USDT': 2.1,
-        'SHIB/USDT': 0.0000254,
-        'BONK/USDT': 0.000030,
-        'FLOKI/USDT': 0.000185
+        'BTC/USDT': 98000,
+        'ETH/USDT': 5200,
+        'BNB/USDT': 820,
+        'SOL/USDT': 280,
+        'XRP/USDT': 1.85,
+        'ADA/USDT': 1.20,
+        'TON/USDT': 18.5,
+        'DOGE/USDT': 0.48,
+        'PEPE/USDT': 0.0000480,
+        'WIF/USDT': 5.8,
+        'SHIB/USDT': 0.0000820,
+        'BONK/USDT': 0.000095,
+        'FLOKI/USDT': 0.000620
     };
     const CANDLE_COUNT = 80;
     const CANDLE_STEP_PX = 12;   // pixels per candle (scroll chart)
-    // Amplifier: each 1% real market move = 10% PnL on the bet (symmetric win/loss)
-    // A correct 10% call → +100% profit; wrong 10% call → -100% (full stake lost).
-    // Typical winning bets: 1–5k USDT; exceptional large-stake bets can reach 300k. Hard but fair.
-    const PNL_AMPLIFIER = 10;
-    const CANDLE_INTERVAL_MS = 3 * 1000;  // faster candles for more lively charts
-    const PRICE_TICK_MS = 3000;           // faster price updates
+    // Amplifier: each 1% real market move = 25% PnL on the bet (symmetric win/loss)
+    // A correct 5% call → +125% profit; wrong 5% call → -125% (stake + more lost).
+    // Typical winning bets: 500–5000 USDT per correct prediction. Hard but rewarding.
+    const PNL_AMPLIFIER = 25;
+    const CANDLE_INTERVAL_MS = 2 * 1000;  // 2-second candles for lively charts
+    const PRICE_TICK_MS = 2000;           // 2-second price updates
     const SAVE_DEBOUNCE_MS = 1000;
     // Volatile coins (PEPE, WIF, SHIB, BONK, FLOKI) have 8–14x higher volatility — big swings, hard to predict
-    // Established coins boosted moderately so real PnL of 200–1000 USDT is achievable (but not guaranteed)
+    // Established coins boosted so real PnL of 500–5000 USDT is achievable per correct call
     const PAIR_VOLATILITY = {
-        'BTC/USDT':   0.018,
-        'ETH/USDT':   0.022,
-        'BNB/USDT':   0.024,
-        'SOL/USDT':   0.028,
-        'XRP/USDT':   0.032,
-        'ADA/USDT':   0.034,
-        'TON/USDT':   0.026,
-        'DOGE/USDT':  0.038,
-        'PEPE/USDT':  0.18,
-        'WIF/USDT':   0.16,
-        'SHIB/USDT':  0.17,
-        'BONK/USDT':  0.20,
-        'FLOKI/USDT': 0.18
+        'BTC/USDT':   0.032,
+        'ETH/USDT':   0.038,
+        'BNB/USDT':   0.042,
+        'SOL/USDT':   0.048,
+        'XRP/USDT':   0.055,
+        'ADA/USDT':   0.058,
+        'TON/USDT':   0.045,
+        'DOGE/USDT':  0.065,
+        'PEPE/USDT':  0.28,
+        'WIF/USDT':   0.26,
+        'SHIB/USDT':  0.27,
+        'BONK/USDT':  0.32,
+        'FLOKI/USDT': 0.29
     };
 
     // Binance API constants
@@ -460,7 +460,7 @@
     function calcCloseDelta(bet, pnlRatio) {
         const amount = num(bet.amount, 0);
         const leverage = Math.max(1, num(bet.leverage, 1));
-        // PNL_AMPLIFIER scales each 1% market move into 50% PnL — enables 200–1000 USDT swings
+        // PNL_AMPLIFIER scales each 1% market move into 25% PnL — enables 500–5000 USDT swings per correct bet
         const grossValue = amount + (amount * pnlRatio * leverage * PNL_AMPLIFIER);
         return round(Math.max(0, grossValue), 2);
     }
@@ -1135,8 +1135,9 @@
             const pnlRatio = calcPnlRatio(bet, price);
             const leverage = Math.max(1, num(bet.leverage, 1));
             const netResult = calcNetResult(bet, pnlRatio);
-            // Liquidation: amplified loss >= 100% of stake
-            if (pnlRatio * leverage * PNL_AMPLIFIER <= -1) {
+            // Liquidation: actual PnL loss reaches the full stake (margin call)
+            // This is correct: you can't lose more than you put in, and it only triggers on real large moves
+            if (netResult <= -num(bet.amount, 0)) {
                 toClose.push({ id: bet.id, reason: 'liquidation' });
                 return;
             }
