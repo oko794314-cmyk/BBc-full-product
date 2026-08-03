@@ -3883,6 +3883,8 @@
         };
 
         await saveUserToFirebase(username, userData);
+        // Нового користувача зареєстровано — скидаємо кеш списку користувачів
+        if (typeof invalidateUsersCache === 'function') invalidateUsersCache();
         alert('Акаунт створено! 🎉');
         document.getElementById('reg-u').value = '';
         document.getElementById('reg-p').value = '';
@@ -3949,6 +3951,11 @@
         updateFriendRequestsList();
         updateFriendsList();
         loadGroupChatsList();
+
+        // Автоочищення старих даних Firebase (раз на добу, не блокує UI)
+        if (typeof cleanupOldFirebaseData === 'function') {
+            cleanupOldFirebaseData().catch(() => {});
+        }
 
         // Відновити активний RPS матч (якщо є)
         if (userData.activeRpsMatchId) {
@@ -4093,8 +4100,8 @@
                 gameState.balance = roundBbAmount(gameState.balance + MINING_REWARD_PER_SECOND);
                 updateHeader();
                 
-                // Оновити Firebase кожні 5 секунд
-                if (Math.floor((Date.now() - gameState.miningStartTime) / 5000) % 1 === 0) {
+                // Оновити Firebase кожні 30 секунд (економія ліміту запитів)
+                if (Math.floor((Date.now() - gameState.miningStartTime) / 1000) % 30 === 0) {
                     updateMiningBalanceFirebase(gameState.user, gameState.balance);
                 }
             }, 1000);
