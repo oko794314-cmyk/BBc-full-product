@@ -20,9 +20,10 @@
     };
     const CANDLE_COUNT = 80;
     const CANDLE_STEP_PX = 12;   // pixels per candle (scroll chart)
-    // PnL model: each 1% market move = +10 USDT if direction is correct, -12 USDT if wrong.
-    const PNL_PER_PERCENT_WIN_USDT = 100;
-    const PNL_PER_PERCENT_LOSS_USDT = 112;
+    // PnL model: each closed candle that matches the predicted direction pays +100 USDT,
+    // each candle that goes against the prediction costs -102 USDT.
+    const CANDLE_WIN_USDT = 100;
+    const CANDLE_LOSS_USDT = 102;
     const CANDLE_INTERVAL_MS = 2 * 1000;  // 2-second candles for lively charts
     const PRICE_TICK_MS = 2000;           // 2-second price updates
     const SAVE_DEBOUNCE_MS = 1000;
@@ -341,6 +342,7 @@
                 }
                 state.history[pair] = history;
                 state.prices[pair] = candle.c;
+                processNewCandlesForBets();
                 checkSlTpLiquidation();
                 if (pair === state.selectedPair) {
                     updateLivePrice();
@@ -456,17 +458,53 @@
             : (entryPrice - price) / entryPrice;
     }
 
-    function calcCloseDelta(bet, pnlRatio) {
+    function calcCloseDelta(bet) {
         const amount = num(bet.amount, 0);
-        const leverage = Math.max(1, num(bet.leverage, 1));
-        const movePercent = Math.abs(pnlRatio * 100);
-        const perPercent = pnlRatio >= 0 ? PNL_PER_PERCENT_WIN_USDT : PNL_PER_PERCENT_LOSS_USDT;
-        const netResult = round(movePercent * perPercent * leverage * (pnlRatio >= 0 ? 1 : -1), 2);
-        return round(Math.max(0, amount + netResult), 2);
+        const candlePnl = num(bet.candlePnl, 0);
+        return round(Math.max(0, amount + candlePnl), 2);
     }
 
-    function calcNetResult(bet, pnlRatio) {
-        return round(calcCloseDelta(bet, pnlRatio) - num(bet.amount, 0), 2);
+    function calcNetResult(bet) {
+        return round(num(bet.candlePnl, 0), 2);
+    }
+
+    // Award +CANDLE_WIN_USDT for each new closed candle that matches bet direction,
+    // -CANDLE_LOSS_USDT for each candle that goes against the prediction.
+    function processNewCandlesForBets() {
+        if (!state.openBets.length) return;
+        let changed = false;
+        state.openBets.forEach((bet) => {
+            if (!bet) return;
+            const history = state.history[bet.pair];
+            if (!Array.isArray(history) || history.length < 2) return;
+            // Only evaluate fully closed candles (all except the current/last forming candle)
+            const closedCandles = history.slice(0, -1);
+            const lastEvaluated = num(bet.lastCandleT, bet.placedAt || 0);
+            let pnlDelta = 0;
+            let countDelta = 0;
+            let newLastT = lastEvaluated;
+            for (let i = 0; i < closedCandles.length; i++) {
+                const c = closedCandles[i];
+                if (!c || c.t <= lastEvaluated) continue;
+                // Candle direction: bullish if close > open, bearish if close < open
+                const candleUp = c.c >= c.o;
+                const betUp = bet.direction === 'up';
+                if (candleUp === betUp) {
+                    pnlDelta += CANDLE_WIN_USDT;
+                } else {
+                    pnlDelta -= CANDLE_LOSS_USDT;
+                }
+                countDelta++;
+                if (c.t > newLastT) newLastT = c.t;
+            }
+            if (countDelta > 0) {
+                bet.candlePnl = round(num(bet.candlePnl, 0) + pnlDelta, 2);
+                bet.candleCount = num(bet.candleCount, 0) + countDelta;
+                bet.lastCandleT = newLastT;
+                changed = true;
+            }
+        });
+        if (changed) queueSave();
     }
 
     function renderBets() {
@@ -488,10 +526,9 @@
 
             const livePrice = num(state.prices[bet.pair], bet.entryPrice);
             const entryPrice = Math.max(0.000001, num(bet.entryPrice, livePrice));
-            const pnlRatio = calcPnlRatio(bet, livePrice);
-            const pnlPercent = pnlRatio * 100;
-            const closeDelta = calcCloseDelta(bet, pnlRatio);
-            const netResult = calcNetResult(bet, pnlRatio);
+            const closeDelta = calcCloseDelta(bet);
+            const netResult = calcNetResult(bet);
+            const candleCount = num(bet.candleCount, 0);
             const slInfo = bet.stopLossAmount
                 ? `🛑 SL: -${num(bet.stopLossAmount).toFixed(2)} USDT`
                 : (bet.stopLoss ? `🛑 SL: ${num(bet.stopLoss).toFixed(getPairDigits(bet.pair))}` : '');
@@ -502,7 +539,7 @@
 
             const bottom = document.createElement('div');
             bottom.className = 'market-open-bet-meta';
-            bottom.innerHTML = `Маржа: ${num(bet.amount, 0).toFixed(2)} USDT • Вхід: ${entryPrice.toFixed(getPairDigits(bet.pair))}${slTpLine}<br>Поточний рух: <span style="color:${pnlPercent >= 0 ? '#0ECB81' : '#F6465D'}">${pnlPercent >= 0 ? '+' : ''}${pnlPercent.toFixed(2)}%</span><br>Поточний PnL: <span style="color:${netResult >= 0 ? '#0ECB81' : '#F6465D'};font-weight:800;">${netResult >= 0 ? '+' : ''}${Math.abs(netResult).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</span><br>Повернеться при закритті: <span style="color:#F0B90B;font-weight:700;">${closeDelta.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</span>`;
+            bottom.innerHTML = `Маржа: ${num(bet.amount, 0).toFixed(2)} USDT • Вхід: ${entryPrice.toFixed(getPairDigits(bet.pair))}${slTpLine}<br>Свічок зараховано: <span style="color:#848E9C;">${candleCount}</span><br>Поточний PnL: <span style="color:${netResult >= 0 ? '#0ECB81' : '#F6465D'};font-weight:800;">${netResult >= 0 ? '+' : ''}${Math.abs(netResult).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</span><br>Повернеться при закритті: <span style="color:#F0B90B;font-weight:700;">${closeDelta.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</span>`;
 
             const closeBtn = document.createElement('button');
             closeBtn.className = 'market-open-bet-close';
@@ -535,7 +572,7 @@
             card.className = 'market-open-bet-card';
             const net = num(item.netResult, 0);
             const closeDelta = num(item.closeDelta, 0);
-            const move = num(item.movementPercent, 0);
+            const candleCount = num(item.candleCount, 0);
             const pair = String(item.pair || '—');
             const dir = item.direction === 'up' ? '📈 UP' : '📉 DOWN';
             const top = document.createElement('div');
@@ -545,7 +582,7 @@
             meta.className = 'market-open-bet-meta';
             meta.innerHTML = `
                 Списано при вході: <span style="color:#F6465D;">-${num(item.amount, 0).toFixed(2)} USDT</span><br>
-                Повернуто при закритті: <span style="color:#F0B90B;">${closeDelta.toFixed(2)} USDT</span> • Рух: <span style="color:${move >= 0 ? '#0ECB81' : '#F6465D'};">${move >= 0 ? '+' : ''}${move.toFixed(2)}%</span><br>
+                Повернуто при закритті: <span style="color:#F0B90B;">${closeDelta.toFixed(2)} USDT</span> • Свічок: <span style="color:#848E9C;">${candleCount}</span><br>
                 Чистий PnL: <span style="color:${net >= 0 ? '#0ECB81' : '#F6465D'};font-weight:800;">${net >= 0 ? '+' : ''}${Math.abs(net).toFixed(2)} USDT</span><br>
                 <span style="color:var(--text2);">${reasonLabel(item.closeReason)}</span>
             `;
@@ -710,8 +747,7 @@
         if (activeBet) {
             const livePrice = num(state.prices[activeBet.pair], activeBet.entryPrice);
             const entryPrice = Math.max(0.000001, num(activeBet.entryPrice, livePrice));
-            const pnlRatio = calcPnlRatio(activeBet, livePrice);
-            const netResult = calcNetResult(activeBet, pnlRatio);
+            const netResult = calcNetResult(activeBet);
             const yEntry = toY(entryPrice);
             const label = `${netResult >= 0 ? '+' : '-'}${Math.abs(netResult).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT`;
             const labelW = Math.min(148, Math.max(94, ctx.measureText(label).width + 18));
@@ -830,9 +866,8 @@
         const bet = state.openBets[index];
         const livePrice = num(state.prices[bet.pair], bet.entryPrice);
         const entryPrice = Math.max(0.000001, num(bet.entryPrice, livePrice));
-        const pnlRatio = calcPnlRatio(bet, livePrice);
-        const closeDelta = calcCloseDelta(bet, pnlRatio);
-        const netResult = calcNetResult(bet, pnlRatio);
+        const closeDelta = calcCloseDelta(bet);
+        const netResult = calcNetResult(bet);
         state.wallet.usdt = round(num(state.wallet.usdt, 0) + closeDelta, 2);
         state.closedBets.push({
             id: `${bet.id}_closed_${Date.now()}`,
@@ -842,7 +877,7 @@
             amount: round(num(bet.amount, 0), 2),
             entryPrice: round(entryPrice, getPairDigits(bet.pair)),
             closePrice: round(livePrice, getPairDigits(bet.pair)),
-            movementPercent: round(pnlRatio * 100, 2),
+            candleCount: num(bet.candleCount, 0),
             closeDelta,
             netResult,
             closeReason: reason || 'manual',
@@ -1101,6 +1136,10 @@
             return;
         }
         state.wallet.usdt = round(num(state.wallet.usdt, 0) - amount, 2);
+        // Set lastCandleT to the timestamp of the current last candle so we only
+        // evaluate candles that close AFTER this bet is placed.
+        const currentHistory = state.history[state.selectedPair] || [];
+        const currentLastCandle = currentHistory[currentHistory.length - 1];
         const bet = {
             id: `bet_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
             pair: state.selectedPair,
@@ -1112,7 +1151,10 @@
             takeProfitAmount: tpRaw > 0 ? round(tpRaw, 2) : null,
             stopLoss: null,
             takeProfit: null,
-            placedAt: Date.now()
+            placedAt: Date.now(),
+            candlePnl: 0,
+            candleCount: 0,
+            lastCandleT: currentLastCandle ? currentLastCandle.t : Date.now()
         };
         const slInput = document.getElementById('market-stop-loss');
         const tpInput = document.getElementById('market-take-profit');
@@ -1130,11 +1172,7 @@
         const toClose = [];
         state.openBets.forEach((bet) => {
             if (!bet) return;
-            const price = num(state.prices[bet.pair], 0);
-            if (!price) return;
-            const pnlRatio = calcPnlRatio(bet, price);
-            const leverage = Math.max(1, num(bet.leverage, 1));
-            const netResult = calcNetResult(bet, pnlRatio);
+            const netResult = calcNetResult(bet);
             // Liquidation: actual PnL loss reaches the full stake (margin call)
             // This is correct: you can't lose more than you put in, and it only triggers on real large moves
             if (netResult <= -num(bet.amount, 0)) {
@@ -1184,6 +1222,7 @@
         if (!state.useBinance) {
             refreshSharedMarketData();
         }
+        processNewCandlesForBets();
         checkSlTpLiquidation();
         renderAll();
     }
