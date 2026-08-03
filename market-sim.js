@@ -510,6 +510,12 @@
             el.innerHTML = '<div style="font-size:12px;color:var(--text2);">Закритих угод поки немає.</div>';
             return;
         }
+        const reasonLabel = (reason) => {
+            if (reason === 'liquidation') return '💥 Причина: Ліквідація';
+            if (reason === 'stopLoss') return '🛑 Причина: Стоп-лос';
+            if (reason === 'takeProfit') return '✅ Причина: Тейк-профіт';
+            return '✋ Причина: Ручне закриття';
+        };
         el.textContent = '';
         state.closedBets.slice(-12).reverse().forEach((item) => {
             const card = document.createElement('div');
@@ -527,7 +533,8 @@
             meta.innerHTML = `
                 Списано при вході: <span style="color:#F6465D;">-${num(item.amount, 0).toFixed(2)} USDT</span><br>
                 Закриття угоди: <span style="color:${closeDelta >= 0 ? '#0ECB81' : '#F6465D'};">${closeDelta >= 0 ? '+' : ''}${Math.abs(closeDelta).toFixed(2)} USDT</span> • Рух: <span style="color:${move >= 0 ? '#0ECB81' : '#F6465D'};">${move >= 0 ? '+' : ''}${move.toFixed(2)}%</span><br>
-                Чистий результат: <span style="color:${net >= 0 ? '#0ECB81' : '#F6465D'};font-weight:800;">${net >= 0 ? '+' : ''}${Math.abs(net).toFixed(2)} USDT</span>
+                Чистий результат: <span style="color:${net >= 0 ? '#0ECB81' : '#F6465D'};font-weight:800;">${net >= 0 ? '+' : ''}${Math.abs(net).toFixed(2)} USDT</span><br>
+                <span style="color:var(--text2);">${reasonLabel(item.closeReason)}</span>
             `;
             card.appendChild(top);
             card.appendChild(meta);
@@ -1074,13 +1081,25 @@
         const leverage = num(state.currentLeverage, 1);
         const slRaw = num(document.getElementById('market-stop-loss')?.value, 0);
         const tpRaw = num(document.getElementById('market-take-profit')?.value, 0);
+        const entryPrice = num(state.prices[state.selectedPair], 0);
+        if (!entryPrice) {
+            alert('Ціна ринку недоступна. Спробуйте ще раз.');
+            return;
+        }
+        if (slRaw > 0) {
+            const invalidForDirection = (direction === 'up' && slRaw >= entryPrice) || (direction === 'down' && slRaw <= entryPrice);
+            if (invalidForDirection) {
+                alert(`Стоп-лос має бути в зоні збитку: для ${direction === 'up' ? 'UP нижче' : 'DOWN вище'} ціни входу.`);
+                return;
+            }
+        }
         state.wallet.usdt = round(num(state.wallet.usdt, 0) - amount, 2);
         const bet = {
             id: `bet_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
             pair: state.selectedPair,
             direction,
             amount,
-            entryPrice: num(state.prices[state.selectedPair], 0),
+            entryPrice,
             leverage: leverage > 1 ? leverage : 1,
             stopLoss: slRaw > 0 ? round(slRaw, getPairDigits(state.selectedPair)) : null,
             takeProfit: tpRaw > 0 ? round(tpRaw, getPairDigits(state.selectedPair)) : null,
@@ -1118,7 +1137,9 @@
             if (bet.stopLoss) {
                 const sl = num(bet.stopLoss, 0);
                 if (sl > 0) {
-                    if ((bet.direction === 'up' && price <= sl) || (bet.direction === 'down' && price >= sl)) {
+                    const isSlTriggered = (bet.direction === 'up' && price <= sl) || (bet.direction === 'down' && price >= sl);
+                    const closeDelta = calcCloseDelta(bet, pnlRatio);
+                    if (isSlTriggered && closeDelta < 0) {
                         toClose.push({ id: bet.id, reason: 'stopLoss' });
                         return;
                     }
