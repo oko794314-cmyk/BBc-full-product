@@ -20,24 +20,25 @@
     };
     const CANDLE_COUNT = 80;
     const CANDLE_STEP_PX = 12;   // pixels per candle (scroll chart)
-    const CANDLE_INTERVAL_MS = 5 * 1000;
-    const PRICE_TICK_MS = 5000;
+    const CANDLE_INTERVAL_MS = 3 * 1000;  // faster candles for more lively charts
+    const PRICE_TICK_MS = 3000;           // faster price updates
     const SAVE_DEBOUNCE_MS = 1000;
-    // Volatile coins (PEPE, WIF, SHIB, BONK, FLOKI) have 4–6x higher volatility for unpredictable, high-reward charts
+    // Volatile coins (PEPE, WIF, SHIB, BONK, FLOKI) have 8–14x higher volatility — big swings, hard to predict
+    // Established coins boosted moderately so real PnL of 200–1000 USDT is achievable (but not guaranteed)
     const PAIR_VOLATILITY = {
-        'BTC/USDT': 0.0046,
-        'ETH/USDT': 0.0052,
-        'BNB/USDT': 0.0058,
-        'SOL/USDT': 0.0071,
-        'XRP/USDT': 0.0082,
-        'ADA/USDT': 0.0084,
-        'TON/USDT': 0.0068,
-        'DOGE/USDT': 0.0092,
-        'PEPE/USDT': 0.048,
-        'WIF/USDT': 0.042,
-        'SHIB/USDT': 0.044,
-        'BONK/USDT': 0.052,
-        'FLOKI/USDT': 0.046
+        'BTC/USDT':   0.018,
+        'ETH/USDT':   0.022,
+        'BNB/USDT':   0.024,
+        'SOL/USDT':   0.028,
+        'XRP/USDT':   0.032,
+        'ADA/USDT':   0.034,
+        'TON/USDT':   0.026,
+        'DOGE/USDT':  0.038,
+        'PEPE/USDT':  0.18,
+        'WIF/USDT':   0.16,
+        'SHIB/USDT':  0.17,
+        'BONK/USDT':  0.20,
+        'FLOKI/USDT': 0.18
     };
 
     // Binance API constants
@@ -201,17 +202,20 @@
         const vol = num(PAIR_VOLATILITY[pair], 0.004);
 
         for (let bucket = startBucket; bucket <= bucketNow; bucket += 1) {
-            // Reduced sine-wave influence so the pattern is less predictable
-            const driftWave = Math.sin((bucket + pairSeed * 11) / 18) * vol * 0.2;
-            const microWave = Math.cos((bucket + pairSeed * 7) / 5) * vol * 0.1;
-            // Increased random noise for a more chaotic, realistic appearance
-            const noise1 = (hashNoise(`${pair}:d:${bucket}`) - 0.5) * vol * 2.4;
-            const noise2 = (hashNoise(`${pair}:d2:${bucket}`) - 0.5) * vol * 1.2;
-            const closeRaw = prevClose * (1 + driftWave + microWave + noise1 + noise2);
+            // Moderate sine-wave trend component
+            const driftWave = Math.sin((bucket + pairSeed * 11) / 14) * vol * 0.35;
+            const microWave = Math.cos((bucket + pairSeed * 7) / 4) * vol * 0.20;
+            // Large random noise — creates meaningful moves up AND down
+            const noise1 = (hashNoise(`${pair}:d:${bucket}`) - 0.5) * vol * 3.2;
+            const noise2 = (hashNoise(`${pair}:d2:${bucket}`) - 0.5) * vol * 1.8;
+            // Occasional spike candle (~8% chance) for sudden large moves
+            const spikeSeed = hashNoise(`${pair}:spk:${bucket}`);
+            const spike = spikeSeed < 0.08 ? (hashNoise(`${pair}:spkv:${bucket}`) - 0.5) * vol * 5.0 : 0;
+            const closeRaw = prevClose * (1 + driftWave + microWave + noise1 + noise2 + spike);
             const close = Math.max(0.000001, closeRaw);
             const open = prevClose;
-            const wickUp = 1 + hashNoise(`${pair}:u:${bucket}`) * vol * 6;
-            const wickDown = 1 - hashNoise(`${pair}:l:${bucket}`) * vol * 6;
+            const wickUp = 1 + hashNoise(`${pair}:u:${bucket}`) * vol * 8;
+            const wickDown = 1 - hashNoise(`${pair}:l:${bucket}`) * vol * 8;
             const high = Math.max(open, close) * wickUp;
             const low = Math.min(open, close) * Math.max(0.000001, wickDown);
 
