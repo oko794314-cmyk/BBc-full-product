@@ -1253,6 +1253,7 @@
     /* ────────────────────────────────────────────────────── */
     const LOAN_RATE           = 0.05;   // 5% per week
     const LOAN_PENALTY        = 0.20;   // 20% penalty
+    const LOAN_WEEK_MS        = 7 * 24 * 3600 * 1000;
     const BASE_BB_LOAN_LIMIT  = 500;
     const BASE_USDT_LOAN_LIMIT = 200;
     const BB_LOAN_LIMIT_STEP  = 250;
@@ -1289,6 +1290,33 @@
 
     function getLoanIssuedAmount(entry) {
         return n(entry?.issuedAmount ?? entry?.amount);
+    }
+
+    function getLoanWeeklyInterestAmount(loan) {
+        return round2(n(loan?.amount) * n(loan?.rate, LOAN_RATE));
+    }
+
+    function getCompletedLoanWeeks(loan, now = Date.now()) {
+        const takenAt = n(loan?.takenAt, now);
+        const dueAt = n(loan?.dueAt, now);
+        const accrualEnd = Math.min(now, dueAt);
+        if (accrualEnd <= takenAt) return 0;
+        return Math.max(0, Math.floor((accrualEnd - takenAt) / LOAN_WEEK_MS));
+    }
+
+    function syncLegacyLoanInterestState(loan, now = Date.now()) {
+        if (!loan || Number.isFinite(loan.interestAppliedWeeks)) return false;
+        const accruedWeeks = getCompletedLoanWeeks(loan, now);
+        const scheduledWeeks = Math.max(0, n(loan.weeks, 0));
+        const weeklyInterest = getLoanWeeklyInterestAmount(loan);
+        const legacyTotalDue = round2(n(loan.amount) + (weeklyInterest * scheduledWeeks));
+        let changed = false;
+        if (Math.abs(n(loan.remaining) - legacyTotalDue) < 0.01) {
+            loan.remaining = round2(n(loan.amount) + (weeklyInterest * accruedWeeks));
+            changed = true;
+        }
+        loan.interestAppliedWeeks = accruedWeeks;
+        return changed;
     }
 
     async function loadBankData() {
@@ -1342,6 +1370,25 @@
         for (const lid of Object.keys(extState.bank.loans)) {
             const loan = extState.bank.loans[lid];
             if (loan.status !== 'active') continue;
+            if (syncLegacyLoanInterestState(loan, now)) changed = true;
+            const accruedWeeks = getCompletedLoanWeeks(loan, now);
+            const appliedWeeks = Math.max(0, n(loan.interestAppliedWeeks, 0));
+            if (accruedWeeks > appliedWeeks) {
+                const weeklyInterest = getLoanWeeklyInterestAmount(loan);
+                for (let week = appliedWeeks + 1; week <= accruedWeeks; week++) {
+                    loan.remaining = round2(loan.remaining + weeklyInterest);
+                    await appendBankRecord({
+                        type: 'interest',
+                        currency: loan.currency,
+                        amount: weeklyInterest,
+                        note: `Щотижневі відсотки по кредиту #${lid.slice(-4)} (тиждень ${week})`,
+                        ts: Math.min(now, n(loan.takenAt, now) + (week * LOAN_WEEK_MS))
+                    });
+                }
+                loan.interestAppliedWeeks = accruedWeeks;
+                showGN(`💳 Нараховано відсотки: +${weeklyInterest.toFixed(2)} ${loan.currency.toUpperCase()} за кредитом`);
+                changed = true;
+            }
             if (now <= loan.dueAt) continue;
             if (loan.lastPenaltyDate !== today) {
                 const penalty = round2(loan.remaining * LOAN_PENALTY);
@@ -1434,10 +1481,10 @@
             .reduce((s, l) => s + n(l.remaining), 0);
         if (totalDebt + amount > limit) { showGN(`❌ Перевищено ліміт. Борг: ${totalDebt.toFixed(2)}`); return; }
 
-        const weeks = Math.max(1, Math.ceil((dueAt - Date.now()) / (7 * 24 * 3600 * 1000)));
-        const totalDue = Math.round(amount * (1 + LOAN_RATE * weeks) * 100) / 100;
+        const now = Date.now();
+        const weeks = Math.max(0, Math.floor((dueAt - now) / LOAN_WEEK_MS));
         const lid = uid('loan');
-        extState.bank.loans[lid] = { currency, amount, remaining: totalDue, dueAt, weeks, rate: LOAN_RATE, status: 'active', takenAt: Date.now(), penaltyApplied: false };
+        extState.bank.loans[lid] = { currency, amount, remaining: round2(amount), dueAt, weeks, rate: LOAN_RATE, status: 'active', takenAt: now, interestAppliedWeeks: 0, penaltyApplied: false };
         await saveBankData();
 
         if (currency === 'bb') {
@@ -1446,8 +1493,8 @@
         } else {
             await adjustUsdt(u, amount);
         }
-        await appendBankRecord({ type: 'loan', currency, amount: totalDue, issuedAmount: amount, note: `Кредит: ${amount.toFixed(2)} ${currency.toUpperCase()} → погасити ${totalDue.toFixed(2)}`, ts: Date.now() });
-        showGN(`✅ Отримано ${amount.toFixed(2)} ${currency.toUpperCase()}! Погасити: ${totalDue.toFixed(2)}`);
+        await appendBankRecord({ type: 'loan', currency, amount, issuedAmount: amount, note: `Кредит: ${amount.toFixed(2)} ${currency.toUpperCase()} • ${(LOAN_RATE * 100).toFixed(0)}%/тиж до ${new Date(dueAt).toLocaleDateString('uk-UA')}`, ts: now });
+        showGN(`✅ Отримано ${amount.toFixed(2)} ${currency.toUpperCase()}! Відсотки ${(LOAN_RATE * 100).toFixed(0)}%/тиж нараховуються після кожного повного тижня.`);
         renderBankTab();
     };
 
