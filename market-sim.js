@@ -20,9 +20,10 @@
     };
     const CANDLE_COUNT = 80;
     const CANDLE_STEP_PX = 12;   // pixels per candle (scroll chart)
-    // Amplifier: each 1% real market move = 50% PnL on the bet (symmetric win/loss)
-    // A correct 2% call → +100% profit; wrong 2% call → -100% (full stake lost). Hard but rewarding.
-    const PNL_AMPLIFIER = 50;
+    // Amplifier: each 1% real market move = 10% PnL on the bet (symmetric win/loss)
+    // A correct 10% call → +100% profit; wrong 10% call → -100% (full stake lost).
+    // Typical winning bets: 1–5k USDT; exceptional large-stake bets can reach 300k. Hard but fair.
+    const PNL_AMPLIFIER = 10;
     const CANDLE_INTERVAL_MS = 3 * 1000;  // faster candles for more lively charts
     const PRICE_TICK_MS = 3000;           // faster price updates
     const SAVE_DEBOUNCE_MS = 1000;
@@ -1156,7 +1157,7 @@
                     }
                 }
             }
-            // Take profit
+            // Take profit — close immediately as soon as target is reached
             if (bet.takeProfitAmount) {
                 const tpAmount = num(bet.takeProfitAmount, 0);
                 if (tpAmount > 0 && netResult >= tpAmount) {
@@ -1166,7 +1167,8 @@
             } else if (bet.takeProfit) {
                 const tp = num(bet.takeProfit, 0);
                 if (tp > 0) {
-                    if (((bet.direction === 'up' && price >= tp) || (bet.direction === 'down' && price <= tp)) && netResult > 0) {
+                    const isTpTriggered = (bet.direction === 'up' && price >= tp) || (bet.direction === 'down' && price <= tp);
+                    if (isTpTriggered) {
                         toClose.push({ id: bet.id, reason: 'takeProfit' });
                         return;
                     }
