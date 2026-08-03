@@ -20,10 +20,10 @@
     };
     const CANDLE_COUNT = 80;
     const CANDLE_STEP_PX = 12;   // pixels per candle (scroll chart)
-    // PnL model: each closed candle that matches the predicted direction pays +100 USDT,
-    // each candle that goes against the prediction costs -102 USDT.
-    const CANDLE_WIN_USDT = 100;
-    const CANDLE_LOSS_USDT = 102;
+    // PnL model: each closed candle that matches the predicted direction pays +50% of the bet,
+    // each candle that goes against the prediction costs -55% of the bet.
+    const CANDLE_WIN_PCT = 0.50;
+    const CANDLE_LOSS_PCT = 0.55;
     const CANDLE_INTERVAL_MS = 2 * 1000;  // 2-second candles for lively charts
     const PRICE_TICK_MS = 2000;           // 2-second price updates
     const SAVE_DEBOUNCE_MS = 1000;
@@ -468,8 +468,8 @@
         return round(num(bet.candlePnl, 0), 2);
     }
 
-    // Award +CANDLE_WIN_USDT for each new closed candle that matches bet direction,
-    // -CANDLE_LOSS_USDT for each candle that goes against the prediction.
+    // Award +CANDLE_WIN_PCT * bet for each new closed candle that matches bet direction,
+    // -CANDLE_LOSS_PCT * bet for each candle that goes against the prediction.
     function processNewCandlesForBets() {
         if (!state.openBets.length) return;
         let changed = false;
@@ -483,6 +483,7 @@
             let pnlDelta = 0;
             let countDelta = 0;
             let newLastT = lastEvaluated;
+            const betAmount = num(bet.amount, 0);
             for (let i = 0; i < closedCandles.length; i++) {
                 const c = closedCandles[i];
                 if (!c || c.t <= lastEvaluated) continue;
@@ -490,9 +491,9 @@
                 const candleUp = c.c >= c.o;
                 const betUp = bet.direction === 'up';
                 if (candleUp === betUp) {
-                    pnlDelta += CANDLE_WIN_USDT;
+                    pnlDelta += round(betAmount * CANDLE_WIN_PCT, 2);
                 } else {
-                    pnlDelta -= CANDLE_LOSS_USDT;
+                    pnlDelta -= round(betAmount * CANDLE_LOSS_PCT, 2);
                 }
                 countDelta++;
                 if (c.t > newLastT) newLastT = c.t;
