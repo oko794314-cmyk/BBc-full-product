@@ -1689,8 +1689,8 @@
                     <div id="work-current-job" class="feature-stat-value">—</div>
                 </div>
                 <div class="feature-stat">
-                    <div class="feature-stat-label">ДОСВІД РОБОТИ</div>
-                    <div id="work-xp-display" class="feature-stat-value">0 XP</div>
+                    <div class="feature-stat-label">РІВЕНЬ / XP</div>
+                    <div id="work-xp-display" class="feature-stat-value">Рівень 1</div>
                 </div>
                 <div class="feature-stat">
                     <div class="feature-stat-label">ЗАРОБЛЕНО USDT</div>
@@ -1701,7 +1701,8 @@
                     <div id="work-next-time" class="feature-stat-value">—</div>
                 </div>
             </div>
-            <div style="margin-top:12px;">
+            <div id="work-xp-level-bar" style="margin-top:10px;padding:6px 2px;"></div>
+            <div style="margin-top:8px;">
                 <button id="work-do-btn" class="work-btn ready" onclick="doWork()">⚒️ ПРАЦЮВАТИ</button>
                 <div id="work-cooldown-bar"><div id="work-cooldown-fill" style="width:0%;"></div></div>
             </div>
@@ -4199,20 +4200,40 @@
             alert('Не можна переказувати USDT самому собі.');
             return;
         }
-        const senderUsdt = typeof extFeatures !== 'undefined' ? await extFeatures.loadUsdt(gameState.user) : 0;
+
+        // Verify recipient exists
+        const recipientSnap = await firebase.database().ref(`users/${recipient}`).once('value');
+        if (!recipientSnap.exists()) {
+            alert('Користувача не знайдено!');
+            return;
+        }
+
+        // Read BOTH balances simultaneously to minimize race-condition window
+        const [senderSnap, recvSnap] = await Promise.all([
+            firebase.database().ref(`users/${gameState.user}/usdt`).once('value'),
+            firebase.database().ref(`users/${recipient}/usdt`).once('value')
+        ]);
+        const senderUsdt = Number(senderSnap.val()) || 0;
+        const recvUsdt   = Number(recvSnap.val())   || 0;
+
         if (senderUsdt < amount) {
             alert(`Недостатньо USDT. Баланс: ${senderUsdt.toFixed(2)}`);
             return;
         }
-        const snap = await firebase.database().ref(`users/${recipient}`).once('value');
-        if (!snap.exists()) {
-            alert('Користувача не знайдено!');
-            return;
-        }
-        await extFeatures.adjustUsdt(gameState.user, -amount);
-        const recvSnap = await firebase.database().ref(`users/${recipient}/usdt`).once('value');
-        const recvUsdt = Number(recvSnap.val()) || 0;
-        await firebase.database().ref(`users/${recipient}/usdt`).set(Math.round((recvUsdt + amount) * 100) / 100);
+
+        const newSenderUsdt = Math.round((senderUsdt - amount) * 100) / 100;
+        const newRecvUsdt   = Math.round((recvUsdt   + amount) * 100) / 100;
+
+        // Atomic write — both balances update together or neither does
+        await firebase.database().ref().update({
+            [`users/${gameState.user}/usdt`]: newSenderUsdt,
+            [`users/${recipient}/usdt`]:      newRecvUsdt
+        });
+
+        // Update local state immediately so the header reflects the deduction
+        gameState.usdt = newSenderUsdt;
+        updateHeader();
+
         await firebase.database().ref('transactions').push({
             from: gameState.user,
             to: recipient,

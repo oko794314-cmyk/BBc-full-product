@@ -62,12 +62,37 @@
         { id: 'entrepreneur',name: 'Підприємець',  icon: '🤵', reward: 8.00, cooldown: 480,   xpGain: 40, xpRequired: 1500,desc: 'Потрібно 1500 XP. Максимальна виплата.' }
     ];
 
+    // XP thresholds for each level (index = level - 1)
+    const XP_LEVELS = [0, 50, 120, 220, 350, 520, 730, 990, 1300, 1680, 2150, 2730, 3450, 4350, 5500, 7000, 9000, 11500, 14500, 18500];
+
+    function getXpLevel(xp) {
+        let level = 1;
+        for (let i = 1; i < XP_LEVELS.length; i++) {
+            if (xp >= XP_LEVELS[i]) level = i + 1;
+            else break;
+        }
+        return level;
+    }
+
+    function getXpLevelProgress(xp) {
+        const level = getXpLevel(xp);
+        const currentThreshold = XP_LEVELS[level - 1] || 0;
+        const nextThreshold    = XP_LEVELS[level]     || null; // null = max level
+        if (nextThreshold === null) {
+            return { level, current: xp - currentThreshold, needed: 0, pct: 100, maxLevel: true };
+        }
+        const current = xp - currentThreshold;
+        const needed  = nextThreshold - currentThreshold;
+        return { level, current, needed, pct: Math.min(100, Math.round((current / needed) * 100)), maxLevel: false };
+    }
+
     const extState = {
         work: { jobId: null, xp: 0, lastWorkAt: 0, totalEarned: 0 },
         bank: { loans: {}, history: [], bootstrapped: false },
         stocks: { portfolio: {}, businesses: {} },
         workCooldownTimer: null,
         debtProcessingTimer: null,
+        usdtSyncTimer: null,
         tournamentListener: null
     };
 
@@ -102,11 +127,16 @@
         const u = getUser();
         const prof = getCurrentProfession();
         const cooldown = getWorkCooldownRemaining();
+        const xp = Math.floor(extState.work.xp);
+        const lvlData = getXpLevelProgress(xp);
 
         const jobNameEl = document.getElementById('work-current-job');
         if (jobNameEl) jobNameEl.textContent = `${prof.icon} ${prof.name}`;
+
+        // XP display: show level + raw XP
         const xpEl = document.getElementById('work-xp-display');
-        if (xpEl) xpEl.textContent = `${Math.floor(extState.work.xp)} XP`;
+        if (xpEl) xpEl.innerHTML = `<span style="color:var(--gold);">Рівень ${lvlData.level}</span> <span style="font-size:11px;color:var(--text2);">(${xp} XP)</span>`;
+
         const earnedEl = document.getElementById('work-earned-usdt');
         if (earnedEl) earnedEl.textContent = n(extState.work.totalEarned, 0).toFixed(2);
 
@@ -126,6 +156,23 @@
             if (doBtn) { doBtn.className = 'work-btn busy'; doBtn.textContent = `⏳ ${mins}хв ${secs}с`; doBtn.disabled = true; }
             if (coolBar) coolBar.style.display = 'block';
             if (coolFill) coolFill.style.width = `${(1 - cooldown / prof.cooldown) * 100}%`;
+        }
+
+        // XP level progress bar
+        const xpBarWrap = document.getElementById('work-xp-level-bar');
+        if (xpBarWrap) {
+            if (lvlData.maxLevel) {
+                xpBarWrap.innerHTML = `<div style="font-size:11px;color:var(--gold);text-align:center;padding:4px 0;">🏆 МАКСИМАЛЬНИЙ РІВЕНЬ</div>`;
+            } else {
+                xpBarWrap.innerHTML = `
+                    <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text2);margin-bottom:4px;">
+                        <span>Рівень ${lvlData.level}</span>
+                        <span>${lvlData.current} / ${lvlData.needed} XP до рівня ${lvlData.level + 1}</span>
+                    </div>
+                    <div style="height:6px;background:#111;border-radius:999px;overflow:hidden;">
+                        <div style="height:100%;background:linear-gradient(90deg,var(--p),var(--gold));border-radius:999px;width:${lvlData.pct}%;transition:width .4s;"></div>
+                    </div>`;
+            }
         }
 
         const listEl = document.getElementById('jobs-list');
@@ -333,7 +380,12 @@
         const baseReward = Number.isFinite(rewardOverride) ? rewardOverride : prof.reward;
         const penaltyAmount = Math.min(penalties * 0.10, baseReward * 0.5);
         const actualReward = Math.max(0.01, baseReward - penaltyAmount);
+
+        // Detect level-up before applying XP gain
+        const levelBefore = getXpLevel(Math.floor(extState.work.xp));
         extState.work.xp += prof.xpGain;
+        const levelAfter  = getXpLevel(Math.floor(extState.work.xp));
+
         extState.work.lastWorkAt = Date.now();
         extState.work.totalEarned = n(extState.work.totalEarned, 0) + actualReward;
         await saveWorkState();
@@ -347,10 +399,17 @@
         });
         await incrementWeeklyProgress(u, 'weeklyWorkCount');
         await incrementWeeklyProgress(u, 'weeklyUsdtEarned', actualReward);
+
         const msg = options.successMessage || (penalties > 0
-            ? `💵 +${actualReward.toFixed(2)} USDT (штраф -${penaltyAmount.toFixed(2)} за ${penalties} помилок)`
-            : `💵 +${actualReward.toFixed(2)} USDT за роботу ${prof.icon}`);
+            ? `💵 +${actualReward.toFixed(2)} USDT ✨ +${prof.xpGain} XP (штраф -${penaltyAmount.toFixed(2)} за ${penalties} помилок)`
+            : `💵 +${actualReward.toFixed(2)} USDT ✨ +${prof.xpGain} XP за роботу ${prof.icon}`);
         showGN(msg);
+
+        // Level-up notification
+        if (levelAfter > levelBefore) {
+            setTimeout(() => showGN(`🎉 РІВЕНЬ ВИЩЕ! Ви досягли рівня ${levelAfter}! Нові можливості відкрито!`), 1800);
+        }
+
         renderWorkTab();
         startWorkCooldownTick();
     }
@@ -3489,6 +3548,17 @@
         if (extState.debtProcessingTimer) clearInterval(extState.debtProcessingTimer);
         extState.debtProcessingTimer = setInterval(() => { checkOverdueLoans(); }, 60 * 60 * 1000);
         checkOverdueLoans();
+        // Periodic USDT balance sync (every 30 s) as a safety net in case the
+        // real-time listener misses an update (e.g. brief network interruption).
+        if (extState.usdtSyncTimer) clearInterval(extState.usdtSyncTimer);
+        extState.usdtSyncTimer = setInterval(async () => {
+            const cu = getUser(); if (!cu) return;
+            const latest = await loadUsdt(cu);
+            if (latest !== getUsdt()) {
+                if (typeof gameState !== 'undefined') gameState.usdt = latest;
+                if (typeof updateHeader === 'function') updateHeader();
+            }
+        }, 30000);
         // Check and generate a tax bill if 2+ days have passed since the last one
         setTimeout(() => checkAndGenerateTaxBill(), 3000);
     }
@@ -3499,6 +3569,7 @@
         extState.stocks = { portfolio: {}, businesses: {} };
         if (extState.workCooldownTimer) { clearInterval(extState.workCooldownTimer); extState.workCooldownTimer = null; }
         if (extState.debtProcessingTimer) { clearInterval(extState.debtProcessingTimer); extState.debtProcessingTimer = null; }
+        if (extState.usdtSyncTimer) { clearInterval(extState.usdtSyncTimer); extState.usdtSyncTimer = null; }
         minesState.active = false;
         cleanupTournamentChatListener();
         tournamentState.activeTournamentId = null;
@@ -3560,7 +3631,7 @@
         renderWorkTab, renderBankTab, renderStocksTab, renderWeeklyQuest,
         adjustUsdt, loadUsdt, saveUsdt,
         incrementWeeklyProgress, checkWeeklyQuestCompletion,
-        getCurrentProfession
+        getCurrentProfession, getXpLevel, getXpLevelProgress
     };
 
 })();
