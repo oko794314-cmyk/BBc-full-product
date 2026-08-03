@@ -663,6 +663,15 @@
         });
     }
 
+    async function appendBankHistoryRecord(entry) {
+        if (typeof window.recordBankHistoryEntry !== 'function') return;
+        try {
+            await window.recordBankHistoryEntry(entry);
+        } catch (error) {
+            console.warn('Bank history append failed:', error);
+        }
+    }
+
     function normalizeLoaded(raw) {
         const base = {
             selectedPair: PAIRS[0],
@@ -738,10 +747,6 @@
             showGameNotification(`❌ Угоду закрито зі збитком: -${Math.abs(closeDelta).toFixed(2)} USDT`);
         }
         state.openBets.splice(index, 1);
-        if (typeof gameState !== 'undefined') {
-            gameState.usdt = state.wallet.usdt;
-            if (typeof updateHeader === 'function') updateHeader();
-        }
         queueSave();
         renderAll();
     }
@@ -793,6 +798,32 @@
         if (pwdInput) pwdInput.value = '';
         queueSave();
         if (typeof showGameNotification === 'function') showGameNotification('🔐 Пароль гаманця збережено та запамʼятано на сесію');
+    }
+
+    async function setWalletPasswordFromSettings(userPassword, newWalletPassword) {
+        const user = state.user || getCurrentUser();
+        if (!user) return { success: false, error: 'Спочатку увійдіть у акаунт.' };
+        const accountPassword = String(userPassword || '');
+        const walletPassword = String(newWalletPassword || '');
+        if (!accountPassword) return { success: false, error: 'Введіть пароль акаунта.' };
+        if (walletPassword.length < 4) return { success: false, error: 'Пароль гаманця має бути мінімум 4 символи.' };
+        if (typeof window.loadUserFromFirebase !== 'function' || typeof window.verifyStoredPassword !== 'function' || typeof window.hashTextSHA256 !== 'function') {
+            return { success: false, error: 'Сервіс перевірки пароля недоступний.' };
+        }
+        const userData = await window.loadUserFromFirebase(user);
+        const valid = !!userData && await window.verifyStoredPassword(userData.password, accountPassword);
+        if (!valid) return { success: false, error: 'Неправильний пароль акаунта.' };
+        if (state.user !== user || !state.loaded) {
+            state.user = user;
+            await loadState(user);
+            state.loaded = true;
+        }
+        const hash = await window.hashTextSHA256(walletPassword);
+        state.wallet.walletPasswordHash = `sha256:${hash}`;
+        state.sessionPasswordHash = state.wallet.walletPasswordHash;
+        queueSave();
+        renderWallet();
+        return { success: true };
     }
 
     async function depositUsdt() {
@@ -861,10 +892,21 @@
         const cost = round(amount * num(state.prices[state.selectedPair], 0), 2);
         state.wallet.usdt = round(num(state.wallet.usdt, 0) - cost, 2);
         state.wallet.holdings[token] = round(num(state.wallet.holdings[token], 0) + amount);
-        if (typeof gameState !== 'undefined') {
-            gameState.usdt = state.wallet.usdt;
-            if (typeof updateHeader === 'function') updateHeader();
-        }
+        await appendBankHistoryRecord({
+            type: 'market_buy',
+            currency: 'usdt',
+            amount: cost,
+            note: `Ринок: купівля ${token}`,
+            ts: Date.now(),
+            meta: {
+                side: 'buy',
+                pair: state.selectedPair,
+                quantity: amount,
+                rate: num(state.prices[state.selectedPair], 0),
+                total: cost,
+                token
+            }
+        });
         queueSave();
         renderWallet();
         if (typeof showGameNotification === 'function') showGameNotification(`🟢 Куплено ${amount} ${token} за ${cost.toFixed(2)} USDT`);
@@ -890,10 +932,21 @@
         const revenue = round(amount * num(state.prices[state.selectedPair], 0), 2);
         state.wallet.holdings[token] = round(owned - amount);
         state.wallet.usdt = round(num(state.wallet.usdt, 0) + revenue, 2);
-        if (typeof gameState !== 'undefined') {
-            gameState.usdt = state.wallet.usdt;
-            if (typeof updateHeader === 'function') updateHeader();
-        }
+        await appendBankHistoryRecord({
+            type: 'market_sell',
+            currency: 'usdt',
+            amount: revenue,
+            note: `Ринок: продаж ${token}`,
+            ts: Date.now(),
+            meta: {
+                side: 'sell',
+                pair: state.selectedPair,
+                quantity: amount,
+                rate: num(state.prices[state.selectedPair], 0),
+                total: revenue,
+                token
+            }
+        });
         queueSave();
         renderWallet();
         if (typeof showGameNotification === 'function') showGameNotification(`🔴 Продано ${amount} ${token}, отримано ${revenue.toFixed(2)} USDT`);
@@ -925,10 +978,6 @@
             placedAt: Date.now()
         };
         state.openBets.push(bet);
-        if (typeof gameState !== 'undefined') {
-            gameState.usdt = state.wallet.usdt;
-            if (typeof updateHeader === 'function') updateHeader();
-        }
         queueSave();
         renderAll();
         if (typeof showGameNotification === 'function') showGameNotification(`🎯 Ставка прийнята: ${direction === 'up' ? 'UP' : 'DOWN'} ${state.selectedPair}`);
@@ -1019,6 +1068,7 @@
         openTab,
         refreshNow: renderAll,
         setWalletPassword,
+        setWalletPasswordFromSettings,
         depositUsdt,
         buyCurrent,
         sellCurrent,

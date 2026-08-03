@@ -1257,6 +1257,24 @@
         await saveBankData();
     }
 
+    window.recordBankHistoryEntry = async function(entry = {}) {
+        const u = getUser();
+        if (!u) return false;
+        if (!extState.bank.bootstrapped) await loadBankData();
+        const normalized = {
+            type: entry.type || 'other',
+            currency: entry.currency === 'usdt' ? 'usdt' : 'bb',
+            amount: Math.max(0, n(entry.amount)),
+            note: String(entry.note || 'Операція'),
+            ts: n(entry.ts, Date.now()),
+            meta: entry.meta && typeof entry.meta === 'object' ? entry.meta : null
+        };
+        await appendBankRecord(normalized);
+        if (document.getElementById('bank-panel-history')?.classList.contains('active')) window.renderBankHistory();
+        if (document.getElementById('bank-panel-stats')?.classList.contains('active')) window.renderBankStats();
+        return true;
+    };
+
     async function checkOverdueLoans() {
         const u = getUser(); if (!u) return;
         const now = Date.now();
@@ -1612,13 +1630,16 @@
         });
         if (!items.length) { listEl.innerHTML = '<div style="color:var(--text2);font-size:13px;">Немає записів</div>'; return; }
         listEl.innerHTML = items.slice(0, 50).map(h => {
-            const isIncome = h.type === 'loan' || h.type === 'work';
+            const isIncome = h.type === 'loan' || h.type === 'work' || h.type === 'market_sell';
+            const marketMeta = h.meta && (h.type === 'market_buy' || h.type === 'market_sell') ? h.meta : null;
+            const marketDetails = marketMeta ? `<div class="transaction-meta" style="margin-top:4px;"><span>Пара: ${(marketMeta.pair || '—')}</span><span>Курс: ${n(marketMeta.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDT</span></div><div class="transaction-meta"><span>Кількість: ${n(marketMeta.quantity).toFixed(6)}</span><span>${h.type === 'market_buy' ? 'Сплачено' : 'Отримано'}: ${n(marketMeta.total).toFixed(2)} USDT</span></div>` : '';
             return `<div class="transaction-item">
                 <div class="transaction-head">
                     <div><b style="font-size:12px;">${esc(h.note || h.type)}</b></div>
                     <span class="transaction-amount ${isIncome ? 'income' : 'expense'}">${isIncome ? '+' : '-'}${n(h.amount).toFixed(2)} ${(h.currency || 'bb').toUpperCase()}</span>
                 </div>
                 <div class="transaction-meta"><span>${new Date(n(h.ts, Date.now())).toLocaleString('uk-UA')}</span></div>
+                ${marketDetails}
             </div>`;
         }).join('');
     };

@@ -1267,6 +1267,15 @@
             <input type="password" id="settings-confirm-password" placeholder="Повторіть новий пароль">
             <button class="btn" onclick="changePassword()">ЗМІНИТИ ПАРОЛЬ</button>
         </div>
+        <div class="glass settings-section">
+            <label class="settings-label" for="settings-wallet-user-password">ПАРОЛЬ АКАУНТА (ДЛЯ ГАМАНЦЯ)</label>
+            <input type="password" id="settings-wallet-user-password" placeholder="Пароль акаунта">
+            <label class="settings-label" for="settings-wallet-new-password">НОВИЙ ПАРОЛЬ ГАМАНЦЯ</label>
+            <input type="password" id="settings-wallet-new-password" placeholder="Новий пароль гаманця">
+            <label class="settings-label" for="settings-wallet-confirm-password">ПІДТВЕРДЖЕННЯ ПАРОЛЯ ГАМАНЦЯ</label>
+            <input type="password" id="settings-wallet-confirm-password" placeholder="Повторіть новий пароль гаманця">
+            <button class="btn" onclick="changeWalletPasswordInSettings()">ЗМІНИТИ ПАРОЛЬ ГАМАНЦЯ</button>
+        </div>
         <div class="glass settings-section" style="margin-top:25px;">
             <button class="btn danger-btn" onclick="logout()">ВИЙТИ З АКАУНТА</button>
         </div>
@@ -1756,6 +1765,8 @@
                     <option value="repay">Погашення</option>
                     <option value="penalty">Штрафи</option>
                     <option value="work">Робота</option>
+                    <option value="market_buy">Ринок: купівля</option>
+                    <option value="market_sell">Ринок: продаж</option>
                     <option value="tax">Податки</option>
                 </select>
                 <div id="bank-history-list" class="list-stack"></div>
@@ -5073,6 +5084,37 @@
         showGameNotification('🔒 Пароль оновлено');
     }
 
+    async function changeWalletPasswordInSettings() {
+        const accountPassword = document.getElementById('settings-wallet-user-password').value;
+        const newWalletPassword = document.getElementById('settings-wallet-new-password').value;
+        const confirmWalletPassword = document.getElementById('settings-wallet-confirm-password').value;
+        if (!accountPassword || !newWalletPassword || !confirmWalletPassword) {
+            alert('Заповніть усі поля пароля гаманця');
+            return;
+        }
+        if (newWalletPassword.length < 4) {
+            alert('Пароль гаманця має містити мінімум 4 символи');
+            return;
+        }
+        if (newWalletPassword !== confirmWalletPassword) {
+            alert('Нові паролі гаманця не співпадають');
+            return;
+        }
+        if (!window.marketSim || typeof window.marketSim.setWalletPasswordFromSettings !== 'function') {
+            alert('Модуль гаманця тимчасово недоступний');
+            return;
+        }
+        const result = await window.marketSim.setWalletPasswordFromSettings(accountPassword, newWalletPassword);
+        if (!result?.success) {
+            alert(result?.error || 'Не вдалося змінити пароль гаманця');
+            return;
+        }
+        document.getElementById('settings-wallet-user-password').value = '';
+        document.getElementById('settings-wallet-new-password').value = '';
+        document.getElementById('settings-wallet-confirm-password').value = '';
+        showGameNotification('🔐 Пароль гаманця оновлено');
+    }
+
     function closeAvatarModal() {
         document.getElementById('avatar-modal').classList.remove('active');
     }
@@ -6198,6 +6240,9 @@
         document.getElementById('settings-current-password').value = '';
         document.getElementById('settings-new-password').value = '';
         document.getElementById('settings-confirm-password').value = '';
+        document.getElementById('settings-wallet-user-password').value = '';
+        document.getElementById('settings-wallet-new-password').value = '';
+        document.getElementById('settings-wallet-confirm-password').value = '';
     }
 
     // ===== SLOT MACHINE =====
@@ -6789,10 +6834,22 @@
                 const comp = event.competitions?.[0];
                 const home = comp?.competitors?.find(c => c.homeAway === 'home');
                 const away = comp?.competitors?.find(c => c.homeAway === 'away');
-                const statusName = comp?.status?.type?.name || '';
+                const statusType = comp?.status?.type || {};
+                const statusName = statusType.name || '';
+                const statusState = String(statusType.state || '').toLowerCase();
+                const statusDetail = `${statusType.shortDetail || ''} ${statusType.description || ''}`.toLowerCase();
+                const isCompleted = statusType.completed === true || statusState === 'post';
                 let status = 'SCHEDULED';
-                if (statusName === 'STATUS_FINAL') status = 'FINISHED';
-                else if (statusName === 'STATUS_IN_PROGRESS' || statusName === 'STATUS_HALFTIME') status = 'IN_PLAY';
+                if (isCompleted || statusName === 'STATUS_FINAL' || statusName === 'STATUS_FULL_TIME' || /final|ft|aet|pens/.test(statusDetail)) {
+                    status = 'FINISHED';
+                } else if (
+                    statusName === 'STATUS_IN_PROGRESS' ||
+                    statusName === 'STATUS_HALFTIME' ||
+                    statusState === 'in' ||
+                    /half|live|period/.test(statusDetail)
+                ) {
+                    status = 'IN_PLAY';
+                }
                 return {
                     id: `espn-${event.id}`,
                     utcDate: event.date,
@@ -6991,6 +7048,8 @@
         // A bet is settled only when the match status is FINISHED; won money is added to balance.
         async function resolveFinishedBets(matches) {
             let anyChanged = false;
+            const now = Date.now();
+            const BET_STALE_REFUND_MS = 4 * 60 * 60 * 1000;
             // For bets placed on fallback matches (numeric IDs) that are not in the current matches
             // list (e.g. when ESPN data is now being used), supplement with current fallback data.
             const pendingFallbackIds = window._sportState.bets
@@ -7034,6 +7093,22 @@
                 } else {
                     showGameNotification(`😞 Ставка програла. -${b.amount} BB`);
                 }
+            }
+            for (const b of window._sportState.bets) {
+                if (b.status !== 'pending') continue;
+                const matchTime = b.matchDate ? new Date(b.matchDate).getTime() : 0;
+                const isPastMatch = Number.isFinite(matchTime) && matchTime > 0 && (now - matchTime) > BET_STALE_REFUND_MS;
+                const matchExists = allMatches.find(m => String(m.id) === String(b.matchId));
+                if (matchExists || !isPastMatch) continue;
+                b.status = 'refunded';
+                b.refundReason = 'stale_match';
+                gameState.balance += Number(b.amount || 0);
+                if (typeof updateMiningBalanceFirebase === 'function') {
+                    await updateMiningBalanceFirebase(gameState.user, gameState.balance);
+                }
+                if (typeof updateHeader === 'function') updateHeader();
+                showGameNotification(`↩️ Ставку ${Number(b.amount || 0).toFixed(2)} BB повернено: матч недоступний або перенесений.`);
+                anyChanged = true;
             }
             if (anyChanged) {
                 saveBets();
@@ -7176,8 +7251,8 @@
                 el.innerHTML = '<div style="color:var(--text2);font-size:13px;">Ставок ще немає.</div>';
             } else {
                 el.innerHTML = bets.slice(0, 20).map(b => {
-                    const statusIcon = b.status === 'won' ? '✅' : b.status === 'lost' ? '❌' : '⏳';
-                    const statusCol = b.status === 'won' ? 'var(--g)' : b.status === 'lost' ? 'var(--r)' : 'var(--text2)';
+                    const statusIcon = b.status === 'won' ? '✅' : b.status === 'lost' ? '❌' : b.status === 'refunded' ? '↩️' : '⏳';
+                    const statusCol = b.status === 'won' ? 'var(--g)' : b.status === 'lost' ? 'var(--r)' : b.status === 'refunded' ? 'var(--p)' : 'var(--text2)';
                     // Look up current match data for score/status
                     const match = (window._sportState.matches || []).find(m => String(m.id) === String(b.matchId));
                     let matchInfoHtml = '';
@@ -7191,10 +7266,16 @@
                             matchInfoHtml = `<div style="font-size:10px;color:var(--g);margin-top:2px;">● Матч проходить · <b>${hg}:${ag}</b></div>`;
                         } else if (ms === 'SCHEDULED' || ms === 'TIMED') {
                             const dt = b.matchDate ? new Date(b.matchDate).toLocaleString('uk-UA', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '';
-                            matchInfoHtml = `<div style="font-size:10px;color:var(--p);margin-top:2px;">🕐 Заплановано${dt ? ' · ' + dt : ''}</div>`;
+                            const matchTs = b.matchDate ? new Date(b.matchDate).getTime() : 0;
+                            const stale = Number.isFinite(matchTs) && matchTs > 0 && (Date.now() - matchTs) > (2 * 60 * 60 * 1000);
+                            matchInfoHtml = stale
+                                ? `<div style="font-size:10px;color:var(--gold);margin-top:2px;">⌛ Очікуємо фінальний статус${dt ? ' · ' + dt : ''}</div>`
+                                : `<div style="font-size:10px;color:var(--p);margin-top:2px;">🕐 Заплановано${dt ? ' · ' + dt : ''}</div>`;
                         }
                     } else if (b.status === 'pending') {
                         matchInfoHtml = `<div style="font-size:10px;color:var(--text2);margin-top:2px;">⏳ Очікує результату...</div>`;
+                    } else if (b.status === 'refunded') {
+                        matchInfoHtml = `<div style="font-size:10px;color:var(--p);margin-top:2px;">↩️ Ставку повернено</div>`;
                     }
                     return `<div style="background:#111;border-radius:8px;padding:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
                         <div>
@@ -7203,7 +7284,7 @@
                             ${matchInfoHtml}
                         </div>
                         <div style="text-align:right;">
-                            <div style="font-size:13px;font-weight:700;color:${statusCol};">${statusIcon} ${b.status === 'won' ? '+'+b.potential : b.status === 'lost' ? '-'+b.amount : '...'} BB</div>
+                            <div style="font-size:13px;font-weight:700;color:${statusCol};">${statusIcon} ${b.status === 'won' ? '+'+b.potential : b.status === 'lost' ? '-'+b.amount : b.status === 'refunded' ? '+'+Number(b.amount || 0).toFixed(2) : '...'} BB</div>
                             <div style="font-size:10px;color:var(--text2);">${b.amount} BB ставка</div>
                         </div>
                     </div>`;
