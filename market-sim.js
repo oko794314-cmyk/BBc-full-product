@@ -21,8 +21,8 @@
     const CANDLE_COUNT = 80;
     const CANDLE_STEP_PX = 12;   // pixels per candle (scroll chart)
     // PnL model: each 1% market move = +10 USDT if direction is correct, -12 USDT if wrong.
-    const PNL_PER_PERCENT_WIN_USDT = 10;
-    const PNL_PER_PERCENT_LOSS_USDT = 12;
+    const PNL_PER_PERCENT_WIN_USDT = 100;
+    const PNL_PER_PERCENT_LOSS_USDT = 112;
     const CANDLE_INTERVAL_MS = 2 * 1000;  // 2-second candles for lively charts
     const PRICE_TICK_MS = 2000;           // 2-second price updates
     const SAVE_DEBOUNCE_MS = 1000;
