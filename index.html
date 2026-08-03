@@ -2025,11 +2025,12 @@
                         <button class="mkt-leverage-btn" data-lev="10" onclick="window.marketSim && window.marketSim.setLeverage(10)">10×</button>
                         <button class="mkt-leverage-btn" data-lev="20" onclick="window.marketSim && window.marketSim.setLeverage(20)">20×</button>
                     </div>
-                    <div class="mkt-futures-label">🛑 Стоп-лос &nbsp;/&nbsp; ✅ Тейк-профіт (ціна)</div>
+                    <div class="mkt-futures-label">🛑 Стоп-лос &nbsp;/&nbsp; ✅ Тейк-профіт (чистий PnL у USDT)</div>
                     <div class="mkt-sltp-row">
-                        <input id="market-stop-loss" type="number" min="0" step="any" class="mkt-input" placeholder="Стоп-лос">
-                        <input id="market-take-profit" type="number" min="0" step="any" class="mkt-input" placeholder="Тейк-профіт">
+                        <input id="market-stop-loss" type="number" min="0" step="0.01" class="mkt-input" placeholder="Стоп-лос, USDT">
+                        <input id="market-take-profit" type="number" min="0" step="0.01" class="mkt-input" placeholder="Тейк-профіт, USDT">
                     </div>
+                    <div class="mkt-trade-hint">SL/TP тепер рахуються по чистому результату угоди: наприклад, SL 350 закриє позицію при -350 USDT.</div>
                 </div>
                 <div class="mkt-bet-btns">
                     <button class="mkt-btn-up" onclick="window.marketSim && window.marketSim.placeBet && window.marketSim.placeBet('up')">▲ ЗРОСТЕ</button>

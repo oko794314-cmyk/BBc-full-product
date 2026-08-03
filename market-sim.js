@@ -22,7 +22,6 @@
     const CANDLE_STEP_PX = 12;   // pixels per candle (scroll chart)
     const CANDLE_INTERVAL_MS = 5 * 1000;
     const PRICE_TICK_MS = 5000;
-    const BET_MULTIPLIER = 38;
     const SAVE_DEBOUNCE_MS = 1000;
     // Volatile coins (PEPE, WIF, SHIB, BONK, FLOKI) have 4–6x higher volatility for unpredictable, high-reward charts
     const PAIR_VOLATILITY = {
@@ -443,19 +442,22 @@
         `;
     }
 
-    // Calculate close delta for a bet given pnlRatio (positive = in profit direction)
+    function calcPnlRatio(bet, price) {
+        const entryPrice = Math.max(0.000001, num(bet.entryPrice, price));
+        return bet.direction === 'up'
+            ? (price - entryPrice) / entryPrice
+            : (entryPrice - price) / entryPrice;
+    }
+
     function calcCloseDelta(bet, pnlRatio) {
         const amount = num(bet.amount, 0);
-        const leverage = num(bet.leverage, 1);
-        if (leverage > 1) {
-            // Futures mode: straight leverage, capped at -100% of stake
-            const leveragedPnl = pnlRatio * leverage;
-            return round(Math.max(-amount, amount * leveragedPnl), 2);
-        }
-        // Standard prediction mode
-        return pnlRatio > 0
-            ? round(amount + (amount * Math.abs(pnlRatio) * BET_MULTIPLIER), 2)
-            : -round(amount * Math.abs(pnlRatio) * BET_MULTIPLIER, 2);
+        const leverage = Math.max(1, num(bet.leverage, 1));
+        const grossValue = amount + (amount * pnlRatio * leverage);
+        return round(Math.max(0, grossValue), 2);
+    }
+
+    function calcNetResult(bet, pnlRatio) {
+        return round(calcCloseDelta(bet, pnlRatio) - num(bet.amount, 0), 2);
     }
 
     function renderBets() {
@@ -477,19 +479,21 @@
 
             const livePrice = num(state.prices[bet.pair], bet.entryPrice);
             const entryPrice = Math.max(0.000001, num(bet.entryPrice, livePrice));
-            const pnlRatio = bet.direction === 'up'
-                ? ((livePrice - entryPrice) / entryPrice)
-                : ((entryPrice - livePrice) / entryPrice);
+            const pnlRatio = calcPnlRatio(bet, livePrice);
             const pnlPercent = pnlRatio * 100;
             const closeDelta = calcCloseDelta(bet, pnlRatio);
-
-            const slInfo = bet.stopLoss ? `🛑 SL: ${num(bet.stopLoss).toFixed(getPairDigits(bet.pair))}` : '';
-            const tpInfo = bet.takeProfit ? `✅ TP: ${num(bet.takeProfit).toFixed(getPairDigits(bet.pair))}` : '';
+            const netResult = calcNetResult(bet, pnlRatio);
+            const slInfo = bet.stopLossAmount
+                ? `🛑 SL: -${num(bet.stopLossAmount).toFixed(2)} USDT`
+                : (bet.stopLoss ? `🛑 SL: ${num(bet.stopLoss).toFixed(getPairDigits(bet.pair))}` : '');
+            const tpInfo = bet.takeProfitAmount
+                ? `✅ TP: +${num(bet.takeProfitAmount).toFixed(2)} USDT`
+                : (bet.takeProfit ? `✅ TP: ${num(bet.takeProfit).toFixed(getPairDigits(bet.pair))}` : '');
             const slTpLine = (slInfo || tpInfo) ? `<br>${[slInfo, tpInfo].filter(Boolean).join(' &nbsp; ')}` : '';
 
             const bottom = document.createElement('div');
             bottom.className = 'market-open-bet-meta';
-            bottom.innerHTML = `Ставка: ${num(bet.amount, 0).toFixed(2)} USDT • Вхід: ${entryPrice.toFixed(getPairDigits(bet.pair))}${slTpLine}<br>Поточний рух: <span style="color:${pnlPercent >= 0 ? '#0ECB81' : '#F6465D'}">${pnlPercent >= 0 ? '+' : ''}${pnlPercent.toFixed(2)}%</span><br>Якщо закрити зараз: <span style="color:${closeDelta >= 0 ? '#0ECB81' : '#F6465D'};font-weight:800;">${closeDelta >= 0 ? '+' : ''}${Math.abs(closeDelta).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</span>`;
+            bottom.innerHTML = `Маржа: ${num(bet.amount, 0).toFixed(2)} USDT • Вхід: ${entryPrice.toFixed(getPairDigits(bet.pair))}${slTpLine}<br>Поточний рух: <span style="color:${pnlPercent >= 0 ? '#0ECB81' : '#F6465D'}">${pnlPercent >= 0 ? '+' : ''}${pnlPercent.toFixed(2)}%</span><br>Поточний PnL: <span style="color:${netResult >= 0 ? '#0ECB81' : '#F6465D'};font-weight:800;">${netResult >= 0 ? '+' : ''}${Math.abs(netResult).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</span><br>Повернеться при закритті: <span style="color:#F0B90B;font-weight:700;">${closeDelta.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</span>`;
 
             const closeBtn = document.createElement('button');
             closeBtn.className = 'market-open-bet-close';
@@ -532,8 +536,8 @@
             meta.className = 'market-open-bet-meta';
             meta.innerHTML = `
                 Списано при вході: <span style="color:#F6465D;">-${num(item.amount, 0).toFixed(2)} USDT</span><br>
-                Закриття угоди: <span style="color:${closeDelta >= 0 ? '#0ECB81' : '#F6465D'};">${closeDelta >= 0 ? '+' : ''}${Math.abs(closeDelta).toFixed(2)} USDT</span> • Рух: <span style="color:${move >= 0 ? '#0ECB81' : '#F6465D'};">${move >= 0 ? '+' : ''}${move.toFixed(2)}%</span><br>
-                Чистий результат: <span style="color:${net >= 0 ? '#0ECB81' : '#F6465D'};font-weight:800;">${net >= 0 ? '+' : ''}${Math.abs(net).toFixed(2)} USDT</span><br>
+                Повернуто при закритті: <span style="color:#F0B90B;">${closeDelta.toFixed(2)} USDT</span> • Рух: <span style="color:${move >= 0 ? '#0ECB81' : '#F6465D'};">${move >= 0 ? '+' : ''}${move.toFixed(2)}%</span><br>
+                Чистий PnL: <span style="color:${net >= 0 ? '#0ECB81' : '#F6465D'};font-weight:800;">${net >= 0 ? '+' : ''}${Math.abs(net).toFixed(2)} USDT</span><br>
                 <span style="color:var(--text2);">${reasonLabel(item.closeReason)}</span>
             `;
             card.appendChild(top);
@@ -697,14 +701,10 @@
         if (activeBet) {
             const livePrice = num(state.prices[activeBet.pair], activeBet.entryPrice);
             const entryPrice = Math.max(0.000001, num(activeBet.entryPrice, livePrice));
-            const pnlRatio = activeBet.direction === 'up'
-                ? ((livePrice - entryPrice) / entryPrice)
-                : ((entryPrice - livePrice) / entryPrice);
-            const closeDelta = pnlRatio > 0
-                ? round(num(activeBet.amount, 0) + (num(activeBet.amount, 0) * Math.abs(pnlRatio) * BET_MULTIPLIER), 2)
-                : -round(num(activeBet.amount, 0) * Math.abs(pnlRatio) * BET_MULTIPLIER, 2);
+            const pnlRatio = calcPnlRatio(activeBet, livePrice);
+            const netResult = calcNetResult(activeBet, pnlRatio);
             const yEntry = toY(entryPrice);
-            const label = `${closeDelta >= 0 ? '+' : '-'}${Math.abs(closeDelta).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT`;
+            const label = `${netResult >= 0 ? '+' : '-'}${Math.abs(netResult).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT`;
             const labelW = Math.min(148, Math.max(94, ctx.measureText(label).width + 18));
 
             ctx.setLineDash([3, 3]);
@@ -718,7 +718,7 @@
 
             ctx.fillStyle = '#FFFFFF';
             ctx.fillRect(W - padRight - labelW - 6, yEntry - 10, labelW, 20);
-            ctx.fillStyle = closeDelta >= 0 ? '#0B8E11' : '#B42334';
+            ctx.fillStyle = netResult >= 0 ? '#0B8E11' : '#B42334';
             ctx.font = 'bold 10px monospace';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
@@ -821,12 +821,10 @@
         const bet = state.openBets[index];
         const livePrice = num(state.prices[bet.pair], bet.entryPrice);
         const entryPrice = Math.max(0.000001, num(bet.entryPrice, livePrice));
-        const pnlRatio = bet.direction === 'up'
-            ? ((livePrice - entryPrice) / entryPrice)
-            : ((entryPrice - livePrice) / entryPrice);
+        const pnlRatio = calcPnlRatio(bet, livePrice);
         const closeDelta = calcCloseDelta(bet, pnlRatio);
+        const netResult = calcNetResult(bet, pnlRatio);
         state.wallet.usdt = round(num(state.wallet.usdt, 0) + closeDelta, 2);
-        const netResult = round(closeDelta - num(bet.amount, 0), 2);
         state.closedBets.push({
             id: `${bet.id}_closed_${Date.now()}`,
             pair: bet.pair,
@@ -842,18 +840,21 @@
             closedAt: Date.now()
         });
         if (state.closedBets.length > 120) state.closedBets = state.closedBets.slice(-120);
-        const isWin = closeDelta > 0;
+        const isWin = netResult > 0;
+        const isFlat = netResult === 0;
         if (typeof showGameNotification === 'function') {
             if (reason === 'liquidation') {
                 showGameNotification(`💥 Ліквідація! Позицію закрито зі збитком: -${num(bet.amount).toFixed(2)} USDT`);
             } else if (reason === 'stopLoss') {
-                showGameNotification(`🛑 Стоп-лос: угоду закрито. ${closeDelta >= 0 ? '+' : ''}${closeDelta.toFixed(2)} USDT`);
+                showGameNotification(`🛑 Стоп-лос: угоду закрито. ${netResult >= 0 ? '+' : ''}${netResult.toFixed(2)} USDT`);
             } else if (reason === 'takeProfit') {
-                showGameNotification(`✅ Тейк-профіт: угоду закрито з прибутком +${closeDelta.toFixed(2)} USDT`);
+                showGameNotification(`✅ Тейк-профіт: угоду закрито з прибутком +${netResult.toFixed(2)} USDT`);
             } else if (isWin) {
-                showGameNotification(`✅ Угоду закрито з прибутком: +${closeDelta.toFixed(2)} USDT`);
+                showGameNotification(`✅ Угоду закрито з прибутком: +${netResult.toFixed(2)} USDT`);
+            } else if (isFlat) {
+                showGameNotification('➖ Угоду закрито без прибутку та збитку.');
             } else {
-                showGameNotification(`❌ Угоду закрито зі збитком: -${Math.abs(closeDelta).toFixed(2)} USDT`);
+                showGameNotification(`❌ Угоду закрито зі збитком: -${Math.abs(netResult).toFixed(2)} USDT`);
             }
         }
         state.openBets.splice(index, 1);
@@ -1086,12 +1087,9 @@
             alert('Ціна ринку недоступна. Спробуйте ще раз.');
             return;
         }
-        if (slRaw > 0) {
-            const invalidForDirection = (direction === 'up' && slRaw >= entryPrice) || (direction === 'down' && slRaw <= entryPrice);
-            if (invalidForDirection) {
-                alert(`Стоп-лос має бути в зоні збитку: для ${direction === 'up' ? 'UP нижче' : 'DOWN вище'} ціни входу.`);
-                return;
-            }
+        if (slRaw > 0 && slRaw >= amount) {
+            alert('Стоп-лос має бути меншим за суму угоди: більше за вашу маржу втратити не можна.');
+            return;
         }
         state.wallet.usdt = round(num(state.wallet.usdt, 0) - amount, 2);
         const bet = {
@@ -1101,8 +1099,10 @@
             amount,
             entryPrice,
             leverage: leverage > 1 ? leverage : 1,
-            stopLoss: slRaw > 0 ? round(slRaw, getPairDigits(state.selectedPair)) : null,
-            takeProfit: tpRaw > 0 ? round(tpRaw, getPairDigits(state.selectedPair)) : null,
+            stopLossAmount: slRaw > 0 ? round(slRaw, 2) : null,
+            takeProfitAmount: tpRaw > 0 ? round(tpRaw, 2) : null,
+            stopLoss: null,
+            takeProfit: null,
             placedAt: Date.now()
         };
         const slInput = document.getElementById('market-stop-loss');
@@ -1123,33 +1123,42 @@
             if (!bet) return;
             const price = num(state.prices[bet.pair], 0);
             if (!price) return;
-            const entryPrice = Math.max(0.000001, num(bet.entryPrice, price));
-            const pnlRatio = bet.direction === 'up'
-                ? (price - entryPrice) / entryPrice
-                : (entryPrice - price) / entryPrice;
-            const leverage = num(bet.leverage, 1);
+            const pnlRatio = calcPnlRatio(bet, price);
+            const leverage = Math.max(1, num(bet.leverage, 1));
+            const netResult = calcNetResult(bet, pnlRatio);
             // Liquidation: loss >= 100% of stake for leveraged positions
             if (leverage > 1 && pnlRatio * leverage <= -1) {
                 toClose.push({ id: bet.id, reason: 'liquidation' });
                 return;
             }
             // Stop loss
-            if (bet.stopLoss) {
+            if (bet.stopLossAmount) {
+                const slAmount = num(bet.stopLossAmount, 0);
+                if (slAmount > 0 && netResult <= -slAmount) {
+                    toClose.push({ id: bet.id, reason: 'stopLoss' });
+                    return;
+                }
+            } else if (bet.stopLoss) {
                 const sl = num(bet.stopLoss, 0);
                 if (sl > 0) {
                     const isSlTriggered = (bet.direction === 'up' && price <= sl) || (bet.direction === 'down' && price >= sl);
-                    const closeDelta = calcCloseDelta(bet, pnlRatio);
-                    if (isSlTriggered && closeDelta < 0) {
+                    if (isSlTriggered && netResult < 0) {
                         toClose.push({ id: bet.id, reason: 'stopLoss' });
                         return;
                     }
                 }
             }
             // Take profit
-            if (bet.takeProfit) {
+            if (bet.takeProfitAmount) {
+                const tpAmount = num(bet.takeProfitAmount, 0);
+                if (tpAmount > 0 && netResult >= tpAmount) {
+                    toClose.push({ id: bet.id, reason: 'takeProfit' });
+                    return;
+                }
+            } else if (bet.takeProfit) {
                 const tp = num(bet.takeProfit, 0);
                 if (tp > 0) {
-                    if ((bet.direction === 'up' && price >= tp) || (bet.direction === 'down' && price <= tp)) {
+                    if (((bet.direction === 'up' && price >= tp) || (bet.direction === 'down' && price <= tp)) && netResult > 0) {
                         toClose.push({ id: bet.id, reason: 'takeProfit' });
                         return;
                     }
