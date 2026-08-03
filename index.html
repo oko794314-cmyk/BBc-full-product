@@ -324,7 +324,7 @@
         /* ── MARKET REDESIGN ─────────────────────────────── */
         .mkt-view { padding-top: 12px; }
         .mkt-closed-banner { background: rgba(246,70,93,0.12); border: 1px solid rgba(246,70,93,0.4); border-radius: 12px; padding: 12px 16px; color: #F6465D; margin-bottom: 12px; font-size: 13px; font-weight: 700; }
-        .mkt-topbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 16px; margin-bottom: 10px; flex-wrap: wrap; }
+        .mkt-topbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 16px; margin-bottom: 10px; flex-wrap: wrap; position: relative; z-index: 10; }
         .mkt-topbar-left { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
         .mkt-topbar-right { display: flex; align-items: center; gap: 10px; }
         .mkt-pair-select { background: rgba(10,14,22,0.9); border: 1px solid rgba(240,185,11,0.3); color: var(--p); border-radius: 10px; padding: 8px 12px; font-family: 'Orbitron',sans-serif; font-size: 13px; font-weight: 700; width: auto; margin: 0; cursor: pointer; }
@@ -383,6 +383,14 @@
         .mkt-btn-down { padding: 14px; border: none; border-radius: 12px; background: linear-gradient(135deg, rgba(246,70,93,0.2), rgba(246,70,93,0.08)); color: #F6465D; border: 1px solid rgba(246,70,93,0.4); font-family: 'Orbitron',sans-serif; font-size: 13px; font-weight: 900; cursor: pointer; transition: all 0.2s; }
         .mkt-btn-down:hover { background: linear-gradient(135deg, rgba(246,70,93,0.35), rgba(246,70,93,0.15)); transform: translateY(-2px); }
         .mkt-bets-title { font-size: 11px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; border-top: 1px solid var(--border); padding-top: 8px; }
+        .mkt-futures-section { display: flex; flex-direction: column; gap: 6px; border: 1px solid rgba(240,185,11,0.2); border-radius: 10px; padding: 10px; background: rgba(240,185,11,0.04); }
+        .mkt-futures-label { font-size: 10px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: 0.6px; }
+        .mkt-leverage-row { display: grid; grid-template-columns: repeat(5,1fr); gap: 4px; }
+        .mkt-leverage-btn { padding: 6px 2px; border: 1px solid rgba(240,185,11,0.3); border-radius: 8px; background: transparent; color: var(--text2); font-family: 'Orbitron',sans-serif; font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+        .mkt-leverage-btn.active { border-color: var(--p); background: rgba(240,185,11,0.16); color: var(--p); }
+        .mkt-leverage-btn:hover { border-color: rgba(240,185,11,0.6); color: var(--text); }
+        .mkt-sltp-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .mkt-coin-option-price { font-size: 10px; color: var(--text2); margin-left: auto; white-space: nowrap; font-family: monospace; }
         .mkt-bets-list { display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow-y: auto; }
         @media (max-width: 600px) {
             .mkt-panels-grid { grid-template-columns: 1fr; }
@@ -2007,6 +2015,22 @@
                     <span class="mkt-panel-title">Прогноз ціни</span>
                 </div>
                 <input id="market-bet-amount" type="number" min="0.01" step="0.01" class="mkt-input" placeholder="Сума ставки (USDT)">
+                <!-- Futures leverage + SL/TP -->
+                <div class="mkt-futures-section">
+                    <div class="mkt-futures-label">⚡ Ф'ЮЧЕРС — Кредитне плече</div>
+                    <div class="mkt-leverage-row" id="market-leverage-row">
+                        <button class="mkt-leverage-btn active" data-lev="1" onclick="window.marketSim && window.marketSim.setLeverage(1)">1×</button>
+                        <button class="mkt-leverage-btn" data-lev="2" onclick="window.marketSim && window.marketSim.setLeverage(2)">2×</button>
+                        <button class="mkt-leverage-btn" data-lev="5" onclick="window.marketSim && window.marketSim.setLeverage(5)">5×</button>
+                        <button class="mkt-leverage-btn" data-lev="10" onclick="window.marketSim && window.marketSim.setLeverage(10)">10×</button>
+                        <button class="mkt-leverage-btn" data-lev="20" onclick="window.marketSim && window.marketSim.setLeverage(20)">20×</button>
+                    </div>
+                    <div class="mkt-futures-label">🛑 Стоп-лос &nbsp;/&nbsp; ✅ Тейк-профіт (ціна)</div>
+                    <div class="mkt-sltp-row">
+                        <input id="market-stop-loss" type="number" min="0" step="any" class="mkt-input" placeholder="Стоп-лос">
+                        <input id="market-take-profit" type="number" min="0" step="any" class="mkt-input" placeholder="Тейк-профіт">
+                    </div>
+                </div>
                 <div class="mkt-bet-btns">
                     <button class="mkt-btn-up" onclick="window.marketSim && window.marketSim.placeBet && window.marketSim.placeBet('up')">▲ ЗРОСТЕ</button>
                     <button class="mkt-btn-down" onclick="window.marketSim && window.marketSim.placeBet && window.marketSim.placeBet('down')">▼ ВПАДЕ</button>
