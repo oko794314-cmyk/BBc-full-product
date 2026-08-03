@@ -1,7 +1,8 @@
 (() => {
     if (typeof firebase === 'undefined') return;
 
-    const PAIRS = ['BTC/USDT', 'ETH/USDT', 'BNB/USDT', 'SOL/USDT', 'XRP/USDT', 'ADA/USDT', 'TON/USDT', 'DOGE/USDT'];
+    const PAIRS = ['BTC/USDT', 'ETH/USDT', 'BNB/USDT', 'SOL/USDT', 'XRP/USDT', 'ADA/USDT', 'TON/USDT', 'DOGE/USDT',
+                   'PEPE/USDT', 'WIF/USDT', 'SHIB/USDT', 'BONK/USDT', 'FLOKI/USDT'];
     const BASE_PRICES = {
         'BTC/USDT': 64000,
         'ETH/USDT': 3200,
@@ -10,7 +11,12 @@
         'XRP/USDT': 0.62,
         'ADA/USDT': 0.48,
         'TON/USDT': 7.8,
-        'DOGE/USDT': 0.12
+        'DOGE/USDT': 0.12,
+        'PEPE/USDT': 0.0000135,
+        'WIF/USDT': 2.1,
+        'SHIB/USDT': 0.0000254,
+        'BONK/USDT': 0.000030,
+        'FLOKI/USDT': 0.000185
     };
     const CANDLE_COUNT = 80;
     const CANDLE_STEP_PX = 12;   // pixels per candle (scroll chart)
@@ -18,6 +24,7 @@
     const PRICE_TICK_MS = 5000;
     const BET_MULTIPLIER = 38;
     const SAVE_DEBOUNCE_MS = 1000;
+    // Volatile coins (PEPE, WIF, SHIB, BONK, FLOKI) have 4–6x higher volatility for unpredictable, high-reward charts
     const PAIR_VOLATILITY = {
         'BTC/USDT': 0.0046,
         'ETH/USDT': 0.0052,
@@ -26,7 +33,12 @@
         'XRP/USDT': 0.0082,
         'ADA/USDT': 0.0084,
         'TON/USDT': 0.0068,
-        'DOGE/USDT': 0.0092
+        'DOGE/USDT': 0.0092,
+        'PEPE/USDT': 0.048,
+        'WIF/USDT': 0.042,
+        'SHIB/USDT': 0.044,
+        'BONK/USDT': 0.052,
+        'FLOKI/USDT': 0.046
     };
 
     // Binance API constants
@@ -38,7 +50,12 @@
         'XRP/USDT': 'XRPUSDT',
         'ADA/USDT': 'ADAUSDT',
         'TON/USDT': 'TONUSDT',
-        'DOGE/USDT': 'DOGEUSDT'
+        'DOGE/USDT': 'DOGEUSDT',
+        'PEPE/USDT': 'PEPEUSDT',
+        'WIF/USDT': 'WIFUSDT',
+        'SHIB/USDT': 'SHIBUSDT',
+        'BONK/USDT': 'BONKUSDT',
+        'FLOKI/USDT': 'FLOKIUSDT'
     };
     const BINANCE_REST = 'https://api.binance.com/api/v3/klines';
     const BINANCE_WS_BASE = 'wss://stream.binance.com:9443/ws';
@@ -51,8 +68,41 @@
         XRP: '💧',
         ADA: '🔵',
         TON: '🪙',
-        DOGE: '🐕'
+        DOGE: '🐕',
+        PEPE: '🐸',
+        WIF: '🐶',
+        SHIB: '🔥',
+        BONK: '💥',
+        FLOKI: '⚡'
     };
+
+    // Coin logo colors for custom picker
+    const TOKEN_COLOR = {
+        BTC:  '#F7931A',
+        ETH:  '#627EEA',
+        BNB:  '#F3BA2F',
+        SOL:  '#9945FF',
+        XRP:  '#00AAE4',
+        ADA:  '#2C74F0',
+        TON:  '#0098EA',
+        DOGE: '#C2A633',
+        PEPE: '#3AB549',
+        WIF:  '#FF6B35',
+        SHIB: '#E63312',
+        BONK: '#FF9500',
+        FLOKI:'#8B2FC9'
+    };
+
+    // Volatile pair labels shown in the picker
+    const TOKEN_VOLATILE_LABEL = new Set(['PEPE', 'WIF', 'SHIB', 'BONK', 'FLOKI']);
+
+    function makeCoinLogoSvg(token) {
+        const color = TOKEN_COLOR[token] || '#848E9C';
+        const label = token.length <= 3 ? token : token.slice(0, 3);
+        const fontSize = label.length <= 2 ? 14 : 11;
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36"><circle cx="18" cy="18" r="18" fill="${color}"/><text x="18" y="18" text-anchor="middle" dominant-baseline="central" fill="#fff" font-family="Arial,Helvetica,sans-serif" font-size="${fontSize}" font-weight="bold">${label}</text></svg>`;
+        return 'data:image/svg+xml;base64,' + btoa(svg);
+    }
 
     function buildHoldingsTemplate() {
         const out = {};
@@ -115,6 +165,7 @@
         const token = getPairToken(pair);
         if (token === 'BTC' || token === 'ETH' || token === 'BNB' || token === 'SOL') return 2;
         if (token === 'TON') return 4;
+        if (token === 'PEPE' || token === 'SHIB' || token === 'BONK' || token === 'FLOKI') return 8;
         return 5;
     }
 
@@ -1016,30 +1067,117 @@
         const pairSelect = document.getElementById('market-pair-select');
         if (!pairSelect || pairSelect.dataset.bound === '1') return;
         pairSelect.dataset.bound = '1';
-        pairSelect.innerHTML = PAIRS.map((pair) => `<option value="${pair}">${pair}</option>`).join('');
-        pairSelect.value = state.selectedPair;
-        pairSelect.addEventListener('change', () => {
-            const newPair = pairSelect.value;
-            state.selectedPair = newPair;
-            queueSave();
-            // reload Binance data for new pair
-            stopBinanceWS();
-            state.useBinance = false;
-            updateDataSourceLabel(false);
-            initBinancePair(newPair).then((ok) => {
-                if (ok) {
-                    state.useBinance = true;
-                    updateDataSourceLabel(true);
-                    startBinanceWS(newPair);
-                } else {
+
+        // Build custom coin picker to replace native <select>
+        const wrapper = document.createElement('div');
+        wrapper.className = 'mkt-coin-picker';
+        wrapper.id = 'mkt-coin-picker';
+
+        const btn = document.createElement('button');
+        btn.className = 'mkt-coin-btn';
+        btn.type = 'button';
+        btn.id = 'mkt-coin-btn';
+
+        const logoImg = document.createElement('img');
+        logoImg.className = 'mkt-coin-logo';
+        logoImg.id = 'mkt-coin-logo-img';
+        logoImg.alt = '';
+
+        const labelSpan = document.createElement('span');
+        labelSpan.id = 'mkt-coin-label';
+
+        const badgeSpan = document.createElement('span');
+        badgeSpan.className = 'mkt-coin-vol-badge';
+        badgeSpan.id = 'mkt-coin-vol-badge';
+
+        const arrow = document.createElement('span');
+        arrow.className = 'mkt-coin-arrow';
+        arrow.textContent = '▾';
+
+        btn.appendChild(logoImg);
+        btn.appendChild(labelSpan);
+        btn.appendChild(badgeSpan);
+        btn.appendChild(arrow);
+
+        const dropdown = document.createElement('div');
+        dropdown.className = 'mkt-coin-dropdown';
+        dropdown.id = 'mkt-coin-dropdown';
+
+        PAIRS.forEach((pair) => {
+            const token = getPairToken(pair);
+            const opt = document.createElement('div');
+            opt.className = 'mkt-coin-option' + (pair === state.selectedPair ? ' selected' : '');
+            opt.dataset.pair = pair;
+            const oLogo = document.createElement('img');
+            oLogo.className = 'mkt-coin-logo';
+            oLogo.src = makeCoinLogoSvg(token);
+            oLogo.alt = token;
+            const oName = document.createElement('span');
+            oName.className = 'mkt-coin-option-name';
+            oName.textContent = pair;
+            opt.appendChild(oLogo);
+            opt.appendChild(oName);
+            if (TOKEN_VOLATILE_LABEL.has(token)) {
+                const volTag = document.createElement('span');
+                volTag.className = 'mkt-coin-option-hot';
+                volTag.textContent = '🔥 VOLATILE';
+                opt.appendChild(volTag);
+            }
+            opt.addEventListener('click', () => {
+                const newPair = pair;
+                if (newPair === state.selectedPair) { dropdown.classList.remove('open'); return; }
+                state.selectedPair = newPair;
+                updatePickerDisplay();
+                queueSave();
+                dropdown.classList.remove('open');
+                stopBinanceWS();
+                state.useBinance = false;
+                updateDataSourceLabel(false);
+                initBinancePair(newPair).then((ok) => {
+                    if (ok) {
+                        state.useBinance = true;
+                        updateDataSourceLabel(true);
+                        startBinanceWS(newPair);
+                    } else {
+                        refreshSharedMarketData();
+                    }
+                    renderAll();
+                }).catch(() => {
                     refreshSharedMarketData();
-                }
-                renderAll();
-            }).catch(() => {
-                refreshSharedMarketData();
-                renderAll();
+                    renderAll();
+                });
             });
+            dropdown.appendChild(opt);
         });
+
+        wrapper.appendChild(btn);
+        wrapper.appendChild(dropdown);
+
+        pairSelect.parentNode.replaceChild(wrapper, pairSelect);
+
+        function updatePickerDisplay() {
+            const token = getPairToken(state.selectedPair);
+            logoImg.src = makeCoinLogoSvg(token);
+            labelSpan.textContent = state.selectedPair;
+            if (TOKEN_VOLATILE_LABEL.has(token)) {
+                badgeSpan.textContent = '🔥';
+                badgeSpan.style.display = '';
+            } else {
+                badgeSpan.style.display = 'none';
+            }
+            dropdown.querySelectorAll('.mkt-coin-option').forEach((el) => {
+                el.classList.toggle('selected', el.dataset.pair === state.selectedPair);
+            });
+        }
+
+        updatePickerDisplay();
+
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            dropdown.classList.toggle('open');
+        });
+
+        document.addEventListener('click', () => dropdown.classList.remove('open'));
 
         // Track manual scroll to prevent auto-scroll interfering with user scroll
         const scrollEl = document.getElementById('market-chart-scroll');

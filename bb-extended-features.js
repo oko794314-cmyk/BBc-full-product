@@ -1491,7 +1491,10 @@
         const now = Date.now();
         const weeks = Math.max(0, Math.floor((dueAt - now) / LOAN_WEEK_MS));
         const lid = uid('loan');
-        extState.bank.loans[lid] = { currency, amount, remaining: round2(amount), dueAt, weeks, rate: LOAN_RATE, status: 'active', takenAt: now, interestAppliedWeeks: 0, penaltyApplied: false };
+        // First week interest is charged immediately on loan creation
+        const firstWeekInterest = round2(amount * LOAN_RATE);
+        const initialRemaining = round2(amount + firstWeekInterest);
+        extState.bank.loans[lid] = { currency, amount, remaining: initialRemaining, dueAt, weeks, rate: LOAN_RATE, status: 'active', takenAt: now, interestAppliedWeeks: 1, penaltyApplied: false };
         await saveBankData();
 
         if (currency === 'bb') {
@@ -1501,7 +1504,8 @@
             await adjustUsdt(u, amount);
         }
         await appendBankRecord({ type: 'loan', currency, amount, issuedAmount: amount, note: `Кредит: ${amount.toFixed(2)} ${currency.toUpperCase()} • ${(LOAN_RATE * 100).toFixed(0)}%/тиж до ${new Date(dueAt).toLocaleDateString('uk-UA')}`, ts: now });
-        showGN(`✅ Отримано ${amount.toFixed(2)} ${currency.toUpperCase()}! Відсотки ${(LOAN_RATE * 100).toFixed(0)}%/тиж нараховуються після кожного повного тижня.`);
+        await appendBankRecord({ type: 'interest', currency, amount: firstWeekInterest, note: `Відсотки при отриманні кредиту #${lid.slice(-4)} (тиждень 1)`, ts: now });
+        showGN(`✅ Отримано ${amount.toFixed(2)} ${currency.toUpperCase()}! Відсотки ${(LOAN_RATE * 100).toFixed(0)}%/тиж — перший тиждень нараховано одразу, далі щотижня.`);
         renderBankTab();
     };
 

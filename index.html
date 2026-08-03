@@ -328,6 +328,22 @@
         .mkt-topbar-left { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
         .mkt-topbar-right { display: flex; align-items: center; gap: 10px; }
         .mkt-pair-select { background: rgba(10,14,22,0.9); border: 1px solid rgba(240,185,11,0.3); color: var(--p); border-radius: 10px; padding: 8px 12px; font-family: 'Orbitron',sans-serif; font-size: 13px; font-weight: 700; width: auto; margin: 0; cursor: pointer; }
+
+        /* Custom coin picker */
+        .mkt-coin-picker { position: relative; display: inline-block; }
+        .mkt-coin-btn { display: flex; align-items: center; gap: 6px; background: rgba(10,14,22,0.9); border: 1px solid rgba(240,185,11,0.3); color: var(--p); border-radius: 10px; padding: 6px 10px 6px 8px; font-family: 'Orbitron',sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; min-width: 148px; transition: border-color 0.2s; }
+        .mkt-coin-btn:hover { border-color: rgba(240,185,11,0.6); }
+        .mkt-coin-logo { width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; }
+        .mkt-coin-arrow { margin-left: auto; font-size: 12px; color: var(--text2); }
+        .mkt-coin-vol-badge { font-size: 13px; }
+        .mkt-coin-dropdown { position: absolute; top: calc(100% + 5px); left: 0; min-width: 210px; background: rgba(13,18,28,0.98); border: 1px solid rgba(240,185,11,0.35); border-radius: 14px; box-shadow: 0 16px 40px rgba(0,0,0,0.6); z-index: 200; overflow: hidden; display: none; backdrop-filter: blur(18px); }
+        .mkt-coin-dropdown.open { display: block; }
+        .mkt-coin-option { display: flex; align-items: center; gap: 8px; padding: 8px 12px; cursor: pointer; transition: background 0.15s; border-bottom: 1px solid rgba(255,255,255,0.04); }
+        .mkt-coin-option:last-child { border-bottom: none; }
+        .mkt-coin-option:hover { background: rgba(240,185,11,0.1); }
+        .mkt-coin-option.selected { background: rgba(240,185,11,0.14); }
+        .mkt-coin-option-name { font-weight: 700; font-size: 12px; color: var(--text); font-family: 'Orbitron',sans-serif; }
+        .mkt-coin-option-hot { font-size: 10px; color: #F6465D; font-weight: 700; margin-left: auto; white-space: nowrap; font-family: 'Orbitron',sans-serif; }
         .mkt-price-block { display: flex; flex-direction: column; }
         .mkt-current-price { font-size: 22px; font-weight: 900; color: #0ECB81; letter-spacing: 0.5px; line-height: 1.2; }
         .mkt-live-time { font-size: 10px; color: var(--text2); }
@@ -1748,7 +1764,7 @@
                     <option value="usdt">USDT</option>
                 </select>
                 <input type="number" id="loan-amount" placeholder="Сума..." min="1" step="0.01" style="margin-bottom:8px;">
-                <div style="font-size:11px; color:var(--text2); margin-bottom:8px;">Відсоток: <b style="color:var(--p);">5% на тиждень</b> | Прострочення: штраф <b style="color:var(--r);">+20%</b></div>
+                <div style="font-size:11px; color:var(--text2); margin-bottom:8px;">Відсоток: <b style="color:var(--p);">5% на тиждень</b> — перший тиждень нараховується одразу | Прострочення: штраф <b style="color:var(--r);">+20%</b></div>
                 <input type="date" id="loan-return-date" style="margin-bottom:8px;">
                 <button class="btn" onclick="takeLoan()">ОТРИМАТИ КРЕДИТ</button>
             </div>
