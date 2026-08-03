@@ -102,18 +102,45 @@ async function loadUserFromFirebase(username) {
 
 /**
  * 👥 ЗАВАНТАЖИТИ ВСІ КОРИСТУВАЧІВ
+ * Результат кешується в localStorage на 2 хвилини для зменшення трафіку.
  */
+const _USERS_CACHE_KEY = 'bbCacheAllUsers_v1';
+const _USERS_CACHE_TTL = 2 * 60 * 1000; // 2 хвилини
+
 async function loadAllUsersFromFirebase() {
+    // Спробуємо прочитати з кешу
+    try {
+        const raw = localStorage.getItem(_USERS_CACHE_KEY);
+        if (raw) {
+            const { data, ts } = JSON.parse(raw);
+            if (Date.now() - ts < _USERS_CACHE_TTL) {
+                console.log('✅ Користувачі з кешу (localStorage)');
+                return data;
+            }
+        }
+    } catch (_) { /* ігноруємо помилки кешу */ }
+
     try {
         const db = firebase.database();
         const snapshot = await db.ref('users').once('value');
         const users = snapshot.val() || {};
+
+        // Зберегти в кеш
+        try {
+            localStorage.setItem(_USERS_CACHE_KEY, JSON.stringify({ data: users, ts: Date.now() }));
+        } catch (_) { /* ігноруємо, якщо localStorage переповнений */ }
+
         console.log(`✅ Завантажено ${Object.keys(users).length} користувачів`);
         return users;
     } catch (error) {
         console.error('❌ Помилка завантаження користувачів:', error);
         return {};
     }
+}
+
+/** Примусово оновити кеш користувачів (виклик після зміни даних) */
+function invalidateUsersCache() {
+    try { localStorage.removeItem(_USERS_CACHE_KEY); } catch (_) {}
 }
 
 /**
@@ -157,7 +184,8 @@ function setupFriendRequestListener(currentUser) {
 function setupChatListener(currentUser, friendUsername) {
     const db = firebase.database();
     const chatKey = [currentUser, friendUsername].sort().join('_');
-    const ref = db.ref(`chats/${chatKey}/messages`);
+    // Limit to last 50 messages to avoid downloading full chat history
+    const ref = db.ref(`chats/${chatKey}/messages`).limitToLast(50);
     
     // Видалити старий слухач
     if (firebaseState.chatListeners[chatKey]) {
@@ -803,10 +831,7 @@ function setupAllListenersOnLogin(currentUser) {
         if (typeof loadGroupChatsList === 'function') loadGroupChatsList();
     });
     
-    // Чати - налаштуються при вході у чат
-    gameState.friends.forEach(friend => {
-        setupChatListener(currentUser, friend);
-    });
+    // Чати — слухачі налаштовуються лише при відкритті конкретного чату (економія трафіку)
 
     // Онлайн-статус друзів
     gameState.friends.forEach(friend => {
@@ -1229,9 +1254,10 @@ async function loadGroupChatsForUserFirebase(username) {
 
 function setupGroupChatListener(groupId, callback) {
     const db = firebase.database();
-    const ref = db.ref(`groupChats/${groupId}/messages`);
+    // Limit to last 100 messages to avoid downloading full group chat history
+    const ref = db.ref(`groupChats/${groupId}/messages`).limitToLast(100);
     if (firebaseState.groupChatListeners[groupId]) {
-        ref.off('value', firebaseState.groupChatListeners[groupId]);
+        db.ref(`groupChats/${groupId}/messages`).off('value', firebaseState.groupChatListeners[groupId]);
     }
     const handler = (snap) => {
         const raw = snap.val() || {};
@@ -1333,6 +1359,69 @@ function getFirebaseStatus() {
         gameInvitationListeners: Object.keys(firebaseState.gameInvitationListeners).length,
         chatListeners: Object.keys(firebaseState.chatListeners).length
     };
+}
+
+/**
+ * 🧹 ОЧИЩЕННЯ СТАРИХ ДАНИХ (зменшення обсягу бази / трафіку)
+ *
+ * Видаляє:
+ * - транзакції старші 30 днів
+ * - завершені RPS матчі старші 24 годин
+ * - прострочені/прийняті запрошення на гру старші 24 годин
+ *
+ * Рекомендується викликати один раз при вході (не частіше ніж раз на добу).
+ * Результат ігнорується, щоб не блокувати UI.
+ */
+async function cleanupOldFirebaseData() {
+    const CLEANUP_KEY = 'bbLastCleanup';
+    const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+    // Запускаємо не частіше ніж раз на добу
+    try {
+        const last = Number(localStorage.getItem(CLEANUP_KEY) || 0);
+        if (Date.now() - last < ONE_DAY_MS) return;
+        localStorage.setItem(CLEANUP_KEY, String(Date.now()));
+    } catch (_) {}
+
+    try {
+        const db = firebase.database();
+        const now = Date.now();
+        const thirtyDaysAgo = now - 30 * ONE_DAY_MS;
+        const oneDayAgo = now - ONE_DAY_MS;
+        const deletions = {};
+
+        // Старі транзакції (>30 днів)
+        try {
+            const txSnap = await db.ref('transactions')
+                .orderByChild('timestamp')
+                .endAt(thirtyDaysAgo)
+                .limitToFirst(200)
+                .once('value');
+            txSnap.forEach(child => { deletions[`transactions/${child.key}`] = null; });
+        } catch (_) {}
+
+        // Завершені RPS матчі (>24 год)
+        try {
+            const rpsSnap = await db.ref('rpsMatches')
+                .orderByChild('completedAt')
+                .endAt(oneDayAgo)
+                .limitToFirst(100)
+                .once('value');
+            rpsSnap.forEach(child => {
+                if (child.val() && child.val().status === 'completed') {
+                    deletions[`rpsMatches/${child.key}`] = null;
+                }
+            });
+        } catch (_) {}
+
+        const count = Object.keys(deletions).length;
+        if (count > 0) {
+            await db.ref().update(deletions);
+            console.log(`🧹 Автоочищення: видалено ${count} старих записів`);
+        }
+    } catch (error) {
+        console.warn('⚠️ Помилка автоочищення Firebase:', error);
+    }
 }
 
 function firebaseNumber(value, fallback = 0) {
@@ -1459,6 +1548,8 @@ window.removeTypingListener = removeTypingListener;
 window.setupAllListenersOnLogin = setupAllListenersOnLogin;
 window.removeAllListeners = removeAllListeners;
 window.getFirebaseStatus = getFirebaseStatus;
+window.cleanupOldFirebaseData = cleanupOldFirebaseData;
+window.invalidateUsersCache = invalidateUsersCache;
 window.saveUserFeatureStateFirebase = saveUserFeatureStateFirebase;
 window.loadUserFeatureStateFirebase = loadUserFeatureStateFirebase;
 window.adjustUserBalanceFirebase = adjustUserBalanceFirebase;
