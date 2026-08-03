@@ -20,10 +20,12 @@
     };
     const CANDLE_COUNT = 80;
     const CANDLE_STEP_PX = 12;   // pixels per candle (scroll chart)
-    // Amplifier: each 1% real market move = 25% PnL on the bet (symmetric win/loss)
-    // A correct 5% call → +125% profit; wrong 5% call → -125% (stake + more lost).
+    // Amplifier: each 1% real market move = 25% PnL on the bet (wins)
+    // A correct 5% call → +125% profit; wrong 5% call → -140% (slightly steeper loss).
     // Typical winning bets: 500–5000 USDT per correct prediction. Hard but rewarding.
     const PNL_AMPLIFIER = 25;
+    // Loss amplifier is slightly higher so losing trades hurt a bit more than winning trades reward
+    const PNL_LOSS_AMPLIFIER = 28;
     const CANDLE_INTERVAL_MS = 2 * 1000;  // 2-second candles for lively charts
     const PRICE_TICK_MS = 2000;           // 2-second price updates
     const SAVE_DEBOUNCE_MS = 1000;
@@ -460,8 +462,9 @@
     function calcCloseDelta(bet, pnlRatio) {
         const amount = num(bet.amount, 0);
         const leverage = Math.max(1, num(bet.leverage, 1));
-        // PNL_AMPLIFIER scales each 1% market move into 25% PnL — enables 500–5000 USDT swings per correct bet
-        const grossValue = amount + (amount * pnlRatio * leverage * PNL_AMPLIFIER);
+        // Use a slightly stronger amplifier for losses so failed trades hurt more than winning ones reward
+        const amplifier = pnlRatio < 0 ? PNL_LOSS_AMPLIFIER : PNL_AMPLIFIER;
+        const grossValue = amount + (amount * pnlRatio * leverage * amplifier);
         return round(Math.max(0, grossValue), 2);
     }
 
