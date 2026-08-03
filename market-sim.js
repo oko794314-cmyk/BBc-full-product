@@ -20,6 +20,9 @@
     };
     const CANDLE_COUNT = 80;
     const CANDLE_STEP_PX = 12;   // pixels per candle (scroll chart)
+    // Amplifier: each 1% real market move = 50% PnL on the bet (symmetric win/loss)
+    // A correct 2% call → +100% profit; wrong 2% call → -100% (full stake lost). Hard but rewarding.
+    const PNL_AMPLIFIER = 50;
     const CANDLE_INTERVAL_MS = 3 * 1000;  // faster candles for more lively charts
     const PRICE_TICK_MS = 3000;           // faster price updates
     const SAVE_DEBOUNCE_MS = 1000;
@@ -456,7 +459,8 @@
     function calcCloseDelta(bet, pnlRatio) {
         const amount = num(bet.amount, 0);
         const leverage = Math.max(1, num(bet.leverage, 1));
-        const grossValue = amount + (amount * pnlRatio * leverage);
+        // PNL_AMPLIFIER scales each 1% market move into 50% PnL — enables 200–1000 USDT swings
+        const grossValue = amount + (amount * pnlRatio * leverage * PNL_AMPLIFIER);
         return round(Math.max(0, grossValue), 2);
     }
 
@@ -1130,8 +1134,8 @@
             const pnlRatio = calcPnlRatio(bet, price);
             const leverage = Math.max(1, num(bet.leverage, 1));
             const netResult = calcNetResult(bet, pnlRatio);
-            // Liquidation: loss >= 100% of stake for leveraged positions
-            if (leverage > 1 && pnlRatio * leverage <= -1) {
+            // Liquidation: amplified loss >= 100% of stake
+            if (pnlRatio * leverage * PNL_AMPLIFIER <= -1) {
                 toClose.push({ id: bet.id, reason: 'liquidation' });
                 return;
             }
