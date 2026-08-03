@@ -531,19 +531,6 @@ async function transferCoinsFirebase(fromUser, toUser, amount, feeOverride) {
         const { amount: normalizedAmount, fee } = resolveTransferFee(amount, feeOverride);
         const totalAmount = Number((normalizedAmount + fee).toFixed(4));
 
-        // Завантажити лише потрібні дані паралельно для швидшої передачі
-        const [fromBalanceSnapshot, toSnapshot] = await Promise.all([
-            db.ref(`users/${fromUser}/balance`).once('value'),
-            db.ref(`users/${toUser}`).once('value')
-        ]);
-
-        const fromBalance = firebaseNumber(fromBalanceSnapshot.val(), 0);
-        const toData = toSnapshot.val();
-
-        if (!toData) {
-            throw new Error('Користувач не знайдений');
-        }
-
         if (normalizedAmount <= 0) {
             throw new Error('Сума повинна бути більше 0');
         }
@@ -551,20 +538,38 @@ async function transferCoinsFirebase(fromUser, toUser, amount, feeOverride) {
         if (fromUser === toUser) {
             throw new Error('Не можна переказувати BB самому собі');
         }
-        
-        // Перевірити баланс
-        if (fromBalance < totalAmount) {
+
+        // Verify recipient exists
+        const toSnapshot = await db.ref(`users/${toUser}`).once('value');
+        if (!toSnapshot.exists()) {
+            throw new Error('Користувач не знайдений');
+        }
+
+        // Use Firebase Transaction to atomically debit the sender — this prevents
+        // double-spending even when multiple transfers happen concurrently.
+        const senderRef = db.ref(`users/${fromUser}/balance`);
+        const prefetch = await senderRef.once('value');
+        let newFromBalance = null;
+        const txResult = await senderRef.transaction((currentBalance) => {
+            const effective = currentBalance !== null ? currentBalance : firebaseNumber(prefetch.val(), 0);
+            if (effective === null) return; // abort: unknown balance
+            if (effective < totalAmount) return; // abort: insufficient funds
+            newFromBalance = Number((effective - totalAmount).toFixed(4));
+            return newFromBalance;
+        });
+
+        if (!txResult.committed) {
             throw new Error('Недостатньо коштів');
         }
 
-        const newFromBalance = Number((fromBalance - totalAmount).toFixed(4));
-        const newToBalance = Number((firebaseNumber(toData.balance, 0) + normalizedAmount).toFixed(4));
+        // Credit the recipient atomically alongside the timestamp updates
+        const toCurrentBalance = firebaseNumber(toSnapshot.val().balance, 0);
+        const newToBalance = Number((toCurrentBalance + normalizedAmount).toFixed(4));
 
         await db.ref().update({
-            [`users/${fromUser}/balance`]: newFromBalance,
             [`users/${fromUser}/balanceUpdatedAt`]: firebase.database.ServerValue.TIMESTAMP,
-            [`users/${toUser}/balance`]: newToBalance,
-            [`users/${toUser}/balanceUpdatedAt`]: firebase.database.ServerValue.TIMESTAMP
+            [`users/${toUser}/balance`]:            newToBalance,
+            [`users/${toUser}/balanceUpdatedAt`]:   firebase.database.ServerValue.TIMESTAMP
         });
         
         // Записати транзакцію в історію (non-critical — помилка не скасовує передачу)
