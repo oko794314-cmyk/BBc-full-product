@@ -470,6 +470,7 @@
 
     // Award +CANDLE_WIN_PCT * bet for each new closed candle that matches bet direction,
     // -CANDLE_LOSS_PCT * bet for each candle that goes against the prediction.
+    // PnL is scaled by candle body size: larger candles pay more, smaller ones pay less.
     function processNewCandlesForBets() {
         if (!state.openBets.length) return;
         let changed = false;
@@ -484,16 +485,25 @@
             let countDelta = 0;
             let newLastT = lastEvaluated;
             const betAmount = num(bet.amount, 0);
+            // Expected body size as a fraction of price (used to normalise the size multiplier)
+            const baseVol = num(PAIR_VOLATILITY[bet.pair], 0.04);
+            const expectedBodyPct = baseVol * 1.5; // rough average body size fraction
             for (let i = 0; i < closedCandles.length; i++) {
                 const c = closedCandles[i];
                 if (!c || c.t <= lastEvaluated) continue;
                 // Candle direction: bullish if close > open, bearish if close < open
                 const candleUp = c.c >= c.o;
                 const betUp = bet.direction === 'up';
+                // Size multiplier: scale by body size relative to expected volatility.
+                // Clamp to [0.25, 3.0] so tiny candles still matter a little and spikes
+                // don't produce absurd payouts.
+                const openPrice = Math.max(0.000001, c.o);
+                const bodyPct = Math.abs(c.c - c.o) / openPrice;
+                const sizeMultiplier = Math.min(3.0, Math.max(0.25, bodyPct / expectedBodyPct));
                 if (candleUp === betUp) {
-                    pnlDelta += round(betAmount * CANDLE_WIN_PCT, 2);
+                    pnlDelta += round(betAmount * CANDLE_WIN_PCT * sizeMultiplier, 2);
                 } else {
-                    pnlDelta -= round(betAmount * CANDLE_LOSS_PCT, 2);
+                    pnlDelta -= round(betAmount * CANDLE_LOSS_PCT * sizeMultiplier, 2);
                 }
                 countDelta++;
                 if (c.t > newLastT) newLastT = c.t;
@@ -1137,8 +1147,9 @@
             return;
         }
         state.wallet.usdt = round(num(state.wallet.usdt, 0) - amount, 2);
-        // Set lastCandleT to the timestamp of the current last candle so we only
-        // evaluate candles that close AFTER this bet is placed.
+        // Set lastCandleT to just before the current forming candle so that the
+        // forming candle is counted once it closes, but all already-closed candles
+        // (before this bet was placed) are skipped.
         const currentHistory = state.history[state.selectedPair] || [];
         const currentLastCandle = currentHistory[currentHistory.length - 1];
         const bet = {
@@ -1155,7 +1166,7 @@
             placedAt: Date.now(),
             candlePnl: 0,
             candleCount: 0,
-            lastCandleT: currentLastCandle ? currentLastCandle.t : Date.now()
+            lastCandleT: currentLastCandle ? currentLastCandle.t - 1 : Date.now()
         };
         const slInput = document.getElementById('market-stop-loss');
         const tpInput = document.getElementById('market-take-profit');
