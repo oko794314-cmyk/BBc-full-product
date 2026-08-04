@@ -392,6 +392,17 @@
         .mkt-sltp-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
         .mkt-coin-option-price { font-size: 10px; color: var(--text2); margin-left: auto; white-space: nowrap; font-family: monospace; }
         .mkt-bets-list { display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow-y: auto; }
+        /* Candle tracker widget */
+        .mkt-candle-tracker { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); background: rgba(10,14,22,0.7); margin-top: 8px; flex-wrap: wrap; }
+        .mkt-candle-icon { font-size: 22px; flex-shrink: 0; transition: transform 0.3s; }
+        .mkt-candle-info { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 120px; }
+        .mkt-candle-label { font-size: 10px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; }
+        .mkt-candle-direction { font-size: 13px; font-weight: 900; letter-spacing: 0.5px; }
+        .mkt-candle-size-wrap { flex: 2; min-width: 100px; display: flex; flex-direction: column; gap: 3px; }
+        .mkt-candle-size-label { font-size: 10px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; }
+        .mkt-candle-size-bar-bg { height: 8px; border-radius: 4px; background: rgba(255,255,255,0.08); overflow: hidden; }
+        .mkt-candle-size-bar { height: 100%; border-radius: 4px; transition: width 0.4s ease, background 0.4s ease; min-width: 2px; }
+        .mkt-candle-pct { font-size: 12px; font-weight: 700; }
         @media (max-width: 600px) {
             .mkt-panels-grid { grid-template-columns: 1fr; }
             .mkt-current-price { font-size: 18px; }
@@ -1970,6 +1981,21 @@
             </div>
             <div id="market-chart-scroll" class="chart-scroll-wrap mkt-chart-scroll">
                 <canvas id="market-chart-canvas" style="height:300px;display:block;background:#0B0E11;border-radius:8px;"></canvas>
+            </div>
+            <!-- Live candle tracker -->
+            <div class="mkt-candle-tracker" id="mkt-candle-tracker">
+                <span class="mkt-candle-icon" id="mkt-candle-icon">🕯️</span>
+                <div class="mkt-candle-info">
+                    <span class="mkt-candle-label">Поточна свічка</span>
+                    <span class="mkt-candle-direction" id="mkt-candle-direction">—</span>
+                </div>
+                <div class="mkt-candle-size-wrap">
+                    <span class="mkt-candle-size-label">Розмір тіла</span>
+                    <div class="mkt-candle-size-bar-bg">
+                        <div class="mkt-candle-size-bar" id="mkt-candle-size-bar" style="width:0%;background:#848E9C;"></div>
+                    </div>
+                    <span class="mkt-candle-pct" id="mkt-candle-pct">0.00%</span>
+                </div>
             </div>
         </div>
 

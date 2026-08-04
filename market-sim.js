@@ -819,6 +819,42 @@
         }
     }
 
+    function updateCandleTracker() {
+        const iconEl = document.getElementById('mkt-candle-icon');
+        const dirEl = document.getElementById('mkt-candle-direction');
+        const barEl = document.getElementById('mkt-candle-size-bar');
+        const pctEl = document.getElementById('mkt-candle-pct');
+        if (!iconEl || !dirEl || !barEl || !pctEl) return;
+
+        const history = state.history[state.selectedPair];
+        if (!Array.isArray(history) || history.length === 0) return;
+        const forming = history[history.length - 1];
+        if (!forming) return;
+
+        const currentPrice = num(state.prices[state.selectedPair], forming.c);
+        const openPrice = Math.max(0.000001, forming.o);
+        const isUp = currentPrice >= openPrice;
+        const bodyPct = Math.abs(currentPrice - openPrice) / openPrice;
+
+        // Normalise bar width: treat 3× expected volatility as 100%
+        const baseVol = num(PAIR_VOLATILITY[state.selectedPair], 0.04);
+        const maxBodyPct = baseVol * 3;
+        const barWidthPct = Math.min(100, (bodyPct / maxBodyPct) * 100);
+
+        const upColor = '#0ECB81';
+        const downColor = '#F6465D';
+        const color = isUp ? upColor : downColor;
+
+        iconEl.textContent = isUp ? '🟢' : '🔴';
+        dirEl.textContent = isUp ? '▲ БИЧАЧА (ВГОРУ)' : '▼ ВЕДМЕЖА (ВНИЗ)';
+        dirEl.style.color = color;
+        barEl.style.width = barWidthPct.toFixed(1) + '%';
+        barEl.style.background = color;
+        pctEl.textContent = (bodyPct * 100).toFixed(3) + '%';
+        pctEl.style.color = color;
+    }
+
+
     function renderAll() {
         renderClosedBanner();
         updateLivePrice();
@@ -827,6 +863,7 @@
         renderBets();
         renderClosedBets();
         updateDropdownPrices();
+        updateCandleTracker();
         // Update live indicator timestamp
         const liveEl = document.getElementById('mkt-live-time');
         if (liveEl) {
