@@ -468,6 +468,30 @@
         return round(num(bet.candlePnl, 0), 2);
     }
 
+    // Calculate live unrealised PnL contribution from the current forming (open) candle.
+    // This does NOT mutate the bet — it is used only for display purposes.
+    function calcFormingCandleLivePnl(bet) {
+        const history = state.history[bet.pair];
+        if (!Array.isArray(history) || history.length === 0) return 0;
+        const forming = history[history.length - 1];
+        if (!forming) return 0;
+        const currentPrice = num(state.prices[bet.pair], forming.c);
+        const openPrice = Math.max(0.000001, forming.o);
+        const betAmount = num(bet.amount, 0);
+        const leverage = Math.max(1, num(bet.leverage, 1));
+        const baseVol = num(PAIR_VOLATILITY[bet.pair], 0.04);
+        const expectedBodyPct = baseVol * 1.5;
+        const bodyPct = Math.abs(currentPrice - openPrice) / openPrice;
+        const sizeMultiplier = Math.min(3.0, Math.max(0.25, bodyPct / expectedBodyPct));
+        const candleUp = currentPrice >= openPrice;
+        const betUp = bet.direction === 'up';
+        if (candleUp === betUp) {
+            return round(betAmount * CANDLE_WIN_PCT * sizeMultiplier * leverage, 2);
+        } else {
+            return round(-betAmount * CANDLE_LOSS_PCT * sizeMultiplier * leverage, 2);
+        }
+    }
+
     // Award +CANDLE_WIN_PCT * bet for each new closed candle that matches bet direction,
     // -CANDLE_LOSS_PCT * bet for each candle that goes against the prediction.
     // PnL is scaled by candle body size: larger candles pay more, smaller ones pay less.
@@ -485,6 +509,7 @@
             let countDelta = 0;
             let newLastT = lastEvaluated;
             const betAmount = num(bet.amount, 0);
+            const leverage = Math.max(1, num(bet.leverage, 1));
             // Expected body size as a fraction of price (used to normalise the size multiplier)
             const baseVol = num(PAIR_VOLATILITY[bet.pair], 0.04);
             const expectedBodyPct = baseVol * 1.5; // rough average body size fraction
@@ -501,9 +526,9 @@
                 const bodyPct = Math.abs(c.c - c.o) / openPrice;
                 const sizeMultiplier = Math.min(3.0, Math.max(0.25, bodyPct / expectedBodyPct));
                 if (candleUp === betUp) {
-                    pnlDelta += round(betAmount * CANDLE_WIN_PCT * sizeMultiplier, 2);
+                    pnlDelta += round(betAmount * CANDLE_WIN_PCT * sizeMultiplier * leverage, 2);
                 } else {
-                    pnlDelta -= round(betAmount * CANDLE_LOSS_PCT * sizeMultiplier, 2);
+                    pnlDelta -= round(betAmount * CANDLE_LOSS_PCT * sizeMultiplier * leverage, 2);
                 }
                 countDelta++;
                 if (c.t > newLastT) newLastT = c.t;
@@ -539,6 +564,8 @@
             const entryPrice = Math.max(0.000001, num(bet.entryPrice, livePrice));
             const closeDelta = calcCloseDelta(bet);
             const netResult = calcNetResult(bet);
+            const formingPnl = calcFormingCandleLivePnl(bet);
+            const totalLivePnl = round(netResult + formingPnl, 2);
             const candleCount = num(bet.candleCount, 0);
             const slInfo = bet.stopLossAmount
                 ? `🛑 SL: -${num(bet.stopLossAmount).toFixed(2)} USDT`
@@ -547,10 +574,14 @@
                 ? `✅ TP: +${num(bet.takeProfitAmount).toFixed(2)} USDT`
                 : (bet.takeProfit ? `✅ TP: ${num(bet.takeProfit).toFixed(getPairDigits(bet.pair))}` : '');
             const slTpLine = (slInfo || tpInfo) ? `<br>${[slInfo, tpInfo].filter(Boolean).join(' &nbsp; ')}` : '';
+            const formingSign = formingPnl >= 0 ? '+' : '';
+            const formingColor = formingPnl >= 0 ? '#0ECB81' : '#F6465D';
+            const livePnlColor = totalLivePnl >= 0 ? '#0ECB81' : '#F6465D';
+            const liveCloseDelta = round(Math.max(0, num(bet.amount, 0) + totalLivePnl), 2);
 
             const bottom = document.createElement('div');
             bottom.className = 'market-open-bet-meta';
-            bottom.innerHTML = `Маржа: ${num(bet.amount, 0).toFixed(2)} USDT • Вхід: ${entryPrice.toFixed(getPairDigits(bet.pair))}${slTpLine}<br>Свічок зараховано: <span style="color:#848E9C;">${candleCount}</span><br>Поточний PnL: <span style="color:${netResult >= 0 ? '#0ECB81' : '#F6465D'};font-weight:800;">${netResult >= 0 ? '+' : ''}${Math.abs(netResult).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</span><br>Повернеться при закритті: <span style="color:#F0B90B;font-weight:700;">${closeDelta.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</span>`;
+            bottom.innerHTML = `Маржа: ${num(bet.amount, 0).toFixed(2)} USDT • Вхід: ${entryPrice.toFixed(getPairDigits(bet.pair))}${slTpLine}<br>Свічок зараховано: <span style="color:#848E9C;">${candleCount}</span> &nbsp;|&nbsp; Поточна свічка: <span style="color:${formingColor};font-weight:700;">${formingSign}${Math.abs(formingPnl).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</span><br>Загальний PnL: <span style="color:${livePnlColor};font-weight:800;">${totalLivePnl >= 0 ? '+' : ''}${Math.abs(totalLivePnl).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</span><br>Повернеться при закритті: <span style="color:#F0B90B;font-weight:700;">${liveCloseDelta.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</span>`;
 
             const closeBtn = document.createElement('button');
             closeBtn.className = 'market-open-bet-close';
@@ -1184,7 +1215,8 @@
         const toClose = [];
         state.openBets.forEach((bet) => {
             if (!bet) return;
-            const netResult = calcNetResult(bet);
+            // Use closed-candle PnL + live forming-candle PnL for all checks
+            const netResult = round(calcNetResult(bet) + calcFormingCandleLivePnl(bet), 2);
             // Liquidation: actual PnL loss reaches the full stake (margin call)
             // This is correct: you can't lose more than you put in, and it only triggers on real large moves
             if (netResult <= -num(bet.amount, 0)) {
