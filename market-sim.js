@@ -789,7 +789,7 @@
         if (activeBet) {
             const livePrice = num(state.prices[activeBet.pair], activeBet.entryPrice);
             const entryPrice = Math.max(0.000001, num(activeBet.entryPrice, livePrice));
-            const netResult = calcNetResult(activeBet);
+            const netResult = round(calcNetResult(activeBet) + calcFormingCandleLivePnl(activeBet), 2);
             const yEntry = toY(entryPrice);
             const label = `${netResult >= 0 ? '+' : '-'}${Math.abs(netResult).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT`;
             const labelW = Math.min(148, Math.max(94, ctx.measureText(label).width + 18));
