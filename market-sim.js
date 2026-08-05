@@ -22,11 +22,10 @@
     const CANDLE_STEP_PX = 12;   // pixels per candle (scroll chart)
     // PnL model: each closed candle pays proportionally to how much the price moved
     // in the direction of the bet (signed % move × PAYOUT_SCALE × leverage × bet amount).
-    // PAYOUT_SCALE is calibrated so that an average-sized correct candle yields ~50% of the bet,
-    // and an average-sized opposing candle costs ~55%.  This keeps overall payouts similar to the
-    // old binary model while rewarding larger moves more and penalising smaller ones less.
-    const CANDLE_WIN_SCALE  = 0.50;   // base return multiplier for a "normal" winning candle
-    const CANDLE_LOSS_SCALE = 0.55;   // base cost multiplier for a "normal" losing candle
+    // PAYOUT_SCALE is calibrated so that an average-sized correct candle yields ~2.5× of the bet,
+    // and an average-sized opposing candle costs ~1/leverage of the baseline loss amount.
+    const CANDLE_WIN_SCALE  = 2.50;   // base return multiplier for a "normal" winning candle
+    const CANDLE_LOSS_SCALE = 1.00;   // base cost multiplier before leverage-based reduction
     const CANDLE_INTERVAL_MS = 2 * 1000;  // 2-second candles for lively charts
     const PRICE_TICK_MS = 2000;           // 2-second price updates
     const SAVE_DEBOUNCE_MS = 1000;
@@ -493,7 +492,7 @@
         if (signedMove >= 0) {
             return round(betAmount * normRatio * CANDLE_WIN_SCALE * leverage, 2);
         } else {
-            return round(-betAmount * normRatio * CANDLE_LOSS_SCALE * leverage, 2);
+            return round(-betAmount * normRatio * (CANDLE_LOSS_SCALE / leverage), 2);
         }
     }
 
@@ -529,7 +528,7 @@
                 if (signedMove >= 0) {
                     pnlDelta += round(betAmount * normRatio * CANDLE_WIN_SCALE * leverage, 2);
                 } else {
-                    pnlDelta -= round(betAmount * normRatio * CANDLE_LOSS_SCALE * leverage, 2);
+                    pnlDelta -= round(betAmount * normRatio * (CANDLE_LOSS_SCALE / leverage), 2);
                 }
                 countDelta++;
                 if (c.t > newLastT) newLastT = c.t;
