@@ -578,11 +578,9 @@
             const formingSign = formingPnl >= 0 ? '+' : '';
             const formingColor = formingPnl >= 0 ? '#0ECB81' : '#F6465D';
             const livePnlColor = totalLivePnl >= 0 ? '#0ECB81' : '#F6465D';
-            const liveCloseDelta = round(Math.max(0, num(bet.amount, 0) + totalLivePnl), 2);
-
             const bottom = document.createElement('div');
             bottom.className = 'market-open-bet-meta';
-            bottom.innerHTML = `Маржа: ${num(bet.amount, 0).toFixed(2)} USDT • Вхід: ${entryPrice.toFixed(getPairDigits(bet.pair))}${slTpLine}<br>Свічок зараховано: <span style="color:#848E9C;">${candleCount}</span> &nbsp;|&nbsp; Поточна свічка: <span style="color:${formingColor};font-weight:700;">${formingSign}${Math.abs(formingPnl).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</span><br>Загальний PnL: <span style="color:${livePnlColor};font-weight:800;">${totalLivePnl >= 0 ? '+' : ''}${Math.abs(totalLivePnl).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</span><br>Повернеться при закритті: <span style="color:#F0B90B;font-weight:700;">${liveCloseDelta.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</span>`;
+            bottom.innerHTML = `Маржа: ${num(bet.amount, 0).toFixed(2)} USDT • Вхід: ${entryPrice.toFixed(getPairDigits(bet.pair))}${slTpLine}<br>Свічок зараховано: <span style="color:#848E9C;">${candleCount}</span> &nbsp;|&nbsp; Поточна свічка: <span style="color:${formingColor};font-weight:700;">${formingSign}${Math.abs(formingPnl).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</span><br>Загальний PnL: <span style="color:${livePnlColor};font-weight:800;">${totalLivePnl >= 0 ? '+' : ''}${Math.abs(totalLivePnl).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</span><br>Повернеться при закритті: <span style="color:#F0B90B;font-weight:700;">${closeDelta.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</span>`;
 
             const closeBtn = document.createElement('button');
             closeBtn.className = 'market-open-bet-close';
