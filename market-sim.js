@@ -20,10 +20,13 @@
     };
     const CANDLE_COUNT = 80;
     const CANDLE_STEP_PX = 12;   // pixels per candle (scroll chart)
-    // PnL model: each closed candle that matches the predicted direction pays +50% of the bet,
-    // each candle that goes against the prediction costs -55% of the bet.
-    const CANDLE_WIN_PCT = 0.50;
-    const CANDLE_LOSS_PCT = 0.55;
+    // PnL model: each closed candle pays proportionally to how much the price moved
+    // in the direction of the bet (signed % move × PAYOUT_SCALE × leverage × bet amount).
+    // PAYOUT_SCALE is calibrated so that an average-sized correct candle yields ~50% of the bet,
+    // and an average-sized opposing candle costs ~55%.  This keeps overall payouts similar to the
+    // old binary model while rewarding larger moves more and penalising smaller ones less.
+    const CANDLE_WIN_SCALE  = 0.50;   // base return multiplier for a "normal" winning candle
+    const CANDLE_LOSS_SCALE = 0.55;   // base cost multiplier for a "normal" losing candle
     const CANDLE_INTERVAL_MS = 2 * 1000;  // 2-second candles for lively charts
     const PRICE_TICK_MS = 2000;           // 2-second price updates
     const SAVE_DEBOUNCE_MS = 1000;
@@ -480,21 +483,23 @@
         const betAmount = num(bet.amount, 0);
         const leverage = Math.max(1, num(bet.leverage, 1));
         const baseVol = num(PAIR_VOLATILITY[bet.pair], 0.04);
-        const expectedBodyPct = baseVol * 1.5;
-        const bodyPct = Math.abs(currentPrice - openPrice) / openPrice;
-        const sizeMultiplier = Math.min(3.0, Math.max(0.25, bodyPct / expectedBodyPct));
-        const candleUp = currentPrice >= openPrice;
-        const betUp = bet.direction === 'up';
-        if (candleUp === betUp) {
-            return round(betAmount * CANDLE_WIN_PCT * sizeMultiplier * leverage, 2);
+        const expectedBodyPct = baseVol * 1.5; // average expected candle body
+        // Signed price move in bet direction: positive = price moved our way
+        const rawMove = (currentPrice - openPrice) / openPrice;
+        const signedMove = bet.direction === 'up' ? rawMove : -rawMove;
+        // Normalise so an average move pays ~WIN_SCALE, an average counter-move costs ~LOSS_SCALE
+        if (signedMove >= 0) {
+            const scale = CANDLE_WIN_SCALE / expectedBodyPct;
+            return round(betAmount * signedMove * scale * leverage, 2);
         } else {
-            return round(-betAmount * CANDLE_LOSS_PCT * sizeMultiplier * leverage, 2);
+            const scale = CANDLE_LOSS_SCALE / expectedBodyPct;
+            return round(betAmount * signedMove * scale * leverage, 2);
         }
     }
 
-    // Award +CANDLE_WIN_PCT * bet for each new closed candle that matches bet direction,
-    // -CANDLE_LOSS_PCT * bet for each candle that goes against the prediction.
-    // PnL is scaled by candle body size: larger candles pay more, smaller ones pay less.
+    // Award PnL proportional to how much price moved in the bet direction for each closed candle.
+    // Positive signed move pays CANDLE_WIN_SCALE-calibrated return; negative move costs
+    // CANDLE_LOSS_SCALE-calibrated amount.  Leverage and bet size are applied linearly.
     function processNewCandlesForBets() {
         if (!state.openBets.length) return;
         let changed = false;
@@ -510,25 +515,21 @@
             let newLastT = lastEvaluated;
             const betAmount = num(bet.amount, 0);
             const leverage = Math.max(1, num(bet.leverage, 1));
-            // Expected body size as a fraction of price (used to normalise the size multiplier)
             const baseVol = num(PAIR_VOLATILITY[bet.pair], 0.04);
-            const expectedBodyPct = baseVol * 1.5; // rough average body size fraction
+            const expectedBodyPct = baseVol * 1.5;
             for (let i = 0; i < closedCandles.length; i++) {
                 const c = closedCandles[i];
                 if (!c || c.t <= lastEvaluated) continue;
-                // Candle direction: bullish if close > open, bearish if close < open
-                const candleUp = c.c >= c.o;
-                const betUp = bet.direction === 'up';
-                // Size multiplier: scale by body size relative to expected volatility.
-                // Clamp to [0.25, 3.0] so tiny candles still matter a little and spikes
-                // don't produce absurd payouts.
                 const openPrice = Math.max(0.000001, c.o);
-                const bodyPct = Math.abs(c.c - c.o) / openPrice;
-                const sizeMultiplier = Math.min(3.0, Math.max(0.25, bodyPct / expectedBodyPct));
-                if (candleUp === betUp) {
-                    pnlDelta += round(betAmount * CANDLE_WIN_PCT * sizeMultiplier * leverage, 2);
+                // Signed price move in bet direction
+                const rawMove = (c.c - c.o) / openPrice;
+                const signedMove = bet.direction === 'up' ? rawMove : -rawMove;
+                if (signedMove >= 0) {
+                    const scale = CANDLE_WIN_SCALE / expectedBodyPct;
+                    pnlDelta += round(betAmount * signedMove * scale * leverage, 2);
                 } else {
-                    pnlDelta -= round(betAmount * CANDLE_LOSS_PCT * sizeMultiplier * leverage, 2);
+                    const scale = CANDLE_LOSS_SCALE / expectedBodyPct;
+                    pnlDelta += round(betAmount * signedMove * scale * leverage, 2);
                 }
                 countDelta++;
                 if (c.t > newLastT) newLastT = c.t;
