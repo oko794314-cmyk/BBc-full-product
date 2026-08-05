@@ -487,13 +487,13 @@
         // Signed price move in bet direction: positive = price moved our way
         const rawMove = (currentPrice - openPrice) / openPrice;
         const signedMove = bet.direction === 'up' ? rawMove : -rawMove;
-        // Normalise so an average move pays ~WIN_SCALE, an average counter-move costs ~LOSS_SCALE
+        // Normalise so an average move pays ~WIN_SCALE / LOSS_SCALE.
+        // Cap the normalised ratio at 3.0 to prevent extreme payouts from spike candles.
+        const normRatio = Math.min(3.0, Math.abs(signedMove) / expectedBodyPct);
         if (signedMove >= 0) {
-            const scale = CANDLE_WIN_SCALE / expectedBodyPct;
-            return round(betAmount * signedMove * scale * leverage, 2);
+            return round(betAmount * normRatio * CANDLE_WIN_SCALE * leverage, 2);
         } else {
-            const scale = CANDLE_LOSS_SCALE / expectedBodyPct;
-            return round(betAmount * signedMove * scale * leverage, 2);
+            return round(-betAmount * normRatio * CANDLE_LOSS_SCALE * leverage, 2);
         }
     }
 
@@ -524,12 +524,12 @@
                 // Signed price move in bet direction
                 const rawMove = (c.c - c.o) / openPrice;
                 const signedMove = bet.direction === 'up' ? rawMove : -rawMove;
+                // Cap the normalised ratio at 3.0 to prevent extreme payouts from spike candles
+                const normRatio = Math.min(3.0, Math.abs(signedMove) / expectedBodyPct);
                 if (signedMove >= 0) {
-                    const scale = CANDLE_WIN_SCALE / expectedBodyPct;
-                    pnlDelta += round(betAmount * signedMove * scale * leverage, 2);
+                    pnlDelta += round(betAmount * normRatio * CANDLE_WIN_SCALE * leverage, 2);
                 } else {
-                    const scale = CANDLE_LOSS_SCALE / expectedBodyPct;
-                    pnlDelta += round(betAmount * signedMove * scale * leverage, 2);
+                    pnlDelta -= round(betAmount * normRatio * CANDLE_LOSS_SCALE * leverage, 2);
                 }
                 countDelta++;
                 if (c.t > newLastT) newLastT = c.t;
