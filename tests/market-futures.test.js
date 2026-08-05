@@ -15,7 +15,11 @@ function calcPnlRatio(entryPrice, livePrice, direction) {
 }
 
 function calcCloseDelta(amount, leverage, pnlRatio) {
-    return round(Math.max(0, amount + (amount * pnlRatio * Math.max(1, leverage))), 2);
+    const safeLeverage = Math.max(1, leverage);
+    const scaledPnl = pnlRatio >= 0
+        ? amount * pnlRatio * 2.5 * safeLeverage
+        : amount * pnlRatio * (1 / safeLeverage);
+    return round(Math.max(0, amount + scaledPnl), 2);
 }
 
 function calcNetResult(amount, leverage, pnlRatio) {
@@ -60,8 +64,16 @@ test('breakeven leveraged trade returns full margin', () => {
 
 test('short trade earns profit when price falls', () => {
     const pnlRatio = calcPnlRatio(100, 90, 'down');
-    assertEqual(calcCloseDelta(500, 5, pnlRatio), 750, 'closing value should include margin plus profit');
-    assertEqual(calcNetResult(500, 5, pnlRatio), 250, 'net profit should be positive');
+    assertEqual(calcCloseDelta(500, 5, pnlRatio), 1125, 'closing value should include leveraged profit');
+    assertEqual(calcNetResult(500, 5, pnlRatio), 625, 'net profit should be positive and multiplied');
+});
+
+test('higher leverage reduces loss size on failed trade', () => {
+    const pnlRatio = calcPnlRatio(100, 90, 'up');
+    assertEqual(calcCloseDelta(500, 2, pnlRatio), 475, 'x2 should divide the loss by 2');
+    assertEqual(calcNetResult(500, 2, pnlRatio), -25, 'net loss should be halved at x2');
+    assertEqual(calcCloseDelta(500, 5, pnlRatio), 490, 'x5 should divide the loss by 5');
+    assertEqual(calcNetResult(500, 5, pnlRatio), -10, 'net loss should shrink with higher leverage');
 });
 
 test('stop loss is based on USDT loss, not trigger price', () => {
