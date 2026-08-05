@@ -22,10 +22,10 @@
     const CANDLE_STEP_PX = 12;   // pixels per candle (scroll chart)
     // PnL model: each closed candle pays proportionally to how much the price moved
     // in the direction of the bet (signed % move × PAYOUT_SCALE × leverage × bet amount).
-    // PAYOUT_SCALE is calibrated so that an average-sized correct candle yields ~2.5× of the bet,
-    // and an average-sized opposing candle costs ~1/leverage of the baseline loss amount.
-    const CANDLE_WIN_SCALE  = 2.50;   // base return multiplier for a "normal" winning candle
-    const CANDLE_LOSS_SCALE = 1.00;   // base cost multiplier before leverage-based reduction
+    // PAYOUT_SCALE is calibrated so that an average-sized correct candle yields ~12.5× of the bet.
+    // Both wins AND losses scale with leverage (symmetrical, as in real leveraged trading).
+    const CANDLE_WIN_SCALE  = 12.50;  // base return multiplier for a "normal" winning candle
+    const CANDLE_LOSS_SCALE = 1.00;   // base cost multiplier (losses also scale with leverage)
     const CANDLE_INTERVAL_MS = 2 * 1000;  // 2-second candles for lively charts
     const PRICE_TICK_MS = 2000;           // 2-second price updates
     const SAVE_DEBOUNCE_MS = 1000;
@@ -492,13 +492,13 @@
         if (signedMove >= 0) {
             return round(betAmount * normRatio * CANDLE_WIN_SCALE * leverage, 2);
         } else {
-            return round(-betAmount * normRatio * (CANDLE_LOSS_SCALE / leverage), 2);
+            return round(-betAmount * normRatio * CANDLE_LOSS_SCALE * leverage, 2);
         }
     }
 
     // Award PnL proportional to how much price moved in the bet direction for each closed candle.
     // Positive signed move pays CANDLE_WIN_SCALE-calibrated return; negative move costs
-    // CANDLE_LOSS_SCALE-calibrated amount.  Leverage and bet size are applied linearly.
+    // CANDLE_LOSS_SCALE-calibrated amount.  Both scale with leverage linearly.
     function processNewCandlesForBets() {
         if (!state.openBets.length) return;
         let changed = false;
@@ -528,7 +528,7 @@
                 if (signedMove >= 0) {
                     pnlDelta += round(betAmount * normRatio * CANDLE_WIN_SCALE * leverage, 2);
                 } else {
-                    pnlDelta -= round(betAmount * normRatio * (CANDLE_LOSS_SCALE / leverage), 2);
+                    pnlDelta -= round(betAmount * normRatio * CANDLE_LOSS_SCALE * leverage, 2);
                 }
                 countDelta++;
                 if (c.t > newLastT) newLastT = c.t;
