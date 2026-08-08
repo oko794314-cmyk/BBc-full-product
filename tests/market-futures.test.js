@@ -93,15 +93,43 @@ test('take profit triggers only after target profit is reached', () => {
 // ── Timeframe-switch regression tests ────────────────────────────────────────
 // Simulate the fix: after a timeframe switch the bet's lastCandleT must be
 // advanced to the last closed candle in the new history so that historical
-// candles from the new timeframe are never re-processed.
+// candles from the new timeframe are never re-processed, and the current
+// forming candle must be re-anchored so switching timeframes cannot mutate PnL.
+
+const CANDLE_WIN_SCALE = 12.5;
+const CANDLE_LOSS_SCALE = 1.0;
+const DEFAULT_BASE_VOL = 0.04;
+
+function getAnchorPrice(bet, candle) {
+    if (bet.formingAnchorT === candle.t && Number(bet.formingAnchorPrice) > 0) {
+        return bet.formingAnchorPrice;
+    }
+    return candle.o;
+}
+
+function calcAnchoredCandlePnl(bet, candle, currentPrice = candle.c) {
+    const openPrice = Math.max(0.000001, getAnchorPrice(bet, candle));
+    const rawMove = (currentPrice - openPrice) / openPrice;
+    const signedMove = bet.direction === 'up' ? rawMove : -rawMove;
+    const normRatio = Math.min(3.0, Math.abs(signedMove) / (DEFAULT_BASE_VOL * 1.5));
+    if (signedMove >= 0) {
+        return round(bet.amount * normRatio * CANDLE_WIN_SCALE * bet.leverage, 2);
+    }
+    return round(-bet.amount * normRatio * CANDLE_LOSS_SCALE * bet.leverage, 2);
+}
 
 function simulateTimeframeSwitch(bet, newHistory) {
     // Mirror the fix applied in changeInterval()
     const lastClosedCandle = newHistory.length >= 2
         ? newHistory[newHistory.length - 2]
         : newHistory[newHistory.length - 1];
+    const formingCandle = newHistory[newHistory.length - 1];
     if (lastClosedCandle) {
         bet.lastCandleT = Math.max(bet.lastCandleT, lastClosedCandle.t);
+    }
+    if (formingCandle) {
+        bet.formingAnchorT = formingCandle.t;
+        bet.formingAnchorPrice = formingCandle.c;
     }
     return bet;
 }
@@ -173,6 +201,58 @@ test('TP/SL not triggered on timeframe switch when PnL unchanged', () => {
     // candlePnl must still be 50 — TP at 200 and SL at -100 must not be reached
     assertEqual(shouldTriggerStopLoss({ netResult: bet.candlePnl, stopLossAmount: bet.stopLossAmount }), false, 'SL must not fire after timeframe switch');
     assertEqual(shouldTriggerTakeProfit({ netResult: bet.candlePnl, takeProfitAmount: bet.takeProfitAmount }), false, 'TP must not fire after timeframe switch');
+});
+
+test('timeframe switch resets live forming-candle PnL to current price anchor', () => {
+    const hourStart = 1754650800000;
+    const bet = {
+        lastCandleT: hourStart - 1,
+        candlePnl: 50,
+        pair: 'BTCUSDT',
+        direction: 'up',
+        amount: 500,
+        leverage: 5
+    };
+    const newHistory = [
+        { t: hourStart + 60000,  o: 100, c: 101 },
+        { t: hourStart + 120000, o: 101, c: 102 },
+        { t: hourStart + 180000, o: 80,  c: 120 } // wildly different open in new timeframe
+    ];
+
+    simulateTimeframeSwitch(bet, newHistory);
+    assertEqual(calcAnchoredCandlePnl(bet, newHistory[2], newHistory[2].c), 0, 'switching timeframe must not create instant live PnL');
+});
+
+test('anchored candle closes using anchor price instead of candle open after timeframe switch', () => {
+    const candleT = 1754650800000;
+    const bet = {
+        direction: 'up',
+        amount: 100,
+        leverage: 2,
+        formingAnchorT: candleT,
+        formingAnchorPrice: 120
+    };
+    const closedCandle = { t: candleT, o: 80, c: 126 };
+
+    const anchoredPnl = calcAnchoredCandlePnl(bet, closedCandle);
+    const unanchoredPnl = calcAnchoredCandlePnl({ ...bet, formingAnchorT: null, formingAnchorPrice: null }, closedCandle);
+
+    assertEqual(anchoredPnl < unanchoredPnl, true, 'pre-switch candle move must be ignored after re-anchoring');
+    assertEqual(anchoredPnl > 0, true, 'post-switch move in the right direction should still count');
+});
+
+test('new bet starts with zero live PnL inside current candle', () => {
+    const candleT = 1754650800000;
+    const bet = {
+        direction: 'up',
+        amount: 100,
+        leverage: 2,
+        formingAnchorT: candleT,
+        formingAnchorPrice: 120
+    };
+    const formingCandle = { t: candleT, o: 80, c: 120 };
+
+    assertEqual(calcAnchoredCandlePnl(bet, formingCandle, 120), 0, 'placing a bet mid-candle must not inherit prior move');
 });
 
 console.log(`\nPassed: ${passed}, Failed: ${failed}`);
