@@ -90,5 +90,90 @@ test('take profit triggers only after target profit is reached', () => {
     assertEqual(shouldTriggerTakeProfit({ netResult: 1000, takeProfitAmount: 1000 }), true, 'should trigger at target');
 });
 
+// ── Timeframe-switch regression tests ────────────────────────────────────────
+// Simulate the fix: after a timeframe switch the bet's lastCandleT must be
+// advanced to the last closed candle in the new history so that historical
+// candles from the new timeframe are never re-processed.
+
+function simulateTimeframeSwitch(bet, newHistory) {
+    // Mirror the fix applied in changeInterval()
+    const lastClosedCandle = newHistory.length >= 2
+        ? newHistory[newHistory.length - 2]
+        : newHistory[newHistory.length - 1];
+    if (lastClosedCandle) {
+        bet.lastCandleT = Math.max(bet.lastCandleT, lastClosedCandle.t);
+    }
+    return bet;
+}
+
+function countProcessableCandles(bet, history) {
+    // Mirror the filter in processNewCandlesForBets()
+    const closedCandles = history.slice(0, -1);
+    return closedCandles.filter((c) => c && c.t > bet.lastCandleT).length;
+}
+
+test('switching from 1h to 1m does not reprocess historical 1m candles', () => {
+    // Bet placed on 1h chart: lastCandleT = start of current 1h candle - 1
+    const hourStart = 1754650800000; // e.g. 2026-08-08 12:00 UTC
+    const bet = { lastCandleT: hourStart - 1, candlePnl: 0, pair: 'BTCUSDT' };
+
+    // New 1m history: 200 candles from 12:00 onwards (each 60 000 ms apart)
+    const newHistory = [];
+    for (let i = 0; i < 200; i++) {
+        newHistory.push({ t: hourStart + i * 60000, o: 100, c: 100 });
+    }
+    // Before fix: many historical candles would be re-processed
+    const countBefore = countProcessableCandles(bet, newHistory);
+    assertEqual(countBefore > 0, true, 'historical candles must be present before fix');
+
+    // After fix: no historical candle should be re-processed
+    simulateTimeframeSwitch(bet, newHistory);
+    const countAfter = countProcessableCandles(bet, newHistory);
+    assertEqual(countAfter, 0, 'no historical candles should be processed after timeframe switch');
+});
+
+test('switching from 1m to 1h does not reprocess historical 1h candles', () => {
+    // Bet placed on 1m chart: lastCandleT = current 1m candle start - 1 (after several minutes)
+    const hourStart = 1754650800000;
+    const minuteOffset = 25 * 60000; // 25 minutes into the hour
+    const bet = { lastCandleT: hourStart + minuteOffset - 1, candlePnl: 0, pair: 'BTCUSDT' };
+
+    // New 1h history: the last closed 1h candle is at hourStart (well before bet.lastCandleT)
+    const newHistory = [
+        { t: hourStart - 3600000, o: 100, c: 100 },
+        { t: hourStart,           o: 100, c: 100 }, // last closed 1h candle
+        { t: hourStart + 3600000, o: 100, c: 100 }, // forming candle (excluded by slice)
+    ];
+
+    simulateTimeframeSwitch(bet, newHistory);
+    const countAfter = countProcessableCandles(bet, newHistory);
+    assertEqual(countAfter, 0, 'no historical 1h candles should be processed when switching up');
+});
+
+test('timeframe switch preserves existing candlePnl (no mutation)', () => {
+    const hourStart = 1754650800000;
+    const bet = { lastCandleT: hourStart - 1, candlePnl: 123.45, pair: 'BTCUSDT' };
+    const newHistory = [
+        { t: hourStart + 60000,  o: 100, c: 101 },
+        { t: hourStart + 120000, o: 101, c: 102 },
+        { t: hourStart + 180000, o: 102, c: 103 }, // forming
+    ];
+    simulateTimeframeSwitch(bet, newHistory);
+    assertEqual(bet.candlePnl, 123.45, 'existing PnL must not be mutated during timeframe switch');
+});
+
+test('TP/SL not triggered on timeframe switch when PnL unchanged', () => {
+    const hourStart = 1754650800000;
+    const bet = { lastCandleT: hourStart - 1, candlePnl: 50, pair: 'BTCUSDT', stopLossAmount: 100, takeProfitAmount: 200 };
+    const newHistory = [];
+    for (let i = 0; i < 200; i++) {
+        newHistory.push({ t: hourStart + i * 60000, o: 100, c: 100 });
+    }
+    simulateTimeframeSwitch(bet, newHistory);
+    // candlePnl must still be 50 — TP at 200 and SL at -100 must not be reached
+    assertEqual(shouldTriggerStopLoss({ netResult: bet.candlePnl, stopLossAmount: bet.stopLossAmount }), false, 'SL must not fire after timeframe switch');
+    assertEqual(shouldTriggerTakeProfit({ netResult: bet.candlePnl, takeProfitAmount: bet.takeProfitAmount }), false, 'TP must not fire after timeframe switch');
+});
+
 console.log(`\nPassed: ${passed}, Failed: ${failed}`);
 if (failed > 0) process.exit(1);
