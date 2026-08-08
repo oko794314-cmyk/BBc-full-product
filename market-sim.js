@@ -419,6 +419,22 @@
         } else {
             refreshSharedMarketData();
         }
+        // After loading the new timeframe history, advance each open bet's
+        // lastCandleT to the last CLOSED candle in the new history.  This
+        // prevents processNewCandlesForBets from treating already-existing
+        // historical candles (whose timestamps may exceed the old lastCandleT)
+        // as "new", which would produce spurious PnL and trigger false TP/SL/liquidation.
+        const newHistory = state.history[state.selectedPair] || [];
+        // The last element is the still-forming candle; the one before it is
+        // the most recent fully-closed candle in the new timeframe.
+        const lastClosedCandle = newHistory.length >= 2 ? newHistory[newHistory.length - 2] : newHistory[newHistory.length - 1];
+        if (lastClosedCandle) {
+            state.openBets.forEach((bet) => {
+                if (bet && bet.pair === state.selectedPair) {
+                    bet.lastCandleT = Math.max(num(bet.lastCandleT, 0), lastClosedCandle.t);
+                }
+            });
+        }
         renderAll();
     }
 
