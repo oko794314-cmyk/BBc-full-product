@@ -1267,7 +1267,7 @@
         // forming candle is counted once it closes, but all already-closed candles
         // (before this bet was placed) are skipped.
         const currentHistory = state.history[state.selectedPair] || [];
-        const currentLastCandle = currentHistory[currentHistory.length - 1];
+        const currentFormingCandle = currentHistory[currentHistory.length - 1];
         const bet = {
             id: `bet_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
             pair: state.selectedPair,
@@ -1282,8 +1282,8 @@
             placedAt: Date.now(),
             candlePnl: 0,
             candleCount: 0,
-            lastCandleT: currentLastCandle ? currentLastCandle.t - 1 : Date.now(),
-            formingAnchorT: currentLastCandle ? currentLastCandle.t : null,
+            lastCandleT: currentFormingCandle ? currentFormingCandle.t - 1 : Date.now(),
+            formingAnchorT: currentFormingCandle ? currentFormingCandle.t : null,
             formingAnchorPrice: entryPrice > 0 ? round(entryPrice, 8) : null
         };
         const slInput = document.getElementById('market-stop-loss');
