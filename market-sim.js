@@ -482,14 +482,26 @@
             : (entryPrice - price) / entryPrice;
     }
 
-    function calcCloseDelta(bet) {
+    function calcLiveNetResult(bet, priceOverride = null) {
+        if (!bet) return 0;
         const amount = num(bet.amount, 0);
-        const candlePnl = num(bet.candlePnl, 0);
-        return round(Math.max(0, amount + candlePnl), 2);
+        if (amount <= 0) return 0;
+        const livePrice = Math.max(0.000001, num(priceOverride, num(state.prices[bet.pair], bet.entryPrice)));
+        const leverage = Math.max(1, num(bet.leverage, 1));
+        const pnlRatio = calcPnlRatio(bet, livePrice);
+        // Bybit-like linear PnL: margin × leverage × price move from entry.
+        // Loss is capped by margin (liquidation), profit remains proportional to move.
+        const gross = amount * leverage * pnlRatio;
+        return round(Math.max(-amount, gross), 2);
     }
 
-    function calcNetResult(bet) {
-        return round(num(bet.candlePnl, 0), 2);
+    function calcCloseDelta(bet, priceOverride = null) {
+        const amount = num(bet.amount, 0);
+        return round(Math.max(0, amount + calcLiveNetResult(bet, priceOverride)), 2);
+    }
+
+    function calcNetResult(bet, priceOverride = null) {
+        return calcLiveNetResult(bet, priceOverride);
     }
 
     function getBetFormingAnchorPrice(bet, candle) {
@@ -514,83 +526,10 @@
         bet.formingAnchorPrice = anchorPrice > 0 ? round(anchorPrice, 8) : null;
     }
 
-    // Calculate live unrealised PnL contribution from the current forming (open) candle.
-    // This does NOT mutate the bet — it is used only for display purposes.
-    function calcFormingCandleLivePnl(bet) {
-        const history = state.history[bet.pair];
-        if (!Array.isArray(history) || history.length === 0) return 0;
-        const forming = history[history.length - 1];
-        if (!forming) return 0;
-        const currentPrice = num(state.prices[bet.pair], forming.c);
-        const openPrice = getBetFormingAnchorPrice(bet, forming);
-        const betAmount = num(bet.amount, 0);
-        const leverage = Math.max(1, num(bet.leverage, 1));
-        const baseVol = num(PAIR_VOLATILITY[bet.pair], 0.04);
-        const expectedBodyPct = baseVol * 1.5; // average expected candle body
-        // Signed price move in bet direction: positive = price moved our way
-        const rawMove = (currentPrice - openPrice) / openPrice;
-        const signedMove = bet.direction === 'up' ? rawMove : -rawMove;
-        // Normalise so an average move pays ~WIN_SCALE / LOSS_SCALE.
-        // Cap the normalised ratio at 3.0 to prevent extreme payouts from spike candles.
-        const normRatio = Math.min(3.0, Math.abs(signedMove) / expectedBodyPct);
-        if (signedMove >= 0) {
-            return round(betAmount * normRatio * CANDLE_WIN_SCALE * leverage, 2);
-        } else {
-            return round(-betAmount * normRatio * CANDLE_LOSS_SCALE * leverage, 2);
-        }
-    }
-
-    // Award PnL proportional to how much price moved in the bet direction for each closed candle.
-    // Positive signed move pays CANDLE_WIN_SCALE-calibrated return; negative move costs
-    // CANDLE_LOSS_SCALE-calibrated amount.  Both scale with leverage linearly.
+    // Legacy candle accrual disabled: open PnL is computed directly from entry→current move,
+    // so timeframe changes cannot alter PnL accounting.
     function processNewCandlesForBets() {
-        if (!state.openBets.length) return;
-        let changed = false;
-        state.openBets.forEach((bet) => {
-            if (!bet) return;
-            const history = state.history[bet.pair];
-            if (!Array.isArray(history) || history.length < 2) return;
-            // Only evaluate fully closed candles (all except the current/last forming candle)
-            const closedCandles = history.slice(0, -1);
-            const lastEvaluated = num(bet.lastCandleT, bet.placedAt || 0);
-            let pnlDelta = 0;
-            let countDelta = 0;
-            let newLastT = lastEvaluated;
-            let consumedAnchor = false;
-            const betAmount = num(bet.amount, 0);
-            const leverage = Math.max(1, num(bet.leverage, 1));
-            const baseVol = num(PAIR_VOLATILITY[bet.pair], 0.04);
-            const expectedBodyPct = baseVol * 1.5;
-            for (let i = 0; i < closedCandles.length; i++) {
-                const c = closedCandles[i];
-                if (!c || c.t <= lastEvaluated) continue;
-                const openPrice = getBetFormingAnchorPrice(bet, c);
-                // Signed price move in bet direction
-                const rawMove = (c.c - openPrice) / openPrice;
-                const signedMove = bet.direction === 'up' ? rawMove : -rawMove;
-                // Cap the normalised ratio at 3.0 to prevent extreme payouts from spike candles
-                const normRatio = Math.min(3.0, Math.abs(signedMove) / expectedBodyPct);
-                if (signedMove >= 0) {
-                    pnlDelta += round(betAmount * normRatio * CANDLE_WIN_SCALE * leverage, 2);
-                } else {
-                    pnlDelta -= round(betAmount * normRatio * CANDLE_LOSS_SCALE * leverage, 2);
-                }
-                countDelta++;
-                if (c.t > newLastT) newLastT = c.t;
-                if (num(bet.formingAnchorT, 0) === c.t) consumedAnchor = true;
-            }
-            if (countDelta > 0) {
-                bet.candlePnl = round(num(bet.candlePnl, 0) + pnlDelta, 2);
-                bet.candleCount = num(bet.candleCount, 0) + countDelta;
-                bet.lastCandleT = newLastT;
-                if (consumedAnchor) {
-                    bet.formingAnchorT = null;
-                    bet.formingAnchorPrice = null;
-                }
-                changed = true;
-            }
-        });
-        if (changed) queueSave();
+        return;
     }
 
     function renderBets() {
@@ -612,10 +551,9 @@
 
             const livePrice = num(state.prices[bet.pair], bet.entryPrice);
             const entryPrice = Math.max(0.000001, num(bet.entryPrice, livePrice));
-            const closeDelta = calcCloseDelta(bet);
-            const netResult = calcNetResult(bet);
-            const formingPnl = calcFormingCandleLivePnl(bet);
-            const totalLivePnl = round(netResult + formingPnl, 2);
+            const closeDelta = calcCloseDelta(bet, livePrice);
+            const totalLivePnl = calcNetResult(bet, livePrice);
+            const priceMovePct = calcPnlRatio(bet, livePrice) * 100;
             const candleCount = num(bet.candleCount, 0);
             const slInfo = bet.stopLossAmount
                 ? `🛑 SL: -${num(bet.stopLossAmount).toFixed(2)} USDT`
@@ -624,12 +562,10 @@
                 ? `✅ TP: +${num(bet.takeProfitAmount).toFixed(2)} USDT`
                 : (bet.takeProfit ? `✅ TP: ${num(bet.takeProfit).toFixed(getPairDigits(bet.pair))}` : '');
             const slTpLine = (slInfo || tpInfo) ? `<br>${[slInfo, tpInfo].filter(Boolean).join(' &nbsp; ')}` : '';
-            const formingSign = formingPnl >= 0 ? '+' : '';
-            const formingColor = formingPnl >= 0 ? '#0ECB81' : '#F6465D';
             const livePnlColor = totalLivePnl >= 0 ? '#0ECB81' : '#F6465D';
             const bottom = document.createElement('div');
             bottom.className = 'market-open-bet-meta';
-            bottom.innerHTML = `Маржа: ${num(bet.amount, 0).toFixed(2)} USDT • Вхід: ${entryPrice.toFixed(getPairDigits(bet.pair))}${slTpLine}<br>Свічок зараховано: <span style="color:#848E9C;">${candleCount}</span> &nbsp;|&nbsp; Поточна свічка: <span style="color:${formingColor};font-weight:700;">${formingSign}${Math.abs(formingPnl).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</span><br>Загальний PnL: <span style="color:${livePnlColor};font-weight:800;">${totalLivePnl >= 0 ? '+' : ''}${Math.abs(totalLivePnl).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</span><br>Повернеться при закритті: <span style="color:#F0B90B;font-weight:700;">${closeDelta.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</span>`;
+            bottom.innerHTML = `Маржа: ${num(bet.amount, 0).toFixed(2)} USDT • Вхід: ${entryPrice.toFixed(getPairDigits(bet.pair))}${slTpLine}<br>Зміна ціни від входу: <span style="color:#848E9C;">${priceMovePct >= 0 ? '+' : ''}${priceMovePct.toFixed(3)}%</span> • Свічок зараховано: <span style="color:#848E9C;">${candleCount}</span><br>Загальний PnL: <span style="color:${livePnlColor};font-weight:800;">${totalLivePnl >= 0 ? '+' : ''}${Math.abs(totalLivePnl).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</span><br>Повернеться при закритті: <span style="color:#F0B90B;font-weight:700;">${closeDelta.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</span>`;
 
             const closeBtn = document.createElement('button');
             closeBtn.className = 'market-open-bet-close';
@@ -837,7 +773,7 @@
         if (activeBet) {
             const livePrice = num(state.prices[activeBet.pair], activeBet.entryPrice);
             const entryPrice = Math.max(0.000001, num(activeBet.entryPrice, livePrice));
-            const netResult = round(calcNetResult(activeBet) + calcFormingCandleLivePnl(activeBet), 2);
+            const netResult = calcNetResult(activeBet, livePrice);
             const yEntry = toY(entryPrice);
             const label = `${netResult >= 0 ? '+' : '-'}${Math.abs(netResult).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT`;
             const labelW = Math.min(148, Math.max(94, ctx.measureText(label).width + 18));
@@ -993,8 +929,8 @@
         const bet = state.openBets[index];
         const livePrice = num(state.prices[bet.pair], bet.entryPrice);
         const entryPrice = Math.max(0.000001, num(bet.entryPrice, livePrice));
-        const closeDelta = calcCloseDelta(bet);
-        const netResult = calcNetResult(bet);
+        const closeDelta = calcCloseDelta(bet, livePrice);
+        const netResult = calcNetResult(bet, livePrice);
         state.wallet.usdt = round(num(state.wallet.usdt, 0) + closeDelta, 2);
         state.closedBets.push({
             id: `${bet.id}_closed_${Date.now()}`,
@@ -1302,8 +1238,8 @@
         const toClose = [];
         state.openBets.forEach((bet) => {
             if (!bet) return;
-            // Use closed-candle PnL + live forming-candle PnL for all checks
-            const netResult = round(calcNetResult(bet) + calcFormingCandleLivePnl(bet), 2);
+            const livePrice = num(state.prices[bet.pair], bet.entryPrice);
+            const netResult = calcNetResult(bet, livePrice);
             // Liquidation: actual PnL loss reaches the full stake (margin call)
             // This is correct: you can't lose more than you put in, and it only triggers on real large moves
             if (netResult <= -num(bet.amount, 0)) {
@@ -1320,7 +1256,7 @@
             } else if (bet.stopLoss) {
                 const sl = num(bet.stopLoss, 0);
                 if (sl > 0) {
-                    const isSlTriggered = (bet.direction === 'up' && price <= sl) || (bet.direction === 'down' && price >= sl);
+                    const isSlTriggered = (bet.direction === 'up' && livePrice <= sl) || (bet.direction === 'down' && livePrice >= sl);
                     if (isSlTriggered && netResult < 0) {
                         toClose.push({ id: bet.id, reason: 'stopLoss' });
                         return;
@@ -1337,7 +1273,7 @@
             } else if (bet.takeProfit) {
                 const tp = num(bet.takeProfit, 0);
                 if (tp > 0) {
-                    const isTpTriggered = (bet.direction === 'up' && price >= tp) || (bet.direction === 'down' && price <= tp);
+                    const isTpTriggered = (bet.direction === 'up' && livePrice >= tp) || (bet.direction === 'down' && livePrice <= tp);
                     if (isTpTriggered) {
                         toClose.push({ id: bet.id, reason: 'takeProfit' });
                         return;
