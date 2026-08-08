@@ -47,7 +47,7 @@ function evaluateHoldemHand(hand) {
     return { key, multiplier: HOLDEM_PAYOUTS[key] || 0 };
 }
 
-function c(rank, suit) {
+function card(rank, suit) {
     const values = { '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, J: 11, Q: 12, K: 13, A: 14 };
     return { rank, suit, value: values[rank] };
 }
@@ -73,34 +73,58 @@ function assertEqual(a, b, msg) {
 console.log('\n🃏 Holdem Hand Evaluation Tests:');
 
 test('detects royal flush', () => {
-    const result = evaluateHoldemHand([c('10', '♠'), c('J', '♠'), c('Q', '♠'), c('K', '♠'), c('A', '♠')]);
+    const result = evaluateHoldemHand([card('10', '♠'), card('J', '♠'), card('Q', '♠'), card('K', '♠'), card('A', '♠')]);
     assertEqual(result.key, 'royal_flush');
     assertEqual(result.multiplier, 100);
 });
 
 test('detects straight flush', () => {
-    const result = evaluateHoldemHand([c('5', '♥'), c('6', '♥'), c('7', '♥'), c('8', '♥'), c('9', '♥')]);
+    const result = evaluateHoldemHand([card('5', '♥'), card('6', '♥'), card('7', '♥'), card('8', '♥'), card('9', '♥')]);
     assertEqual(result.key, 'straight_flush');
 });
 
 test('detects wheel straight', () => {
-    const result = evaluateHoldemHand([c('A', '♠'), c('2', '♥'), c('3', '♦'), c('4', '♣'), c('5', '♠')]);
+    const result = evaluateHoldemHand([card('A', '♠'), card('2', '♥'), card('3', '♦'), card('4', '♣'), card('5', '♠')]);
     assertEqual(result.key, 'straight');
 });
 
 test('detects full house', () => {
-    const result = evaluateHoldemHand([c('K', '♠'), c('K', '♥'), c('K', '♦'), c('9', '♣'), c('9', '♠')]);
+    const result = evaluateHoldemHand([card('K', '♠'), card('K', '♥'), card('K', '♦'), card('9', '♣'), card('9', '♠')]);
     assertEqual(result.key, 'full_house');
 });
 
 test('detects two pair', () => {
-    const result = evaluateHoldemHand([c('Q', '♠'), c('Q', '♥'), c('8', '♦'), c('8', '♣'), c('2', '♠')]);
+    const result = evaluateHoldemHand([card('Q', '♠'), card('Q', '♥'), card('8', '♦'), card('8', '♣'), card('2', '♠')]);
     assertEqual(result.key, 'two_pair');
     assertEqual(result.multiplier, 2.5);
 });
 
+test('detects four of a kind', () => {
+    const result = evaluateHoldemHand([card('9', '♠'), card('9', '♥'), card('9', '♦'), card('9', '♣'), card('2', '♠')]);
+    assertEqual(result.key, 'four_kind');
+    assertEqual(result.multiplier, 25);
+});
+
+test('detects flush', () => {
+    const result = evaluateHoldemHand([card('2', '♣'), card('5', '♣'), card('8', '♣'), card('J', '♣'), card('K', '♣')]);
+    assertEqual(result.key, 'flush');
+    assertEqual(result.multiplier, 8);
+});
+
+test('detects one pair', () => {
+    const result = evaluateHoldemHand([card('A', '♠'), card('A', '♥'), card('8', '♦'), card('4', '♣'), card('2', '♠')]);
+    assertEqual(result.key, 'pair');
+    assertEqual(result.multiplier, 1.5);
+});
+
 test('detects losing high card hand', () => {
-    const result = evaluateHoldemHand([c('A', '♠'), c('J', '♥'), c('8', '♦'), c('4', '♣'), c('2', '♠')]);
+    const result = evaluateHoldemHand([card('A', '♠'), card('J', '♥'), card('8', '♦'), card('4', '♣'), card('2', '♠')]);
+    assertEqual(result.key, 'high_card');
+    assertEqual(result.multiplier, 0);
+});
+
+test('invalid hand falls back to high card', () => {
+    const result = evaluateHoldemHand([card('A', '♠'), card('K', '♥'), card('Q', '♦')]);
     assertEqual(result.key, 'high_card');
     assertEqual(result.multiplier, 0);
 });
