@@ -428,12 +428,18 @@
         // The last element is the still-forming candle; the one before it is
         // the most recent fully-closed candle in the new timeframe.
         const lastClosedCandle = newHistory.length >= 2 ? newHistory[newHistory.length - 2] : newHistory[newHistory.length - 1];
-        if (lastClosedCandle) {
+        const formingCandle = newHistory[newHistory.length - 1] || null;
+        const currentPrice = num(state.prices[state.selectedPair], formingCandle?.c);
+        if (lastClosedCandle || formingCandle) {
             state.openBets.forEach((bet) => {
                 if (bet && bet.pair === state.selectedPair) {
-                    bet.lastCandleT = Math.max(num(bet.lastCandleT, 0), lastClosedCandle.t);
+                    if (lastClosedCandle) {
+                        bet.lastCandleT = Math.max(num(bet.lastCandleT, 0), lastClosedCandle.t);
+                    }
+                    setBetFormingAnchor(bet, formingCandle, currentPrice);
                 }
             });
+            queueSave();
         }
         renderAll();
     }
@@ -486,6 +492,28 @@
         return round(num(bet.candlePnl, 0), 2);
     }
 
+    function getBetFormingAnchorPrice(bet, candle) {
+        if (!bet || !candle) return Math.max(0.000001, num(candle?.o, 0));
+        const anchorT = num(bet.formingAnchorT, 0);
+        const anchorPrice = num(bet.formingAnchorPrice, 0);
+        if (anchorT && anchorPrice > 0 && anchorT === candle.t) {
+            return Math.max(0.000001, anchorPrice);
+        }
+        return Math.max(0.000001, num(candle.o, 0));
+    }
+
+    function setBetFormingAnchor(bet, candle, price) {
+        if (!bet) return;
+        if (!candle) {
+            bet.formingAnchorT = null;
+            bet.formingAnchorPrice = null;
+            return;
+        }
+        const anchorPrice = num(price, num(state.prices[bet.pair], candle.c));
+        bet.formingAnchorT = candle.t;
+        bet.formingAnchorPrice = anchorPrice > 0 ? round(anchorPrice, 8) : null;
+    }
+
     // Calculate live unrealised PnL contribution from the current forming (open) candle.
     // This does NOT mutate the bet — it is used only for display purposes.
     function calcFormingCandleLivePnl(bet) {
@@ -494,7 +522,7 @@
         const forming = history[history.length - 1];
         if (!forming) return 0;
         const currentPrice = num(state.prices[bet.pair], forming.c);
-        const openPrice = Math.max(0.000001, forming.o);
+        const openPrice = getBetFormingAnchorPrice(bet, forming);
         const betAmount = num(bet.amount, 0);
         const leverage = Math.max(1, num(bet.leverage, 1));
         const baseVol = num(PAIR_VOLATILITY[bet.pair], 0.04);
@@ -528,6 +556,7 @@
             let pnlDelta = 0;
             let countDelta = 0;
             let newLastT = lastEvaluated;
+            let consumedAnchor = false;
             const betAmount = num(bet.amount, 0);
             const leverage = Math.max(1, num(bet.leverage, 1));
             const baseVol = num(PAIR_VOLATILITY[bet.pair], 0.04);
@@ -535,9 +564,9 @@
             for (let i = 0; i < closedCandles.length; i++) {
                 const c = closedCandles[i];
                 if (!c || c.t <= lastEvaluated) continue;
-                const openPrice = Math.max(0.000001, c.o);
+                const openPrice = getBetFormingAnchorPrice(bet, c);
                 // Signed price move in bet direction
-                const rawMove = (c.c - c.o) / openPrice;
+                const rawMove = (c.c - openPrice) / openPrice;
                 const signedMove = bet.direction === 'up' ? rawMove : -rawMove;
                 // Cap the normalised ratio at 3.0 to prevent extreme payouts from spike candles
                 const normRatio = Math.min(3.0, Math.abs(signedMove) / expectedBodyPct);
@@ -548,11 +577,16 @@
                 }
                 countDelta++;
                 if (c.t > newLastT) newLastT = c.t;
+                if (num(bet.formingAnchorT, 0) === c.t) consumedAnchor = true;
             }
             if (countDelta > 0) {
                 bet.candlePnl = round(num(bet.candlePnl, 0) + pnlDelta, 2);
                 bet.candleCount = num(bet.candleCount, 0) + countDelta;
                 bet.lastCandleT = newLastT;
+                if (consumedAnchor) {
+                    bet.formingAnchorT = null;
+                    bet.formingAnchorPrice = null;
+                }
                 changed = true;
             }
         });
@@ -1233,7 +1267,7 @@
         // forming candle is counted once it closes, but all already-closed candles
         // (before this bet was placed) are skipped.
         const currentHistory = state.history[state.selectedPair] || [];
-        const currentLastCandle = currentHistory[currentHistory.length - 1];
+        const currentFormingCandle = currentHistory[currentHistory.length - 1];
         const bet = {
             id: `bet_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
             pair: state.selectedPair,
@@ -1248,7 +1282,9 @@
             placedAt: Date.now(),
             candlePnl: 0,
             candleCount: 0,
-            lastCandleT: currentLastCandle ? currentLastCandle.t - 1 : Date.now()
+            lastCandleT: currentFormingCandle ? currentFormingCandle.t - 1 : Date.now(),
+            formingAnchorT: currentFormingCandle ? currentFormingCandle.t : null,
+            formingAnchorPrice: entryPrice > 0 ? round(entryPrice, 8) : null
         };
         const slInput = document.getElementById('market-stop-loss');
         const tpInput = document.getElementById('market-take-profit');
