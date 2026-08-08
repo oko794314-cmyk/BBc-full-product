@@ -580,6 +580,32 @@
         .slots-paytable-row { display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid var(--border); font-size:12px; }
         .slots-paytable-row:last-child { border-bottom:none; }
 
+        /* ===== HOLDEM / DRAW POKER ===== */
+        .holdem-table { display:flex; flex-direction:column; gap:16px; padding:8px 0; }
+        .holdem-statusbar { display:flex; flex-wrap:wrap; gap:8px; justify-content:space-between; align-items:center; }
+        .holdem-statusbar .feature-pill strong { color:var(--p); }
+        .holdem-hand { display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:10px; }
+        .holdem-card { min-height:112px; background:linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)); border:2px solid rgba(240,185,11,0.22); border-radius:16px; color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; font-family:'Orbitron',sans-serif; cursor:pointer; transition:transform .15s, border-color .15s, box-shadow .15s, opacity .15s; box-shadow:0 8px 18px rgba(0,0,0,0.22); }
+        .holdem-card:hover:not(:disabled) { transform:translateY(-2px); border-color:rgba(240,185,11,0.45); }
+        .holdem-card.selected { border-color:var(--g); box-shadow:0 0 0 1px rgba(14,203,129,0.15), 0 0 18px rgba(14,203,129,0.28); }
+        .holdem-card:disabled { cursor:not-allowed; opacity:0.6; }
+        .holdem-card-rank { font-size:28px; font-weight:900; line-height:1; }
+        .holdem-card-suit { font-size:26px; line-height:1; }
+        .holdem-card-suit.red { color:#ff6b81; }
+        .holdem-card-hold { font-size:10px; letter-spacing:1.2px; min-height:12px; color:var(--text2); }
+        .holdem-card.selected .holdem-card-hold { color:var(--g); }
+        .holdem-result-msg { min-height:22px; font-size:14px; font-weight:700; text-align:center; }
+        .holdem-result-msg.win { color:var(--g); }
+        .holdem-result-msg.lose { color:var(--r); }
+        .holdem-action-row { display:flex; gap:8px; flex-wrap:wrap; }
+        .holdem-action-row .btn { flex:1; min-width:140px; }
+        @media (max-width: 640px) {
+            .holdem-hand { grid-template-columns:repeat(5, minmax(52px, 1fr)); gap:8px; }
+            .holdem-card { min-height:96px; padding:6px 2px; }
+            .holdem-card-rank { font-size:22px; }
+            .holdem-card-suit { font-size:20px; }
+        }
+
         /* ===== GROUP CHATS ===== */
         .group-chat-list { display:flex; flex-direction:column; gap:10px; }
         .group-chat-item { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:12px 14px; display:flex; align-items:center; gap:12px; cursor:pointer; transition:border-color .2s; }
@@ -880,6 +906,7 @@
         <div class="casino-subtabs">
             <div class="casino-subtab active" onclick="switchCasinoTab('roulette')" id="cs-roulette">🎡 Рулетка</div>
             <div class="casino-subtab" onclick="switchCasinoTab('slots')" id="cs-slots">🎰 Слоти</div>
+            <div class="casino-subtab" onclick="switchCasinoTab('holdem')" id="cs-holdem">🃏 Холдем</div>
             <div class="casino-subtab" onclick="switchCasinoTab('rps')" id="cs-rps">✊ КНП (PvP)</div>
             <div class="casino-subtab" onclick="switchCasinoTab('rps-online')" id="cs-rps-online">🌐 КНП Online</div>
             <div class="casino-subtab" onclick="switchCasinoTab('tournament')" id="cs-tournament">🏆 Турнір</div>
@@ -931,6 +958,68 @@
                         <div class="slots-paytable-row"><span>3 × 🍒</span><span style="color:#fff;">× 2</span></div>
                         <div class="slots-paytable-row"><span>2 однакових</span><span style="color:#888;">× 1.5 (повернення)</span></div>
                         <div class="slots-paytable-row"><span>Без збігів</span><span style="color:var(--r);">Програш</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Техаський холдем / draw poker -->
+        <div id="casino-holdem" style="display:none;">
+            <div class="glass">
+                <div class="holdem-table">
+                    <div class="holdem-statusbar">
+                        <span class="feature-pill">🃏 <strong>5 карт</strong></span>
+                        <span class="feature-pill">🔁 До <strong>3 замін</strong></span>
+                        <span class="feature-pill">🎯 Залишилось: <strong id="holdem-draws-left">0</strong></span>
+                    </div>
+                    <div id="holdem-hand" class="holdem-hand">
+                        <button class="holdem-card" type="button" onclick="toggleHoldemCard(0)" disabled>
+                            <span class="holdem-card-rank">?</span>
+                            <span class="holdem-card-suit">🂠</span>
+                            <span class="holdem-card-hold">HOLD</span>
+                        </button>
+                        <button class="holdem-card" type="button" onclick="toggleHoldemCard(1)" disabled>
+                            <span class="holdem-card-rank">?</span>
+                            <span class="holdem-card-suit">🂠</span>
+                            <span class="holdem-card-hold">HOLD</span>
+                        </button>
+                        <button class="holdem-card" type="button" onclick="toggleHoldemCard(2)" disabled>
+                            <span class="holdem-card-rank">?</span>
+                            <span class="holdem-card-suit">🂠</span>
+                            <span class="holdem-card-hold">HOLD</span>
+                        </button>
+                        <button class="holdem-card" type="button" onclick="toggleHoldemCard(3)" disabled>
+                            <span class="holdem-card-rank">?</span>
+                            <span class="holdem-card-suit">🂠</span>
+                            <span class="holdem-card-hold">HOLD</span>
+                        </button>
+                        <button class="holdem-card" type="button" onclick="toggleHoldemCard(4)" disabled>
+                            <span class="holdem-card-rank">?</span>
+                            <span class="holdem-card-suit">🂠</span>
+                            <span class="holdem-card-hold">HOLD</span>
+                        </button>
+                    </div>
+                    <div id="holdem-result-msg" class="holdem-result-msg">Зробіть ставку, отримайте 5 карт і оберіть, що залишити.</div>
+                    <div style="display:flex; gap:8px; align-items:center; width:100%; flex-wrap:wrap;">
+                        <input type="number" id="holdem-bet" placeholder="СТАВКА" min="0.0001" step="0.0001" style="flex:1; min-width:140px;">
+                    </div>
+                    <div class="holdem-action-row">
+                        <button class="btn" id="holdem-deal-btn" onclick="startHoldemRound()">🃏 РОЗДАТИ</button>
+                        <button class="btn" id="holdem-draw-btn" onclick="drawHoldemCards()" disabled style="background:#1a1a1a; border:2px solid var(--p); color:var(--p);">🔁 ЗАМІНИТИ</button>
+                        <button class="btn" id="holdem-finish-btn" onclick="finishHoldemRound()" disabled style="background:#1a1a1a; border:2px solid var(--g); color:var(--g);">✅ ЗАВЕРШИТИ</button>
+                    </div>
+                    <div class="slots-paytable">
+                        <p style="font-size:11px; color:var(--p); margin:0 0 8px; font-weight:900; letter-spacing:1px;">ТАБЛИЦЯ ВИПЛАТ</p>
+                        <div class="slots-paytable-row"><span>Роял-флеш</span><span style="color:var(--gold);">× 100</span></div>
+                        <div class="slots-paytable-row"><span>Стріт-флеш</span><span style="color:var(--gold);">× 50</span></div>
+                        <div class="slots-paytable-row"><span>Каре</span><span style="color:var(--p);">× 25</span></div>
+                        <div class="slots-paytable-row"><span>Фул-хаус</span><span style="color:var(--g);">× 12</span></div>
+                        <div class="slots-paytable-row"><span>Флеш</span><span style="color:var(--g);">× 8</span></div>
+                        <div class="slots-paytable-row"><span>Стріт</span><span style="color:#fff;">× 6</span></div>
+                        <div class="slots-paytable-row"><span>Сет</span><span style="color:#fff;">× 4</span></div>
+                        <div class="slots-paytable-row"><span>Дві пари</span><span style="color:#fff;">× 2.5</span></div>
+                        <div class="slots-paytable-row"><span>Одна пара</span><span style="color:#fff;">× 1.5</span></div>
+                        <div class="slots-paytable-row"><span>Без комбінації</span><span style="color:var(--r);">Програш</span></div>
                     </div>
                 </div>
             </div>
@@ -5811,6 +5900,7 @@
     function switchCasinoTab(type) {
         document.getElementById('casino-roulette').style.display = type === 'roulette' ? 'block' : 'none';
         document.getElementById('casino-slots').style.display = type === 'slots' ? 'block' : 'none';
+        document.getElementById('casino-holdem').style.display = type === 'holdem' ? 'block' : 'none';
         document.getElementById('casino-rps').style.display = type === 'rps' ? 'block' : 'none';
         document.getElementById('casino-rps-online').style.display = type === 'rps-online' ? 'block' : 'none';
         document.getElementById('casino-tournament').style.display = type === 'tournament' ? 'block' : 'none';
@@ -5818,6 +5908,7 @@
         document.getElementById('casino-breakout').style.display = type === 'breakout' ? 'block' : 'none';
         document.getElementById('cs-roulette').classList.toggle('active', type === 'roulette');
         document.getElementById('cs-slots').classList.toggle('active', type === 'slots');
+        document.getElementById('cs-holdem').classList.toggle('active', type === 'holdem');
         document.getElementById('cs-rps').classList.toggle('active', type === 'rps');
         document.getElementById('cs-rps-online').classList.toggle('active', type === 'rps-online');
         document.getElementById('cs-tournament').classList.toggle('active', type === 'tournament');
@@ -6322,6 +6413,9 @@
         shopState.equippedFrame = null;
         shopState.equippedWallpaper = null;
         shopState.equippedTitle = null;
+        resetHoldemState();
+        document.getElementById('holdem-bet').value = '';
+        setHoldemResultMessage('Зробіть ставку, отримайте 5 карт і оберіть, що залишити.');
         document.getElementById('h-title').style.display = 'none';
         document.getElementById('h-title').innerHTML = '';
         document.getElementById('h-p').textContent = '🏆 Престиж: 0';
@@ -6410,6 +6504,261 @@
             slotsState.spinning = false;
             leverBtn.disabled = false;
         }, 2000);
+    }
+
+    // ===== HOLDEM / DRAW POKER =====
+    const HOLDEM_SUITS = ['♠', '♥', '♦', '♣'];
+    const HOLDEM_RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+    const HOLDEM_HAND_LABELS = {
+        royal_flush: 'Роял-флеш',
+        straight_flush: 'Стріт-флеш',
+        four_kind: 'Каре',
+        full_house: 'Фул-хаус',
+        flush: 'Флеш',
+        straight: 'Стріт',
+        three_kind: 'Сет',
+        two_pair: 'Дві пари',
+        pair: 'Одна пара',
+        high_card: 'Без комбінації'
+    };
+    const HOLDEM_PAYOUTS = {
+        royal_flush: 100,
+        straight_flush: 50,
+        four_kind: 25,
+        full_house: 12,
+        flush: 8,
+        straight: 6,
+        three_kind: 4,
+        two_pair: 2.5,
+        pair: 1.5,
+        high_card: 0
+    };
+    const holdemState = {
+        active: false,
+        resolving: false,
+        bet: 0,
+        deck: [],
+        hand: [],
+        holds: [false, false, false, false, false],
+        drawsLeft: 0
+    };
+
+    function holdemShuffle(deck) {
+        for (let i = deck.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [deck[i], deck[j]] = [deck[j], deck[i]];
+        }
+        return deck;
+    }
+
+    function createHoldemDeck() {
+        return holdemShuffle(HOLDEM_SUITS.flatMap(suit => HOLDEM_RANKS.map((rank, index) => ({
+            rank,
+            suit,
+            value: index + 2
+        }))));
+    }
+
+    function takeHoldemCards(deck, count) {
+        return deck.splice(0, count);
+    }
+
+    function resetHoldemState() {
+        holdemState.active = false;
+        holdemState.resolving = false;
+        holdemState.bet = 0;
+        holdemState.deck = [];
+        holdemState.hand = [];
+        holdemState.holds = [false, false, false, false, false];
+        holdemState.drawsLeft = 0;
+        renderHoldemGame();
+    }
+
+    function renderHoldemGame() {
+        const handEl = document.getElementById('holdem-hand');
+        const drawsEl = document.getElementById('holdem-draws-left');
+        const dealBtn = document.getElementById('holdem-deal-btn');
+        const drawBtn = document.getElementById('holdem-draw-btn');
+        const finishBtn = document.getElementById('holdem-finish-btn');
+        const betInput = document.getElementById('holdem-bet');
+        if (!handEl || !drawsEl || !dealBtn || !drawBtn || !finishBtn || !betInput) return;
+
+        drawsEl.textContent = String(holdemState.drawsLeft || 0);
+        dealBtn.disabled = holdemState.active || holdemState.resolving;
+        drawBtn.disabled = !holdemState.active || holdemState.resolving || holdemState.drawsLeft <= 0;
+        finishBtn.disabled = !holdemState.active || holdemState.resolving;
+        betInput.disabled = holdemState.active || holdemState.resolving;
+
+        handEl.innerHTML = Array.from({ length: 5 }).map((_, index) => {
+            const card = holdemState.hand[index];
+            const selected = !!holdemState.holds[index];
+            const suitClass = card && (card.suit === '♥' || card.suit === '♦') ? 'red' : '';
+            const rank = card ? escapeHtml(card.rank) : '?';
+            const suit = card ? escapeHtml(card.suit) : '🂠';
+            return `
+                <button class="holdem-card ${selected ? 'selected' : ''}" type="button" onclick="toggleHoldemCard(${index})" ${holdemState.active && !holdemState.resolving ? '' : 'disabled'}>
+                    <span class="holdem-card-rank">${rank}</span>
+                    <span class="holdem-card-suit ${suitClass}">${suit}</span>
+                    <span class="holdem-card-hold">${selected ? 'ЗАЛИШИТИ' : 'ЗАМІНА'}</span>
+                </button>
+            `;
+        }).join('');
+    }
+
+    function evaluateHoldemHand(hand) {
+        if (!Array.isArray(hand) || hand.length !== 5) {
+            return { key: 'high_card', label: HOLDEM_HAND_LABELS.high_card, multiplier: 0 };
+        }
+        const values = hand.map(card => Number(card.value)).sort((a, b) => a - b);
+        const suits = hand.map(card => card.suit);
+        const countsMap = values.reduce((acc, value) => {
+            acc[value] = (acc[value] || 0) + 1;
+            return acc;
+        }, {});
+        const counts = Object.values(countsMap).sort((a, b) => b - a);
+        const uniqueValues = [...new Set(values)];
+        const isFlush = suits.every(suit => suit === suits[0]);
+        const isWheel = uniqueValues.length === 5 && uniqueValues.join(',') === '2,3,4,5,14';
+        const isStraight = uniqueValues.length === 5 && (isWheel || uniqueValues.every((value, index) => index === 0 || value === uniqueValues[index - 1] + 1));
+        const isRoyal = isFlush && uniqueValues.join(',') === '10,11,12,13,14';
+
+        let key = 'high_card';
+        if (isRoyal) key = 'royal_flush';
+        else if (isFlush && isStraight) key = 'straight_flush';
+        else if (counts[0] === 4) key = 'four_kind';
+        else if (counts[0] === 3 && counts[1] === 2) key = 'full_house';
+        else if (isFlush) key = 'flush';
+        else if (isStraight) key = 'straight';
+        else if (counts[0] === 3) key = 'three_kind';
+        else if (counts[0] === 2 && counts[1] === 2) key = 'two_pair';
+        else if (counts[0] === 2) key = 'pair';
+
+        return {
+            key,
+            label: HOLDEM_HAND_LABELS[key] || HOLDEM_HAND_LABELS.high_card,
+            multiplier: HOLDEM_PAYOUTS[key] || 0
+        };
+    }
+
+    function setHoldemResultMessage(message, status = '') {
+        const resultEl = document.getElementById('holdem-result-msg');
+        if (!resultEl) return;
+        resultEl.className = `holdem-result-msg${status ? ` ${status}` : ''}`;
+        resultEl.textContent = message;
+    }
+
+    async function startHoldemRound() {
+        if (holdemState.active || holdemState.resolving) return;
+        const betInput = document.getElementById('holdem-bet');
+        const amount = parseFloat(betInput.value);
+        if (!amount || amount <= 0) { showGameNotification('❌ Вкажіть ставку'); return; }
+        if (amount > gameState.balance) { showGameNotification('❌ Недостатньо коштів'); return; }
+
+        holdemState.resolving = true;
+        renderHoldemGame();
+
+        const balanceResult = await adjustUserBalanceFirebase(gameState.user, -amount);
+        if (!balanceResult.success) {
+            holdemState.resolving = false;
+            renderHoldemGame();
+            showGameNotification('❌ Не вдалося списати ставку');
+            return;
+        }
+
+        gameState.balance = balanceResult.balance;
+        updateHeader();
+
+        holdemState.bet = amount;
+        holdemState.deck = createHoldemDeck();
+        holdemState.hand = takeHoldemCards(holdemState.deck, 5);
+        holdemState.holds = [false, false, false, false, false];
+        holdemState.drawsLeft = 3;
+        holdemState.active = true;
+        holdemState.resolving = false;
+        betInput.value = '';
+        renderHoldemGame();
+        setHoldemResultMessage('Оберіть карти, які хочете залишити, і натисніть "ЗАМІНИТИ".');
+    }
+
+    function toggleHoldemCard(index) {
+        if (!holdemState.active || holdemState.resolving || index < 0 || index >= holdemState.hand.length) return;
+        holdemState.holds[index] = !holdemState.holds[index];
+        renderHoldemGame();
+    }
+
+    async function drawHoldemCards() {
+        if (!holdemState.active || holdemState.resolving) return;
+        if (holdemState.drawsLeft <= 0) {
+            await finishHoldemRound();
+            return;
+        }
+        if (holdemState.holds.every(Boolean)) {
+            showGameNotification('❌ Зніміть хоча б одну карту із HOLD або завершіть руку');
+            return;
+        }
+
+        let deckExhausted = false;
+        holdemState.hand = holdemState.hand.map((card, index) => {
+            if (holdemState.holds[index]) return card;
+            const nextCard = takeHoldemCards(holdemState.deck, 1)[0];
+            if (!nextCard) {
+                deckExhausted = true;
+                return card;
+            }
+            return nextCard;
+        });
+        holdemState.drawsLeft -= 1;
+        holdemState.holds = [false, false, false, false, false];
+        renderHoldemGame();
+
+        if (deckExhausted) {
+            showGameNotification('⚠️ Колода закінчилась, руку завершено достроково');
+            await finishHoldemRound();
+            return;
+        }
+
+        if (holdemState.drawsLeft > 0) {
+            setHoldemResultMessage(`Карти оновлено. Можна зробити ще ${holdemState.drawsLeft} замін(и).`);
+            return;
+        }
+
+        await finishHoldemRound();
+    }
+
+    async function finishHoldemRound() {
+        if (!holdemState.active || holdemState.resolving) return;
+        holdemState.resolving = true;
+        renderHoldemGame();
+
+        const result = evaluateHoldemHand(holdemState.hand);
+        const payout = Number((holdemState.bet * result.multiplier).toFixed(4));
+        let status = 'lose';
+        let message = `🃏 ${result.label}. Без виплати — програш ${holdemState.bet.toFixed(4)} BB.`;
+
+        if (payout > 0) {
+            const payoutResult = await adjustUserBalanceFirebase(gameState.user, payout);
+            if (!payoutResult.success) {
+                holdemState.resolving = false;
+                renderHoldemGame();
+                showGameNotification('❌ Не вдалося нарахувати виграш');
+                return;
+            }
+            gameState.balance = payoutResult.balance;
+            status = 'win';
+            const netWin = payout - holdemState.bet;
+            const netPrefix = netWin >= 0 ? '+' : '';
+            message = `🏆 ${result.label}! Виплата ${payout.toFixed(4)} BB, чистий результат ${netPrefix}${netWin.toFixed(4)} BB.`;
+        }
+
+        updateHeader();
+        setHoldemResultMessage(message, status);
+        holdemState.active = false;
+        holdemState.resolving = false;
+        holdemState.bet = 0;
+        holdemState.deck = [];
+        holdemState.holds = [false, false, false, false, false];
+        holdemState.drawsLeft = 0;
+        renderHoldemGame();
     }
 
     // ===== GROUP CHATS =====
