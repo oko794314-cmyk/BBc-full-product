@@ -6697,14 +6697,25 @@
             return;
         }
 
+        let deckExhausted = false;
         holdemState.hand = holdemState.hand.map((card, index) => {
             if (holdemState.holds[index]) return card;
             const nextCard = takeHoldemCards(holdemState.deck, 1)[0];
-            return nextCard || card;
+            if (!nextCard) {
+                deckExhausted = true;
+                return card;
+            }
+            return nextCard;
         });
         holdemState.drawsLeft -= 1;
         holdemState.holds = [false, false, false, false, false];
         renderHoldemGame();
+
+        if (deckExhausted) {
+            showGameNotification('⚠️ Колода закінчилась, руку завершено достроково');
+            await finishHoldemRound();
+            return;
+        }
 
         if (holdemState.drawsLeft > 0) {
             setHoldemResultMessage(`Карти оновлено. Можна зробити ще ${holdemState.drawsLeft} замін(и).`);
@@ -6735,7 +6746,8 @@
             gameState.balance = payoutResult.balance;
             status = 'win';
             const netWin = payout - holdemState.bet;
-            message = `🏆 ${result.label}! Виплата ${payout.toFixed(4)} BB, чистий плюс +${netWin.toFixed(4)} BB.`;
+            const netPrefix = netWin >= 0 ? '+' : '';
+            message = `🏆 ${result.label}! Виплата ${payout.toFixed(4)} BB, чистий результат ${netPrefix}${netWin.toFixed(4)} BB.`;
         }
 
         updateHeader();
