@@ -16,14 +16,14 @@ function calcPnlRatio(entryPrice, livePrice, direction) {
 
 function calcCloseDelta(amount, leverage, pnlRatio) {
     const safeLeverage = Math.max(1, leverage);
-    const scaledPnl = pnlRatio >= 0
-        ? amount * pnlRatio * 2.5 * safeLeverage
-        : amount * pnlRatio * (1 / safeLeverage);
-    return round(Math.max(0, amount + scaledPnl), 2);
+    const scaledPnl = amount * pnlRatio * safeLeverage;
+    const netResult = Math.max(-amount, scaledPnl);
+    return round(Math.max(0, amount + netResult), 2);
 }
 
 function calcNetResult(amount, leverage, pnlRatio) {
-    return round(calcCloseDelta(amount, leverage, pnlRatio) - amount, 2);
+    const safeLeverage = Math.max(1, leverage);
+    return round(Math.max(-amount, amount * pnlRatio * safeLeverage), 2);
 }
 
 function shouldTriggerStopLoss({ netResult, stopLossAmount }) {
@@ -64,16 +64,22 @@ test('breakeven leveraged trade returns full margin', () => {
 
 test('short trade earns profit when price falls', () => {
     const pnlRatio = calcPnlRatio(100, 90, 'down');
-    assertEqual(calcCloseDelta(500, 5, pnlRatio), 1125, 'closing value should include leveraged profit');
-    assertEqual(calcNetResult(500, 5, pnlRatio), 625, 'net profit should be positive and multiplied');
+    assertEqual(calcCloseDelta(500, 5, pnlRatio), 750, 'closing value should include linear leveraged profit');
+    assertEqual(calcNetResult(500, 5, pnlRatio), 250, 'net profit should be positive and proportional');
 });
 
-test('higher leverage reduces loss size on failed trade', () => {
+test('higher leverage increases loss size on failed trade', () => {
     const pnlRatio = calcPnlRatio(100, 90, 'up');
-    assertEqual(calcCloseDelta(500, 2, pnlRatio), 475, 'x2 should divide the loss by 2');
-    assertEqual(calcNetResult(500, 2, pnlRatio), -25, 'net loss should be halved at x2');
-    assertEqual(calcCloseDelta(500, 5, pnlRatio), 490, 'x5 should divide the loss by 5');
-    assertEqual(calcNetResult(500, 5, pnlRatio), -10, 'net loss should shrink with higher leverage');
+    assertEqual(calcCloseDelta(500, 2, pnlRatio), 400, 'x2 should magnify the loss');
+    assertEqual(calcNetResult(500, 2, pnlRatio), -100, 'net loss should be larger at x2');
+    assertEqual(calcCloseDelta(500, 5, pnlRatio), 250, 'x5 should magnify the loss more');
+    assertEqual(calcNetResult(500, 5, pnlRatio), -250, 'net loss should grow with leverage');
+});
+
+test('liquidation caps maximum loss at margin amount', () => {
+    const pnlRatio = calcPnlRatio(100, 70, 'up'); // -30% move => raw loss exceeds margin at 5x
+    assertEqual(calcNetResult(500, 5, pnlRatio), -500, 'loss must be capped at full margin');
+    assertEqual(calcCloseDelta(500, 5, pnlRatio), 0, 'closing value should be zero at liquidation');
 });
 
 test('stop loss is based on USDT loss, not trigger price', () => {
@@ -91,10 +97,8 @@ test('take profit triggers only after target profit is reached', () => {
 });
 
 // ── Timeframe-switch regression tests ────────────────────────────────────────
-// Simulate the fix: after a timeframe switch the bet's lastCandleT must be
-// advanced to the last closed candle in the new history so that historical
-// candles from the new timeframe are never re-processed, and the current
-// forming candle must be re-anchored so switching timeframes cannot mutate PnL.
+// Timeframe invariant model: PnL depends only on entry/current price distance,
+// so switching timeframe must never mutate position PnL by itself.
 
 const CANDLE_WIN_SCALE = 12.5;
 const CANDLE_LOSS_SCALE = 1.0;
@@ -203,7 +207,7 @@ test('TP/SL not triggered on timeframe switch when PnL unchanged', () => {
     assertEqual(shouldTriggerTakeProfit({ netResult: bet.candlePnl, takeProfitAmount: bet.takeProfitAmount }), false, 'TP must not fire after timeframe switch');
 });
 
-test('timeframe switch resets live forming-candle PnL to current price anchor', () => {
+test('timeframe switch keeps the same live PnL when price is unchanged', () => {
     const hourStart = 1754650800000;
     const bet = {
         lastCandleT: hourStart - 1,
@@ -211,16 +215,19 @@ test('timeframe switch resets live forming-candle PnL to current price anchor', 
         pair: 'BTCUSDT',
         direction: 'up',
         amount: 500,
-        leverage: 5
+        leverage: 5,
+        entryPrice: 100
     };
     const newHistory = [
         { t: hourStart + 60000,  o: 100, c: 101 },
         { t: hourStart + 120000, o: 101, c: 102 },
-        { t: hourStart + 180000, o: 80,  c: 120 } // wildly different open in new timeframe
+        { t: hourStart + 180000, o: 80,  c: 120 }
     ];
 
+    const pnlBefore = calcNetResult(bet.amount, bet.leverage, calcPnlRatio(bet.entryPrice, 120, bet.direction));
     simulateTimeframeSwitch(bet, newHistory);
-    assertEqual(calcAnchoredCandlePnl(bet, newHistory[2], newHistory[2].c), 0, 'switching timeframe must not create instant live PnL');
+    const pnlAfter = calcNetResult(bet.amount, bet.leverage, calcPnlRatio(bet.entryPrice, 120, bet.direction));
+    assertEqual(pnlAfter, pnlBefore, 'switching timeframe must not change live PnL');
 });
 
 test('anchored candle closes using anchor price instead of candle open after timeframe switch', () => {
